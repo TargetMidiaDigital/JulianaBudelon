@@ -103,12 +103,29 @@ export const seedUnidades: Unidade[] = [
   { id: "u-palhoca", slug: "palhoca-pedra-branca", cidade: "Palhoça", nome: "Pedra Branca", ativa: false, criada: iso(20) },
 ];
 
+/** Cargos oferecidos pela Ju Budelon (catálogo padrão; a lista real é por unidade). */
+export const CARGOS_VAGA = [
+  "Auxiliar de Cozinha/Confeitaria",
+  "Auxiliar de Serviços Gerais (Limpeza)",
+  "Auxiliar de Expedição",
+  "Assistente Administrativo/Financeiro",
+  "Estagiário Administrativo – 4h",
+  "Analista de Marketing",
+  "Analista de Recursos Humanos",
+  "Assistente de Recursos Humanos",
+  "Atendente de Cafeteria",
+  "Líder de Produção",
+  "Supervisora de Loja",
+];
+
 export const seedVagas: Vaga[] = [
-  { id: "v-1", unidadeId: "u-centro", titulo: "Auxiliar de Cozinha", turno: "Diurno", descricao: "Apoio na produção diária, organização e higienização da cozinha.", ativa: true, criada: iso(12) },
-  { id: "v-2", unidadeId: "u-centro", titulo: "Atendente", turno: "", descricao: "Atendimento ao cliente no balcão e organização do salão.", ativa: true, criada: iso(10) },
-  { id: "v-3", unidadeId: "u-centro", titulo: "Confeiteira", turno: "Noturno", descricao: "Produção de doces e sobremesas da casa.", ativa: false, criada: iso(30) },
-  { id: "v-4", unidadeId: "u-kobrasol", titulo: "Caixa", turno: "Diurno", descricao: "Recebimento, fechamento de caixa e apoio ao atendimento.", ativa: true, criada: iso(8) },
-  { id: "v-5", unidadeId: "u-kobrasol", titulo: "Cozinheira", turno: "", descricao: "Preparo dos pratos do cardápio e controle de insumos.", ativa: true, criada: iso(5) },
+  // Florianópolis — Centro: catálogo completo
+  ...CARGOS_VAGA.map((titulo, i): Vaga => ({
+    id: `v-${i + 1}`, unidadeId: "u-centro", titulo, turno: "", ativa: true, criada: iso(30 - i),
+  })),
+  // São José — Kobrasol: só as vagas de loja
+  { id: "v-12", unidadeId: "u-kobrasol", titulo: "Atendente de Cafeteria", turno: "Diurno", ativa: true, criada: iso(8) },
+  { id: "v-13", unidadeId: "u-kobrasol", titulo: "Auxiliar de Cozinha/Confeitaria", turno: "", ativa: true, criada: iso(5) },
 ];
 
 export const seedLinkBio: LinkBioConfig = {
@@ -120,20 +137,20 @@ export const seedLinkBio: LinkBioConfig = {
 };
 
 export const seedTalentos: Talento[] = [
-  { id: "tal1", nome: "Lucas Ferreira", status: "novo", vaga: "Auxiliar de Cozinha", vagaId: "v-1", unidadeId: "u-centro", turno: "Diurno", origem: "linkbio", fone: "5548991110001", qualidade: "Aguardando Análise", criada: iso(0, "09:12") },
-  { id: "tal2", nome: "Camila Rocha", status: "novo", vaga: "Atendente", vagaId: "v-2", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110002", qualidade: "Aguardando Análise", criada: iso(1, "14:30") },
-  { id: "tal3", nome: "Bruno Martins", status: "banco de talentos", vaga: "Caixa", vagaId: "v-4", unidadeId: "u-kobrasol", turno: "Diurno", origem: "linkbio", fone: "5548991110003", qualidade: "Bom", criada: iso(6, "11:00"),
-    comentarios: [{ id: "tc1", message: "Boa experiência no caixa, mas sem disponibilidade imediata.", html: "<p>Boa experiência no caixa, mas sem disponibilidade imediata.</p>", author: "pedro", created_at: iso(5, "10:20") }] },
-  { id: "tal4", nome: "Fernanda Silva", status: "qualificado", vaga: "Cozinheira", vagaId: "v-5", unidadeId: "u-kobrasol", origem: "linkbio", fone: "5548991110004", qualidade: "Ótimo", criada: iso(9, "16:45"),
+  { id: "tal1", nome: "Lucas Ferreira", status: "novo", vaga: "Auxiliar de Cozinha/Confeitaria", vagaId: "v-1", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110001", qualidade: "Aguardando Análise", criada: iso(0, "09:12") },
+  { id: "tal2", nome: "Camila Rocha", status: "novo", vaga: "Atendente de Cafeteria", vagaId: "v-9", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110002", qualidade: "Aguardando Análise", criada: iso(1, "14:30") },
+  { id: "tal3", nome: "Bruno Martins", status: "banco de talentos", vaga: "Assistente Administrativo/Financeiro", vagaId: "v-4", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110003", qualidade: "Bom", criada: iso(6, "11:00"),
+    comentarios: [{ id: "tc1", message: "Boa experiência administrativa, mas sem disponibilidade imediata.", html: "<p>Boa experiência administrativa, mas sem disponibilidade imediata.</p>", author: "pedro", created_at: iso(5, "10:20") }] },
+  { id: "tal4", nome: "Fernanda Silva", status: "qualificado", vaga: "Líder de Produção", vagaId: "v-10", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110004", qualidade: "Ótimo", criada: iso(9, "16:45"),
     anexos: [{ id: "a1", nome: "curriculo-fernanda.pdf", url: "/curriculo-exemplo.pdf", mime: "application/pdf", tamanho: 640, criadoEm: iso(9, "16:50"), autor: "pedro" }],
-    comentarios: [{ id: "tc2", message: "Pedro Nunes alterou o status de novo para qualificado", author: "pedro", created_at: iso(7, "09:00"), tipo: "log" }, { id: "tc3", message: "Experiência de 4 anos em cozinha de restaurante. Agendar conversa com a Ju.", html: "<p>Experiência de 4 anos em cozinha de restaurante. Agendar conversa com a Ju.</p>", author: "pedro", created_at: iso(7, "09:05") }] },
-  { id: "tal5", nome: "Gabriel Souza", status: "qualificado", vaga: "Atendente", vagaId: "v-2", unidadeId: "u-centro", origem: "manual", fone: "5548991110005", qualidade: "Bom", criada: iso(10, "10:10") },
-  { id: "tal6", nome: "Juliana Prado", status: "reunião agendada", vaga: "Confeiteira", vagaId: "v-3", unidadeId: "u-centro", turno: "Noturno", origem: "linkbio", fone: "5548991110006", qualidade: "Ótimo", criada: iso(14, "08:40"),
+    comentarios: [{ id: "tc2", message: "Pedro Nunes alterou o status de novo para qualificado", author: "pedro", created_at: iso(7, "09:00"), tipo: "log" }, { id: "tc3", message: "Liderou equipe de produção por 3 anos. Agendar conversa com a Ju.", html: "<p>Liderou equipe de produção por 3 anos. Agendar conversa com a Ju.</p>", author: "pedro", created_at: iso(7, "09:05") }] },
+  { id: "tal5", nome: "Gabriel Souza", status: "qualificado", vaga: "Analista de Marketing", vagaId: "v-6", unidadeId: "u-centro", origem: "manual", fone: "5548991110005", qualidade: "Bom", criada: iso(10, "10:10") },
+  { id: "tal6", nome: "Juliana Prado", status: "reunião agendada", vaga: "Auxiliar de Expedição", vagaId: "v-3", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110006", qualidade: "Ótimo", criada: iso(14, "08:40"),
     comentarios: [{ id: "tc4", message: "Reunião marcada para quinta às 14h com a Ju.", html: "<p>Reunião marcada para <b>quinta às 14h</b> com a Ju.</p>", author: "pedro", created_at: iso(2, "17:00") }] },
-  { id: "tal7", nome: "Ricardo Alves", status: "desqualificado", vaga: "Caixa", vagaId: "v-4", unidadeId: "u-kobrasol", turno: "Diurno", origem: "linkbio", fone: "5548991110007", qualidade: "Ruim", criada: iso(20, "13:00") },
-  { id: "tal8", nome: "Patrícia Mendes", status: "contratado", vaga: "Auxiliar de Cozinha", vagaId: "v-1", unidadeId: "u-centro", turno: "Diurno", origem: "linkbio", fone: "5548991110008", qualidade: "Ótimo", criada: iso(45, "09:30") },
-  { id: "tal9", nome: "Thiago Lima", status: "antigos", vaga: "Cozinheira", origem: "manual", fone: "5548991110009", qualidade: "Bom", criada: iso(120, "15:15") },
-  { id: "tal10", nome: "Aline Castro", status: "banco de talentos", vaga: "Atendente", vagaId: "v-2", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110010", qualidade: "Bom", criada: iso(3, "12:25") },
+  { id: "tal7", nome: "Ricardo Alves", status: "desqualificado", vaga: "Atendente de Cafeteria", vagaId: "v-12", unidadeId: "u-kobrasol", turno: "Diurno", origem: "linkbio", fone: "5548991110007", qualidade: "Ruim", criada: iso(20, "13:00") },
+  { id: "tal8", nome: "Patrícia Mendes", status: "contratado", vaga: "Supervisora de Loja", vagaId: "v-11", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110008", qualidade: "Ótimo", criada: iso(45, "09:30") },
+  { id: "tal9", nome: "Thiago Lima", status: "antigos", vaga: "Estagiário Administrativo – 4h", origem: "manual", fone: "5548991110009", qualidade: "Bom", criada: iso(120, "15:15") },
+  { id: "tal10", nome: "Aline Castro", status: "banco de talentos", vaga: "Assistente de Recursos Humanos", vagaId: "v-8", unidadeId: "u-centro", origem: "linkbio", fone: "5548991110010", qualidade: "Bom", criada: iso(3, "12:25") },
 ];
 
 export const seedGrupos: GrupoInterno[] = [

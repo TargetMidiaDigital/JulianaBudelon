@@ -5,6 +5,7 @@ import { css } from "@/lib/css";
 import { BRAND } from "@/lib/theme";
 import { corDeTexto } from "@/lib/talento-dims";
 import { unidadeLabel, vagaLabel } from "@/lib/localdb";
+import { CARGOS_VAGA } from "@/lib/seed";
 import type { LinkBioConfig, Turno, Unidade, Vaga } from "@/lib/types";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -290,7 +291,11 @@ function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inici
             ))}
           </Menu>
         </div>
-        <div><label style={lbl}>Título da vaga</label><input autoFocus value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="ex.: Auxiliar de Cozinha" style={inp} /></div>
+        <div>
+          <label style={lbl}>Título da vaga</label>
+          <input autoFocus list="cargos-vaga" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="ex.: Auxiliar de Cozinha/Confeitaria" style={inp} />
+          <datalist id="cargos-vaga">{CARGOS_VAGA.map((c) => <option key={c} value={c} />)}</datalist>
+        </div>
         <div>
           <label style={lbl}>Turno</label>
           <Menu width={200} trigger={(toggle, open) => (

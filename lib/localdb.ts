@@ -10,6 +10,9 @@ import {
  * Quando houver Supabase, este módulo vira a camada de acesso ao banco.
  */
 export type Db = {
+  /** Versão do seed. Quando os dados de exemplo mudam de forma incompatível, sobe aqui
+   *  e `loadDb` refaz só a parte afetada (sem apagar o resto do que foi editado). */
+  seedVersion?: number;
   team: TeamMember[];
   senhas: Record<string, string>; // id do usuário → senha (só na demo)
   clients: Client[];
@@ -26,8 +29,11 @@ export type Db = {
 
 export const DB_KEY = "jb.db.v1";
 
+export const SEED_VERSION = 2;
+
 export function seedDb(): Db {
   return {
+    seedVersion: SEED_VERSION,
     team: seedTeam, senhas: seedSenhas, clients: seedClients, tasks: seedTasks, talentos: seedTalentos,
     unidades: seedUnidades, vagas: seedVagas, linkbio: seedLinkBio,
     gruposInternos: seedGrupos, workspace: seedWorkspace, acessos: seedAcessos, escopoProprio: seedEscopoProprio,
@@ -39,8 +45,18 @@ export function loadDb(): Db {
     const raw = localStorage.getItem(DB_KEY);
     if (!raw) return seedDb();
     const d = JSON.parse(raw) as Partial<Db>;
+    const seed = seedDb();
     // Campos novos (unidades/vagas/linkbio) entram do seed se o banco salvo for de antes deles.
-    return { ...seedDb(), ...d };
+    const out: Db = { ...seed, ...d };
+    // v2 (15/09/2026): catálogo de vagas trocado pelos cargos reais da Ju Budelon. Um banco
+    // salvo antes disso ainda tem as vagas antigas ("Atendente", "Caixa"…): troca vagas e
+    // candidatos de exemplo pelos novos, mantendo unidades, tarefas, pessoas e o resto.
+    if ((d.seedVersion ?? 1) < 2) {
+      out.vagas = seed.vagas;
+      out.talentos = seed.talentos;
+      out.seedVersion = SEED_VERSION;
+    }
+    return out;
   } catch {
     return seedDb();
   }
