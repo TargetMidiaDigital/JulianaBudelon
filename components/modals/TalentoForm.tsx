@@ -6,7 +6,8 @@ import { css } from "@/lib/css";
 import { normalizarWhatsapp } from "@/lib/format";
 import type { Talento } from "@/lib/types";
 import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto } from "@/lib/talento-dims";
-import { unidadeLabel, vagaLabel } from "@/lib/localdb";
+import { unidadeLabel } from "@/lib/localdb";
+import { CARGOS_VAGA } from "@/lib/seed";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
@@ -17,6 +18,7 @@ export default function TalentoForm() {
   const { talentoFormOpen, setTalentoFormOpen, addTalento, vagas, unidades } = useApp();
   const [nome, setNome] = useState("");
   const [vaga, setVaga] = useState("");
+  const [unidadeId, setUnidadeId] = useState("");
   const [fone, setFone] = useState("");
   const [qualidade, setQualidade] = useState("Aguardando Análise");
   const [status, setStatus] = useState("novo");
@@ -25,20 +27,23 @@ export default function TalentoForm() {
   useFecharComEsc(talentoFormOpen, () => close());
   if (!talentoFormOpen) return null;
 
-  const reset = () => { setNome(""); setVaga(""); setFone(""); setQualidade("Aguardando Análise"); setStatus("novo"); setObs(""); };
+  const reset = () => { setNome(""); setVaga(""); setUnidadeId(""); setFone(""); setQualidade("Aguardando Análise"); setStatus("novo"); setObs(""); };
   const close = () => { setTalentoFormOpen(false); reset(); };
   const valido = !!nome.trim();
 
-  const vg = vagas.find((v) => v.id === vaga);
+  const cargos = [...new Set([...CARGOS_VAGA, ...vagas.map((v) => v.titulo)])];
+  const un = unidades.find((u) => u.id === unidadeId);
+  // Vínculo com a vaga cadastrada quando cargo + unidade batem (conta no painel de Vagas).
+  const vg = vaga && unidadeId ? vagas.find((v) => v.titulo === vaga && v.unidadeId === unidadeId) : undefined;
   const submit = () => {
     if (!valido) return;
     const t: Talento = {
       id: `tal-${Date.now()}`,
       nome: nome.trim(),
       status,
-      vaga: vg?.titulo,
+      vaga: vaga || undefined,
       vagaId: vg?.id,
-      unidadeId: vg?.unidadeId,
+      unidadeId: unidadeId || undefined,
       turno: vg?.turno,
       origem: "manual",
       fone: fone ? normalizarWhatsapp(fone) : undefined,
@@ -68,17 +73,31 @@ export default function TalentoForm() {
             <Field label="Nome" req full>
               <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do candidato" style={css(inp)} />
             </Field>
-            <Field label="Vaga" full>
+            <Field label="Vaga">
               <Menu trigger={(tg) => (
-                <SelectBox onClick={tg} placeholder={!vg}>
-                  {vg && <span style={css(`width:8px; height:8px; border-radius:50%; background:${corDeTexto(vg.titulo)};`)} />}
-                  <span style={{ flex: 1 }}>{vg ? `${vagaLabel(vg)} · ${unidadeLabel(unidades.find((u) => u.id === vg.unidadeId))}` : "Selecionar vaga"}</span>
+                <SelectBox onClick={tg} placeholder={!vaga}>
+                  {vaga && <span style={css(`width:8px; height:8px; border-radius:50%; background:${corDeTexto(vaga)};`)} />}
+                  <span style={{ flex: 1 }}>{vaga || "Selecionar vaga"}</span>
                 </SelectBox>
-              )} z={70} width={320} popStyle="max-height:300px; overflow-y:auto;">
+              )} z={70} width={300} popStyle="max-height:300px; overflow-y:auto;">
                 {(c) => (
                   <>
                     <MenuItem checked={!vaga} onClick={() => { setVaga(""); c(); }}><span style={{ flex: 1, color: "#9398A6" }}>— Nenhuma —</span></MenuItem>
-                    {vagas.map((v) => (<MenuItem key={v.id} checked={vaga === v.id} onClick={() => { setVaga(v.id); c(); }}><span style={css(`width:9px; height:9px; border-radius:50%; background:${corDeTexto(v.titulo)};`)} /><span style={{ flex: 1 }}>{vagaLabel(v)} · {unidadeLabel(unidades.find((u) => u.id === v.unidadeId))}</span></MenuItem>))}
+                    {cargos.map((v) => (<MenuItem key={v} checked={vaga === v} onClick={() => { setVaga(v); c(); }}><span style={css(`width:9px; height:9px; border-radius:50%; background:${corDeTexto(v)};`)} /><span style={{ flex: 1 }}>{v}</span></MenuItem>))}
+                  </>
+                )}
+              </Menu>
+            </Field>
+            <Field label="Unidade">
+              <Menu trigger={(tg) => (
+                <SelectBox onClick={tg} placeholder={!un}>
+                  <span style={{ flex: 1 }}>{un ? unidadeLabel(un) : "Selecionar unidade"}</span>
+                </SelectBox>
+              )} z={70} width={260}>
+                {(c) => (
+                  <>
+                    <MenuItem checked={!unidadeId} onClick={() => { setUnidadeId(""); c(); }}><span style={{ flex: 1, color: "#9398A6" }}>— Nenhuma —</span></MenuItem>
+                    {unidades.map((u) => (<MenuItem key={u.id} checked={unidadeId === u.id} onClick={() => { setUnidadeId(u.id); c(); }}><span style={{ flex: 1 }}>{unidadeLabel(u)}</span></MenuItem>))}
                   </>
                 )}
               </Menu>

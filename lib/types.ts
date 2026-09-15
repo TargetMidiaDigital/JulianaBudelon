@@ -47,7 +47,7 @@ export type RecConfig = {
 export type Task = {
   id: string;
   titulo: string;
-  cliente: string; // client id
+  cliente?: string; // legado (sem uso nas telas)
   gestor: string; // team member id (responsável)
   status: TaskStatus;
   prio: Prioridade;

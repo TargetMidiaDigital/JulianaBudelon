@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { css } from "@/lib/css";
-import { clientLetter, clienteDe, CLIENTE_INTERNO } from "@/lib/selectors";
 import { DEFAULT_DUE_TIME, daysUntil, parseBR, prazoLabel } from "@/lib/format";
 import { ACCENT, BRAND, prioInfo, statusInfo } from "@/lib/theme";
 import type { Task, TaskStatus } from "@/lib/types";
@@ -23,12 +22,11 @@ import Menu, { MenuItem } from "../ui/Menu";
 import DatePicker from "../ui/DatePicker";
 import CommentsPopover from "../ui/CommentsPopover";
 import DescricaoPopover from "../ui/DescricaoPopover";
-import ClientMenuList from "../ui/ClientMenuList";
 import EditableTitle from "../ui/EditableTitle";
 import FiltroTarefas from "../FiltroTarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 
-type SortKey = "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "cliente" | "com";
+type SortKey = "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
 type ResizeCol = "tarefa" | "descricao" | "com";
 const DEFAULT_COL_W: Record<ResizeCol, number> = { tarefa: 280, descricao: 200, com: 240 };
 
@@ -68,10 +66,7 @@ export default function ListaView({
   const {
     tasks,
     team,
-    clients,
-    clientesInativos,
     globalGestor,
-    globalCliente,
     globalStatus,
     globalPrio,
     listView,
@@ -135,7 +130,6 @@ export default function ListaView({
     // Sem coluna de seleção: o checkbox entra DENTRO da célula de Tarefa (uma célula
     // travada só não tem emenda por onde o conteúdo das outras colunas aparece ao rolar).
     { id: "tarefa", label: "Tarefa", key: "titulo", resize: "tarefa", w: `${colW.tarefa + (selectable ? 58 : 0)}px`, min: colW.tarefa + (selectable ? 58 : 0) },
-    { id: "cliente", label: "Cliente", key: "cliente", w: "210px", min: 210 },
     { id: "resp", label: "Resp.", key: "resp", w: "70px", min: 70 },
     { id: "prio", label: "Prioridade", key: "prio", w: "130px", min: 130 },
     { id: "status", label: "Status", key: "status", w: "150px", min: 150 },
@@ -157,7 +151,6 @@ export default function ListaView({
   const GRID_MIN = colDefs.reduce((s, c) => s + c.min, 0) + 14 * (colDefs.length - 1) + 36;
 
   let tsBase = filterByGestor(tasks, globalGestor);
-  if (globalCliente) tsBase = tsBase.filter((t) => t.cliente === globalCliente);
   if (globalStatus) tsBase = tsBase.filter((t) => t.status === globalStatus);
   if (globalPrio) tsBase = tsBase.filter((t) => t.prio === globalPrio);
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
@@ -165,11 +158,6 @@ export default function ListaView({
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
   const statusOpts: TaskStatus[] = canSeeAll ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
   const statusCols: TaskStatus[] = showValidadas ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
-
-  // Exibição resolve contra ativos + inativos (tarefas antigas com cliente já
-  // desativado ainda mostram logo e nome); a SELEÇÃO abaixo segue só com ativos.
-  const clientesAll = [...clients, ...clientesInativos];
-  const clientName = (id: string) => clienteDe(clientesAll, id)?.nome ?? (id || "-");
 
   // Data (dd/mm/yyyy) + hora (hh:mm) → timestamp comparável (ordena considerando a hora).
   const dtMs = (d?: string, h?: string): number => {
@@ -189,7 +177,6 @@ export default function ListaView({
       case "prio": return PRIO_ORDER.indexOf(t.prio);
       case "status": return STATUS_ORDER.indexOf(t.status);
       case "titulo": return t.titulo;
-      case "cliente": return clientName(t.cliente);
       case "com": return t.comentarios?.[t.comentarios.length - 1]?.message ?? "";
     }
   };
@@ -245,7 +232,7 @@ export default function ListaView({
   if (!showEmptyGroups) groups = groups.filter((g) => g.tasks.length);
 
   const semTarefas = ts.length === 0;
-  const filtroAtivo = globalCliente !== "" || globalStatus !== "" || globalPrio !== "" || globalGestor !== "todos";
+  const filtroAtivo = globalStatus !== "" || globalPrio !== "" || globalGestor !== "todos";
 
   const renderRow = (t: Task) => {
     const g = gestorOf(team, t.gestor);
@@ -269,18 +256,6 @@ export default function ListaView({
               <Svg size={13} sw={2.2}><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></Svg>
             </span>
           )}
-        </div>
-        <div onClick={stop} style={{ minWidth: 0 }}>
-          <Menu trigger={(tg) => (
-            <span onClick={tg} style={css("display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; cursor:pointer; padding:4px 8px; border-radius:7px; max-width:100%;")}>
-              {(() => { const cl = clienteDe(clientesAll, t.cliente); return cl ? <Avatar ini={clientLetter(cl.nome)} cor={cl.cor} src={cl.logo} size={20} radius="6px" fontSize={9} /> : null; })()}<span style={css("flex:1; min-width:0; overflow-wrap:anywhere;")}>{clientName(t.cliente)}</span>
-              <Svg size={11} sw={2.4} stroke="currentColor" style={css("flex:none; opacity:.45;")}><path d="m6 9 6 6 6-6" /></Svg>
-            </span>
-          )} width={230} popStyle="max-height:320px; overflow-y:auto;">
-            {(close) => (
-              <ClientMenuList clients={[CLIENTE_INTERNO, ...clients]} selectedId={t.cliente} onSelect={(id) => { updateTask(t.id, { cliente: id }); close(); }} avatarSize={20} avatarFont={9} />
-            )}
-          </Menu>
         </div>
         <div onClick={stop} style={css("display:flex; justify-content:center;")}>
           {podeTrocarResp() ? (
@@ -617,9 +592,8 @@ export default function ListaView({
 type BoardGroup = { key: string; label: string; dot: string; tasks: Task[] };
 
 function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: TaskStatus[] }) {
-  const { team, clients, clientesInativos, updateTask, setTaskDetailOpen } = useApp();
+  const { team, updateTask, setTaskDetailOpen } = useApp();
   const abrir = setTaskDetailOpen;
-  const clientName = (id: string) => clienteDe([...clients, ...clientesInativos], id);
   // Colunas recolhidas (clicar no cabeçalho recolhe/expande).
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
@@ -645,14 +619,13 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
               </Hoverable>
               <div style={css("padding:0 10px 12px; display:flex; flex-direction:column; gap:9px;")}>
                 {grp.tasks.map((t) => {
-                  const cl = clientName(t.cliente);
                   const g = gestorOf(team, t.gestor);
                   const late = (daysUntil(t.venc) ?? 0) < 0;
                   const si = statusInfo[t.status];
                   return (
                     <div key={t.id} style={css("background:#fff; border:1px solid #ECEDF1; border-radius:12px; padding:13px 14px; position:relative;")}>
                       <div style={css(`position:absolute; left:0; top:12px; bottom:12px; width:3px; border-radius:0 3px 3px 0; background:${si.dot};`)} />
-                      <div onClick={() => abrir(t.id)} style={css(`font-size:10.5px; font-weight:800; color:${cl?.cor ?? "#9398A6"}; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{cl?.nome ?? (t.cliente || "-")}</div>
+                      {t.tipo && <div onClick={() => abrir(t.id)} style={css(`font-size:10.5px; font-weight:800; color:${tipoCor(t.tipo)}; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{t.tipo}</div>}
                       <div onClick={() => abrir(t.id)} style={css("font-size:13.5px; font-weight:700; line-height:1.35; margin-bottom:12px; cursor:pointer; color:#1B1B28;")}>{t.titulo}</div>
                       <div style={css("display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:12px;")}>
                         <Menu trigger={(tg) => (

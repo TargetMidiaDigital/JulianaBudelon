@@ -7,7 +7,8 @@ import { foneBR, normalizarWhatsapp } from "@/lib/format";
 import { uploadLocal } from "@/lib/upload";
 import type { Anexo, Comentario, Talento } from "@/lib/types";
 import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, type TalentoOpt } from "@/lib/talento-dims";
-import { unidadeLabel, vagaLabel } from "@/lib/localdb";
+import { unidadeLabel } from "@/lib/localdb";
+import { CARGOS_VAGA } from "@/lib/seed";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -77,15 +78,17 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
   useFecharComEsc(true, onClose);
   const { team, currentUser, unidades, vagas } = useApp();
   const l = talento;
-  // Vagas cadastradas (Recrutamento → Vagas) como opções; a atual entra mesmo se sem vínculo.
-  const vagaOpts: TalentoOpt[] = vagas.map((v) => ({ v: v.id, cor: corDeTexto(v.titulo), label: `${vagaLabel(v)} · ${unidadeLabel(unidades.find((u) => u.id === v.unidadeId))}` }));
-  if (l.vaga && !l.vagaId) vagaOpts.unshift({ v: "__atual__", cor: corDeTexto(l.vaga), label: `${l.vaga} (sem vínculo)` });
-  const escolherVaga = (id: string) => {
-    if (!id) { onPatch({ vagaId: undefined, vaga: undefined, unidadeId: undefined, turno: undefined }); return; }
-    if (id === "__atual__") return;
-    const v = vagas.find((x) => x.id === id);
-    if (v) onPatch({ vagaId: v.id, vaga: v.titulo, unidadeId: v.unidadeId, turno: v.turno });
+  // Vaga = cargo (catálogo + títulos já cadastrados em Vagas); Unidade é um campo à parte.
+  // O vínculo com a vaga cadastrada (vagaId) é refeito sempre que cargo + unidade batem.
+  const cargos = [...new Set([...CARGOS_VAGA, ...vagas.map((v) => v.titulo), ...(l.vaga ? [l.vaga] : [])])];
+  const vagaOpts: TalentoOpt[] = cargos.map((c) => ({ v: c, cor: corDeTexto(c) }));
+  const unidadeOpts: TalentoOpt[] = unidades.map((u) => ({ v: u.id, cor: "#955C6B", label: unidadeLabel(u) }));
+  const vincular = (cargo?: string, unidadeId?: string) => {
+    const v = cargo && unidadeId ? vagas.find((x) => x.titulo === cargo && x.unidadeId === unidadeId) : undefined;
+    return { vaga: cargo || undefined, unidadeId: unidadeId || undefined, vagaId: v?.id, turno: v?.turno ?? l.turno };
   };
+  const escolherVaga = (cargo: string) => onPatch(vincular(cargo, l.unidadeId));
+  const escolherUnidade = (id: string) => onPatch(vincular(l.vaga, id));
   const unidade = unidades.find((u) => u.id === l.unidadeId);
   const comentarios = l.comentarios ?? [];
   const anexos = l.anexos ?? [];
@@ -168,8 +171,8 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
             <div style={css("display:flex; flex-direction:column; gap:2px;")}>
               <Row label="Data criada"><Plain>{fmtData(l.criada) || "—"}</Plain></Row>
               <Row label="Status"><DropField value={l.status} options={STATUS_OPTS} onSelect={(v) => onPatch({ status: v })} width={220} /></Row>
-              <Row label="Vaga"><DropField clearable value={l.vagaId ?? (l.vaga ? "__atual__" : undefined)} options={vagaOpts} onSelect={escolherVaga} width={300} /></Row>
-              <Row label="Unidade"><Plain>{unidade ? unidadeLabel(unidade) : "—"}</Plain></Row>
+              <Row label="Vaga"><DropField clearable value={l.vaga} options={vagaOpts} onSelect={escolherVaga} width={300} /></Row>
+              <Row label="Unidade"><DropField clearable value={l.unidadeId} options={unidadeOpts} onSelect={escolherUnidade} width={260} /></Row>
               <Row label="Qualidade"><DropField clearable value={l.qualidade} options={QUALIDADE_TALENTO} onSelect={(v) => onPatch({ qualidade: v })} width={200} /></Row>
               <Row label="WhatsApp">
                 <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>

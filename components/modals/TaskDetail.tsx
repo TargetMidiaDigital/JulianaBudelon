@@ -9,7 +9,6 @@ import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
-import ClientMenuList from "../ui/ClientMenuList";
 import DatePicker from "../ui/DatePicker";
 import EditableTitle from "../ui/EditableTitle";
 import CommentEditor from "../ui/CommentEditor";
@@ -18,7 +17,6 @@ import CommentBody from "../ui/CommentBody";
 import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, STATUS_ORDER, gestorOf, responsaveisDoScope, useApp } from "../store";
-import { clientLetter, clienteDe, CLIENTE_INTERNO } from "@/lib/selectors";
 
 export default function TaskDetail() {
   const { tasks, taskDetailOpen } = useApp();
@@ -28,15 +26,11 @@ export default function TaskDetail() {
 }
 
 function TaskDetailBody({ t }: { t: Task }) {
-  const { clients, clientesInativos, team, setTaskDetailOpen, updateTask, setRecorrencia, currentUser, podeTrocarResp, canSeeAll } = useApp();
+  const { team, setTaskDetailOpen, updateTask, setRecorrencia, currentUser, podeTrocarResp, canSeeAll } = useApp();
   const statusOpts: TaskStatus[] = canSeeAll ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
   const close = () => setTaskDetailOpen(null);
   useFecharComEsc(true, close);
-  // Exibição inclui inativos (tarefa antiga com cliente desativado mantém logo+nome);
-  // a seleção de cliente (menu abaixo) continua só com ativos.
-  const cl = clienteDe([...clients, ...clientesInativos], t.cliente);
   const g = gestorOf(team, t.gestor);
-  const clienteNome = cl?.nome ?? (t.cliente || "-");
 
   // Link compartilhável da tarefa — só quem está logado e com acesso consegue abrir.
   const [linkCopied, setLinkCopied] = useState(false);
@@ -88,7 +82,7 @@ function TaskDetailBody({ t }: { t: Task }) {
         <div style={css("flex:1.4; min-width:0; display:flex; flex-direction:column; border-right:1px solid #ECEDF1;")}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
             <div style={css("display:flex; align-items:center; gap:11px; margin-bottom:20px;")}>
-              <Avatar ini={clientLetter(clienteNome)} cor={cl?.cor ?? "#475569"} src={cl?.logo} size={34} radius="9px" fontSize={14} />
+              <span style={css(`flex:none; width:34px; height:34px; border-radius:9px; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg}; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={2.2}><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></Svg></span>
               <div style={css("flex:1; min-width:0;")}>
                 <EditableTitle fill value={t.titulo} onSave={(v) => updateTask(t.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
               </div>
@@ -123,13 +117,6 @@ function TaskDetailBody({ t }: { t: Task }) {
                 ) : (
                   <span style={css("display:inline-flex; align-items:center; gap:8px; padding:4px 9px 4px 4px;")}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10.5} /><span style={css("font-size:13.5px; font-weight:600;")}>{g.nome}</span></span>
                 )}
-              </Row>
-              <Row label="Cliente">
-                <Menu trigger={(tg) => (
-                  <span onClick={tg} style={css("display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:600; cursor:pointer; padding:5px 9px 5px 5px; border-radius:7px;")}>{cl ? <Avatar ini={clientLetter(cl.nome)} cor={cl.cor} src={cl.logo} size={22} radius="6px" fontSize={10} /> : null}{clienteNome}<Svg size={11} sw={2.4} stroke="#9398A6" style={css("flex:none;")}><path d="m6 9 6 6 6-6" /></Svg></span>
-                )} width={230} z={64} popStyle="max-height:260px; overflow-y:auto;">
-                  {(c) => <ClientMenuList clients={[CLIENTE_INTERNO, ...clients]} selectedId={t.cliente} onSelect={(id) => { updateTask(t.id, { cliente: id }); c(); }} />}
-                </Menu>
               </Row>
               <Row label="Tipo">
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />

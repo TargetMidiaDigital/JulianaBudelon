@@ -6,7 +6,6 @@ import { css } from "@/lib/css";
 import { TODAY } from "@/lib/format";
 import { prioInfo, statusInfo } from "@/lib/theme";
 import type { Prioridade, Task, TaskStatus } from "@/lib/types";
-import { clientLetter, clienteDe, CLIENTE_INTERNO } from "@/lib/selectors";
 import { hojeSP, primeiraOcorrencia, proximaApos, addDias, isoParaBR } from "@/lib/recorrencia";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
@@ -20,8 +19,6 @@ const STATUS_OPTS: TaskStatus[] = ["verificar", "em andamento", "atrasada", "con
 /** Tipos de tarefa oferecidos no formulário (a lista pode ser agrupada por tipo). */
 export const TIPOS_TAREFA = ["Otimização", "Criativo", "Configuração", "Relatório", "Financeiro", "Reunião", "Interno"];
 
-/** Normaliza para busca: sem acentos, minúsculo. */
-const norm = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 const pad = (n: number) => String(n).padStart(2, "0");
 const hojeBR = () => { const d = new Date(); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; };
 const horaBR = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -36,13 +33,11 @@ function freqLabel(freq: "diaria" | "semanal" | "mensal", ds: number, dm: number
 }
 
 export default function TaskForm() {
-  const { taskFormOpen, setTaskFormOpen, team, clients, clientesInativos, addTask, criarRecorrencia, taskFormPrefill, setTaskFormPrefill, currentUser, ownScopeOnly, canSeeAll } = useApp();
+  const { taskFormOpen, setTaskFormOpen, team, addTask, criarRecorrencia, taskFormPrefill, setTaskFormPrefill, currentUser, ownScopeOnly, canSeeAll } = useApp();
   const statusOpts = canSeeAll ? STATUS_OPTS : STATUS_OPTS.filter((s) => s !== "validada");
   const [titulo, setTitulo] = useState("");
   const [resp, setResp] = useState<string | null>(currentUser.id || null);
   const [prio, setPrio] = useState<Prioridade | null>(null);
-  const [cliente, setCliente] = useState<string | null>(null);
-  const [cliQuery, setCliQuery] = useState("");
   const [tipo, setTipo] = useState<string>("");
   const [status, setStatus] = useState<TaskStatus>("verificar");
   const [venc, setVenc] = useState("");
@@ -58,12 +53,11 @@ export default function TaskForm() {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   // Popup de confirmação (resumo da tarefa criada) — exibido após criar.
-  const [criada, setCriada] = useState<{ titulo: string; respNome: string; respIni?: string; respCor?: string; respFoto?: string; cliNome: string; cliCor?: string; cliLogo?: string; rec?: { freqLabel: string; primeira: string; venc: string; modo: "novo" | "reagendar" } } | null>(null);
+  const [criada, setCriada] = useState<{ titulo: string; respNome: string; respIni?: string; respCor?: string; respFoto?: string; rec?: { freqLabel: string; primeira: string; venc: string; modo: "novo" | "reagendar" } } | null>(null);
 
   // Pré-preenchimento (cliente/responsável vindos de outra tela).
   useEffect(() => {
     if (taskFormOpen && taskFormPrefill) {
-      if (taskFormPrefill.cliente !== undefined) setCliente(taskFormPrefill.cliente ?? null);
       if (taskFormPrefill.gestor !== undefined) setResp(taskFormPrefill.gestor ?? null);
       setTaskFormPrefill(null);
     }
@@ -74,7 +68,7 @@ export default function TaskForm() {
   if (!taskFormOpen) return null;
 
   const reset = () => {
-    setTitulo(""); setResp(currentUser.id || null); setPrio(null); setCliente(null); setCliQuery(""); setTipo("");
+    setTitulo(""); setResp(currentUser.id || null); setPrio(null); setTipo("");
     setStatus("verificar"); setVenc(""); setVencHora(""); setObs("");
     setRepetir(false); setFreq("semanal"); setDiaSemana(1); setDiaMes(1); setPrazoDias(0); setModo("novo"); setErro(null);
   };
@@ -82,13 +76,11 @@ export default function TaskForm() {
   const fecharCriada = () => { setCriada(null); close(); };
 
   const respM = resp ? gestorOf(team, resp) : undefined;
-  // Exibição do cliente já selecionado inclui inativos; a lista de seleção segue só com ativos.
-  const cliM = cliente ? clienteDe([...clients, ...clientesInativos], cliente) : undefined;
   const usarRecorrencia = repetir;
-  const valido = !!titulo.trim() && !!resp && !!prio && !!cliente && (usarRecorrencia || !!venc);
+  const valido = !!titulo.trim() && !!resp && !!prio && (usarRecorrencia || !!venc);
 
   const submit = async () => {
-    if (!valido || !prio || !resp || !cliente || salvando) return;
+    if (!valido || !prio || !resp || salvando) return;
     const categoria = "operacional";
     const tipoFinal = tipo || undefined;
 
@@ -99,7 +91,7 @@ export default function TaskForm() {
       const firstOcc = primeiraOcorrencia(hojeSP(), regra);
       const vencISO = addDias(firstOcc, prazoDias);
       const t: Task = {
-        id: `t-${Date.now()}`, titulo: titulo.trim(), cliente, gestor: resp, status: "verificar", prio, tipo: tipoFinal, categoria,
+        id: `t-${Date.now()}`, titulo: titulo.trim(), gestor: resp, status: "verificar", prio, tipo: tipoFinal, categoria,
         criada: hojeBR(), criadaHora: horaBR(), venc: isoParaBR(vencISO), vencHora: "23:59", desc: obs || undefined,
         rec: {
           ativa: true, freq, prazoDias, modo,
@@ -114,7 +106,6 @@ export default function TaskForm() {
       setCriada({
         titulo: titulo.trim(),
         respNome: respM?.nome ?? "—", respIni: respM?.ini, respCor: respM?.cor, respFoto: respM?.foto,
-        cliNome: cliM?.nome ?? "—", cliCor: cliM?.cor, cliLogo: cliM?.logo,
         rec: { freqLabel: freqLabel(freq, diaSemana, diaMes), primeira: firstOcc, venc: vencISO, modo },
       });
       return;
@@ -123,7 +114,6 @@ export default function TaskForm() {
     const t: Task = {
       id: `t-${Date.now()}`,
       titulo: titulo.trim(),
-      cliente,
       gestor: resp,
       status,
       prio,
@@ -139,7 +129,6 @@ export default function TaskForm() {
     setCriada({
       titulo: t.titulo,
       respNome: respM?.nome ?? "—", respIni: respM?.ini, respCor: respM?.cor, respFoto: respM?.foto,
-      cliNome: cliM?.nome ?? "—", cliCor: cliM?.cor, cliLogo: cliM?.logo,
     });
   };
 
@@ -188,31 +177,6 @@ export default function TaskForm() {
               </SelectBox>
             )} z={70} width={220}>
               {(c) => PRIO_ORDER.map((p) => (<MenuItem key={p} checked={prio === p} onClick={() => { setPrio(p); c(); }}><Svg size={14} stroke={prioInfo[p].dot}><path d="M5 21V4h11l-2.2 4 2.2 4H5" /></Svg><span style={{ flex: 1 }}>{prioInfo[p].label}</span></MenuItem>))}
-            </Menu>
-          </Field>
-          <Field label="Cliente" req>
-            <Menu trigger={(tg) => (
-              <SelectBox onClick={tg} placeholder={!cliM}>
-                {cliM ? <><Avatar ini={clientLetter(cliM.nome)} cor={cliM.cor} src={cliM.logo} size={22} radius="6px" fontSize={10} /><span style={{ flex: 1 }}>{cliM.nome}</span></> : <span style={{ flex: 1 }}>Selecionar cliente</span>}
-              </SelectBox>
-            )} z={70} width={280} popStyle="max-height:300px; overflow-y:auto;">
-              {(c) => {
-                const q = norm(cliQuery.trim());
-                const opcoes = [CLIENTE_INTERNO, ...clients];
-                const list = q ? opcoes.filter((o) => norm(o.nome).includes(q)) : opcoes;
-                return (
-                  <>
-                    <div style={css("position:sticky; top:0; background:#fff; padding:2px 2px 6px; z-index:1;")} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                      <input autoFocus value={cliQuery} onChange={(e) => setCliQuery(e.target.value)} placeholder="Buscar cliente…" style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13, border: "1px solid #E2E3E9", borderRadius: 8, outline: "none" }} />
-                    </div>
-                    {list.length ? (
-                      list.map((o) => (<MenuItem key={o.id} checked={cliente === o.id} onClick={() => { setCliente(o.id); setCliQuery(""); c(); }}><Avatar ini={clientLetter(o.nome)} cor={o.cor} src={o.logo} size={22} radius="6px" fontSize={10} /><span style={{ flex: 1 }}>{o.nome}</span></MenuItem>))
-                    ) : (
-                      <div style={css("padding:10px 9px; font-size:12.5px; color:#9398A6;")}>Nenhum cliente encontrado</div>
-                    )}
-                  </>
-                );
-              }}
             </Menu>
           </Field>
           <Field label="Tipo">
@@ -351,13 +315,6 @@ export default function TaskForm() {
                 <span style={css("display:flex; align-items:center; gap:8px; min-width:0;")}>
                   <Avatar ini={criada.respIni ?? "?"} cor={criada.respCor ?? "#9398A6"} src={criada.respFoto} size={26} fontSize={11} />
                   <span style={css("font-size:14px; font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{criada.respNome}</span>
-                </span>
-              </div>
-              <div style={css("display:flex; align-items:center; gap:11px;")}>
-                <span style={css("font-size:11px; font-weight:800; letter-spacing:0.4px; color:#A6AAB6; text-transform:uppercase; width:92px; flex:none;")}>Cliente</span>
-                <span style={css("display:flex; align-items:center; gap:8px; min-width:0;")}>
-                  <Avatar ini={clientLetter(criada.cliNome)} cor={criada.cliCor ?? "#9398A6"} src={criada.cliLogo} size={26} radius="7px" fontSize={11} />
-                  <span style={css("font-size:14px; font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{criada.cliNome}</span>
                 </span>
               </div>
               {criada.rec && (
