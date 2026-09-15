@@ -1,0 +1,93 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: #DEDFE4;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #C7C8D0; background-clip: content-box; }
+
+textarea, input, button { font-family: inherit; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Utilitários MOBILE (≤768px). O app estiliza inline via css(), que não aceita
+   media query; estas classes são aplicadas por className nos contêineres e usam
+   !important para vencer o estilo inline SÓ no mobile. Acima de 768px o bloco é
+   inerte — o desktop roda idêntico ao de hoje (nenhuma destas regras é avaliada).
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Rede de segurança: nada estoura a largura da tela. */
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  /* Container das telas (o scroller do conteúdo): trava o scroll horizontal da PÁGINA.
+     Sem isto, overflow-y:auto faz o overflow-x virar auto e uma barra de filtros larga
+     empurra a página inteira. Tabelas têm o próprio wrapper overflow:auto e seguem
+     rolando lateral por dentro; barras de filtro passam a quebrar linha (.m-wrap). */
+  .m-screens { overflow-x: hidden !important; }
+
+  /* Empilha layouts de 2–3 colunas lado a lado (drawers: detalhe em cima, extras embaixo). */
+  .m-stack { flex-direction: column !important; }
+  .m-stack > * { width: auto !important; flex: none !important; max-width: 100% !important; }
+
+  /* Variante para telas "lista lateral + conteúdo" (Relatório, chats): empilha, mas a
+     lista (1º filho) fica com altura limitada e rolável, e o conteúdo cresce embaixo. */
+  .m-stack-nav { flex-direction: column !important; }
+  .m-stack-nav > * { width: auto !important; max-width: 100% !important; }
+  .m-stack-nav > :first-child { flex: none !important; max-height: 40vh; overflow-y: auto; }
+  .m-stack-nav > :not(:first-child) { flex: 1 1 auto !important; min-height: 50vh; }
+
+  /* Grades de KPI/gráficos: força 2 ou 1 coluna. */
+  .m-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .m-grid-1 { grid-template-columns: 1fr !important; }
+
+  /* Barras de filtro/topo quebram linha em vez de cortar. */
+  .m-wrap { flex-wrap: wrap !important; }
+
+  /* Dentro de uma linha .m-wrap, força o elemento a ocupar a linha inteira — usado no
+     rótulo principal (nome da conta/peça) para os selos e valores caírem abaixo dele
+     em vez de espremerem o texto em duas ou três palavras por linha. */
+  .m-full { flex-basis: 100% !important; }
+
+  /* Drawers/modais em tela cheia (já têm max-width:96vw; aqui vira 100vw). */
+  .m-drawer { width: 100vw !important; max-width: 100vw !important; }
+  /* Drawer com 2 colunas internas: empilha e faz o PAINEL rolar (o painel era
+     overflow:hidden com altura fixa; sem isto o conteúdo empilhado ficaria cortado).
+     As colunas viram blocos de altura natural, um sob o outro. */
+  .m-drawer.m-stack { overflow: auto !important; }
+  .m-drawer.m-stack > * { border-right: none !important; }
+
+  /* Respiro: reduz os paddings agressivos de header/tela. */
+  .m-pad { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Kanban/conteúdo largo que precisa rolar lateral em vez de espremer. */
+  .m-scroll-x { overflow-x: auto !important; }
+
+  /* Kanban em GRID de colunas fixas (repeat(N,1fr)): vira rolagem horizontal com
+     colunas de ~84vw (uma visível + espia a próxima), preservando a altura vertical. */
+  .m-kanban {
+    grid-template-columns: none !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: 84vw !important;
+    overflow-x: auto !important;
+  }
+}
+
+/* Comentários ricos de tarefa (imagem/vídeo inline). */
+.cm-rich img, .cm-rich video { max-width: 100%; border-radius: 8px; cursor: pointer; }
+/* Vídeo: camada de composição própria + fundo escuro — evita o "bug" de
+   repaint/flicker durante a rolagem (cantos arredondados) e flashes brancos. */
+.cm-rich video { height: auto; background: #000; transform: translateZ(0); }
+.cm-rich a { color: #955C6B; }
+.cm-rich img.cm-sel, .cm-rich video.cm-sel { outline: 2px solid #955C6B; outline-offset: 2px; }
+/* Texto rico formatado (descrições de automação etc.): parágrafos e listas legíveis. */
+.cm-rich p { margin: 0 0 8px; }
+.cm-rich p:last-child { margin-bottom: 0; }
+.cm-rich ul, .cm-rich ol { margin: 0 0 10px; padding-left: 20px; }
+.cm-rich li { margin: 3px 0; }
