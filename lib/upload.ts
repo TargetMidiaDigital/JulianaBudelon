@@ -1,7 +1,10 @@
+import { authToken, temSupabase } from "./supabase-browser";
+
 /**
- * "Upload" local — sem backend nesta fase. O arquivo vira uma data-URL, que é
- * inserida no comentário/anexo e persistida junto com os dados no localStorage.
- * Quando houver storage de verdade (Supabase), só esta função muda.
+ * Upload de arquivos a partir do navegador.
+ *  - Com Supabase: vai para o Storage pelas rotas /api/upload (bucket privado, servido
+ *    pelo proxy /api/anexo) e /api/avatar (bucket público: fotos e logos).
+ *  - Sem Supabase (modo demo): o arquivo vira uma data-URL guardada no localStorage.
  */
 export type UploadResult = { url: string; tipo: "image" | "video" | "audio" | "file"; nome: string; mime: string };
 
@@ -21,4 +24,45 @@ export function uploadLocal(file: File): Promise<UploadResult> {
     reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
     reader.readAsDataURL(file);
   });
+}
+
+/** Limite de tamanho de um anexo/mídia (50 MB com Storage; ~4 MB no modo demo, que vive no localStorage). */
+export const LIMITE_ANEXO = () => (temSupabase() ? 50 * 1024 * 1024 : 4 * 1024 * 1024);
+
+/** Anexo/mídia de tarefa ou candidato → bucket privado (ou data-URL no modo demo). */
+export async function uploadArquivo(file: File, opts: { dir: "tarefas" | "talentos"; id?: string }): Promise<UploadResult> {
+  if (!temSupabase()) return uploadLocal(file);
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("dir", opts.dir);
+  if (opts.id) fd.append("taskId", opts.id);
+  const token = await authToken();
+  const res = await fetch("/api/upload", { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : {}, body: fd });
+  const j = (await res.json().catch(() => ({}))) as Partial<UploadResult> & { error?: string };
+  if (!res.ok || !j.url) throw new Error(j.error || "Falha no upload.");
+  return { url: j.url, tipo: (j.tipo as UploadResult["tipo"]) || tipoDoArquivo(file), nome: j.nome || file.name, mime: j.mime || file.type };
+}
+
+/** Foto de perfil / logo → bucket público, devolvendo a URL (ou data-URL no modo demo). */
+export async function uploadAvatar(file: File, dir: "usuarios" | "workspace" | "grupos", chave: string): Promise<string> {
+  if (!temSupabase()) return (await uploadLocal(file)).url;
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("dir", dir);
+  fd.append("chave", chave);
+  const token = await authToken();
+  const res = await fetch("/api/avatar", { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : {}, body: fd });
+  const j = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok || !j.url) throw new Error(j.error || "Falha no upload da imagem.");
+  return j.url;
+}
+
+/** data-URL → File (para subir ao Storage uma imagem que a tela já redimensionou no navegador). */
+export function dataUrlParaFile(dataUrl: string, nome = "imagem.jpg"): File {
+  const [meta, b64] = dataUrl.split(",");
+  const mime = /data:([^;]+)/.exec(meta)?.[1] || "image/jpeg";
+  const bin = atob(b64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], nome, { type: mime });
 }

@@ -3,7 +3,7 @@
 Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídia Digital
 (mesma base de UI/UX em **Next.js + React + TypeScript**), com um recorte menor de funções.
 
-## Telas (fase 1)
+## Telas
 
 - **Operacional → Tarefas** — lista agrupável (status / responsável / prioridade / vencimento / tipo)
   e quadro kanban; edição inline de título, cliente, responsável, prioridade, status e vencimento;
@@ -21,30 +21,39 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
 - **Configurações** — Empresa (nome/logo), Pessoas (cadastro, cargo, status, senha), Grupos,
   Acessos (matriz cargo × tela com Sem acesso / Visualizar / Editar + escopo próprio) e Perfil.
 
-## Dados (sem backend nesta fase)
+## Dados (fase 2: Supabase)
 
-Não há Supabase ainda. Tudo roda no navegador com **dados de exemplo** ([`lib/seed.ts`](lib/seed.ts)),
-persistidos no `localStorage` para as edições sobreviverem ao reload. Em
-**Configurações → Empresa** há um botão para restaurar o cenário inicial.
+O app roda em dois modos, decididos pelas variáveis de ambiente (`.env.local`, ver
+[`.env.example`](.env.example)):
 
-Usuários de demonstração (senha de todos: `123456`):
+- **Com Supabase** (`NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` no navegador,
+  `SUPABASE_SERVICE_ROLE_KEY` no servidor): login pelo Supabase Auth; os dados vêm de
+  `/api/bootstrap` (recortados por cargo no servidor) e toda escrita passa pelas rotas
+  `app/api/*` com o Bearer da sessão. Os anexos ficam no Storage (`task-anexos`, privado,
+  servido por `/api/anexo`; `avatars`, público). A tabela-sinal `realtime_ping` avisa o
+  navegador quando algo muda e ele refaz o bootstrap. As tarefas recorrentes são geradas
+  pelo cron do Vercel ([`vercel.json`](vercel.json), `CRON_SECRET`) e também ao abrir o app.
+- **Modo demo** (sem as variáveis): tudo no navegador com **dados de exemplo**
+  ([`lib/seed.ts`](lib/seed.ts)) persistidos no `localStorage`; senha de todos `123456`
+  (ju@, marina@, carlos@, ana@, pedro@ `jubudelon.com.br`). Em **Configurações → Empresa**
+  há um botão para restaurar o cenário inicial.
 
-| E-mail                      | Cargo            |
-| --------------------------- | ---------------- |
-| ju@jubudelon.com.br         | Administrador    |
-| marina@jubudelon.com.br     | Head Operacional |
-| carlos@jubudelon.com.br     | Operacional      |
-| ana@jubudelon.com.br        | Operacional      |
-| pedro@jubudelon.com.br      | Recrutamento     |
+Banco: projeto Supabase `pqcbenrlejgtpsfqukcr` (sa-east-1). O schema está em
+[`supabase/migrations/`](supabase/migrations/) (tabelas `workspace`, `usuarios`,
+`cargo_acesso`, `cargo_permissao`, `grupo_interno`, `tarefas`, `unidade`, `vaga`, `talento`,
+`realtime_ping`; RLS ligado sem policies — só o servidor acessa, com a service role).
+Pessoas entram por **Configurações → Pessoas**, que cria o login no Auth e a linha em `usuarios`
+(o e-mail é o vínculo entre os dois).
 
-Toda escrita passa por [`components/store.tsx`](components/store.tsx); ligar o banco depois
-é trocar as funções de escrita ali — as telas não mudam.
+Toda escrita passa por [`components/store.tsx`](components/store.tsx): a UI é otimista e a
+persistência acontece em segundo plano; se o servidor recusar, o app refaz o bootstrap.
 
 ## Rodando localmente
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+cp .env.example .env.local   # e preencha SUPABASE_SERVICE_ROLE_KEY (ou deixe vazio p/ modo demo)
+npm run dev -- -p 3100       # http://localhost:3100
 # produção:
 npm run build && npm run start
 ```

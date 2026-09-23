@@ -4,7 +4,7 @@ import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { foneBR, normalizarWhatsapp } from "@/lib/format";
-import { uploadLocal } from "@/lib/upload";
+import { uploadArquivo, LIMITE_ANEXO } from "@/lib/upload";
 import type { Anexo, Comentario, Talento } from "@/lib/types";
 import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, type TalentoOpt } from "@/lib/talento-dims";
 import { unidadeLabel } from "@/lib/localdb";
@@ -104,12 +104,12 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
     try {
       const novos: Anexo[] = [];
       for (const file of Array.from(files)) {
-        if (file.size > 4 * 1024 * 1024) { window.alert(`"${file.name}" é muito grande (limite ~4 MB nesta fase).`); continue; }
+        if (file.size > LIMITE_ANEXO()) { window.alert(`"${file.name}" é muito grande (limite ${Math.round(LIMITE_ANEXO() / 1048576)} MB).`); continue; }
         try {
-          const r = await uploadLocal(file);
+          const r = await uploadArquivo(file, { dir: "talentos", id: l.id });
           novos.push({ id: crypto.randomUUID(), nome: r.nome, url: r.url, mime: r.mime, tamanho: file.size, criadoEm: new Date().toISOString(), autor: currentUser.id });
-        } catch {
-          window.alert(`Falha ao ler "${file.name}".`);
+        } catch (e) {
+          window.alert(e instanceof Error ? e.message : `Falha ao enviar "${file.name}".`);
         }
       }
       if (novos.length) onPatch({ anexos: [...anexos, ...novos] });

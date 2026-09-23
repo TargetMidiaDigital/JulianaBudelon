@@ -2,24 +2,41 @@
 
 import { useEffect, useRef, useState } from "react";
 import { pixelInit, pixelTrack } from "@/lib/pixel";
-import { loadDb, saveDb, unidadeLabel, vagaLabel, type Db } from "@/lib/localdb";
+import { loadDb, saveDb, unidadeLabel, vagaLabel } from "@/lib/localdb";
 import { normalizarWhatsapp } from "@/lib/format";
-import type { Talento, Unidade, Vaga } from "@/lib/types";
+import type { LinkBioConfig, Talento, Unidade, Vaga, Workspace } from "@/lib/types";
 
 /**
  * PÁGINA PÚBLICA "Trabalhe conosco" (link na bio), no mesmo desenho do linkbio do
  * Cachorrão HD: hub com um botão por unidade → página da unidade com um botão por
  * vaga → popup nome / WhatsApp / currículo → página de obrigado.
  *
- * Sem backend nesta fase, a página lê e grava o mesmo "banco" local do painel
- * (localStorage). A candidatura entra no Banco de Talentos como status "novo".
+ * Os dados vêm de /api/vagas/publico (só unidades ativas, vagas abertas e os textos) e
+ * a candidatura vai para /api/vagas/candidatura, que grava o candidato com status
+ * "novo" e o currículo no Storage. Sem Supabase (modo demo), a página lê e grava o
+ * "banco" local do painel (localStorage).
  *
  * Pixel do Facebook (Recrutamento → Vagas → Página pública): PageView em todas as
  * páginas; Lead só no /obrigado, segmentado por vaga e unidade via query string.
  */
 
-const MAX_BYTES = 3 * 1024 * 1024; // localStorage: mantém o arquivo pequeno nesta fase
+const MAX_BYTES = 3 * 1024 * 1024;
 const EXT_OK = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp"];
+
+/** O que a página precisa (mesmo formato nos dois modos). */
+type Dados = { demo: boolean; unidades: Unidade[]; vagas: Vaga[]; linkbio: LinkBioConfig; workspace: Workspace };
+
+async function carregarDados(): Promise<Dados> {
+  try {
+    const res = await fetch("/api/vagas/publico", { cache: "no-store" });
+    const j = await res.json();
+    if (res.ok && j && !j.demo) {
+      return { demo: false, unidades: j.unidades ?? [], vagas: j.vagas ?? [], linkbio: j.pagina, workspace: { nome: j.empresa?.nome ?? "", logo: j.empresa?.logo ?? null } };
+    }
+  } catch { /* cai no modo demo */ }
+  const d = loadDb();
+  return { demo: true, unidades: d.unidades, vagas: d.vagas, linkbio: d.linkbio, workspace: d.workspace };
+}
 
 const CSS = `
 .lb-body{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:40px 20px;box-sizing:border-box;color:#fff;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:radial-gradient(circle at 50% 32%,#A8697B 0%,#8B4F60 48%,#4E2B36 100%);background-attachment:fixed;-webkit-font-smoothing:antialiased}
@@ -84,12 +101,12 @@ function mascara(v: string): string {
 }
 
 export default function LinkBio({ view, slug }: { view: "hub" | "unidade" | "obrigado"; slug?: string }) {
-  const [db, setDb] = useState<Db | null>(null);
+  const [db, setDb] = useState<Dados | null>(null);
   const [inAnim, setInAnim] = useState(false);
   const [vagaAberta, setVagaAberta] = useState<Vaga | null>(null);
 
   useEffect(() => {
-    setDb(loadDb());
+    void carregarDados().then(setDb);
     requestAnimationFrame(() => setInAnim(true));
     document.title = view === "obrigado" ? "Candidatura enviada" : "Trabalhe conosco";
   }, [view]);
@@ -119,26 +136,30 @@ export default function LinkBio({ view, slug }: { view: "hub" | "unidade" | "obr
   // Hub: só unidades ativas com ao menos uma vaga aberta.
   const unidadesHub: Unidade[] = (db?.unidades ?? []).filter((u) => u.ativa && (db?.vagas ?? []).some((v) => v.unidadeId === u.id && v.ativa));
 
-  const enviar = (dados: { nome: string; whatsapp: string; arquivo: { nome: string; mime: string; url: string; tamanho: number } }) => {
-    if (!vagaAberta || !unidade) return;
-    const atual = loadDb(); // relê: o painel pode ter gravado desde o load
-    const t: Talento = {
-      id: `tal-${Date.now()}`,
-      nome: dados.nome,
-      status: "novo",
-      vaga: vagaAberta.titulo,
-      vagaId: vagaAberta.id,
-      unidadeId: unidade.id,
-      turno: vagaAberta.turno,
-      origem: "linkbio",
-      fone: normalizarWhatsapp(dados.whatsapp),
-      qualidade: "Aguardando Análise",
-      criada: new Date().toISOString(),
-      comentarios: [{ id: `c-${Date.now()}`, message: `Candidatura enviada pela página de vagas — ${vagaLabel(vagaAberta)} · ${unidadeLabel(unidade)}.`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" }],
-      anexos: [{ id: `a-${Date.now()}`, nome: dados.arquivo.nome, url: dados.arquivo.url, mime: dados.arquivo.mime, tamanho: dados.arquivo.tamanho, criadoEm: new Date().toISOString() }],
-    };
-    const ok = saveDb({ ...atual, talentos: [t, ...atual.talentos] });
-    if (!ok) throw new Error("storage");
+  const enviar = async (dados: { nome: string; whatsapp: string; arquivo: File }) => {
+    if (!vagaAberta || !unidade || !db) return;
+    if (db.demo) {
+      // Modo demo: grava no "banco" local do painel (arquivo vira data-URL).
+      const url = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error("leitura")); fr.readAsDataURL(dados.arquivo); });
+      const atual = loadDb(); // relê: o painel pode ter gravado desde o load
+      const t: Talento = {
+        id: `tal-${Date.now()}`, nome: dados.nome, status: "novo",
+        vaga: vagaAberta.titulo, vagaId: vagaAberta.id, unidadeId: unidade.id, turno: vagaAberta.turno, origem: "linkbio",
+        fone: normalizarWhatsapp(dados.whatsapp), qualidade: "Aguardando Análise", criada: new Date().toISOString(),
+        comentarios: [{ id: `c-${Date.now()}`, message: `Candidatura enviada pela página de vagas — ${vagaLabel(vagaAberta)} · ${unidadeLabel(unidade)}.`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" }],
+        anexos: [{ id: `a-${Date.now()}`, nome: dados.arquivo.name, url, mime: dados.arquivo.type || "application/octet-stream", tamanho: dados.arquivo.size, criadoEm: new Date().toISOString() }],
+      };
+      if (!saveDb({ ...atual, talentos: [t, ...atual.talentos] })) throw new Error("Não conseguimos enviar sua candidatura. Tente um arquivo menor ou tente de novo.");
+    } else {
+      const fd = new FormData();
+      fd.append("nome", dados.nome);
+      fd.append("whatsapp", dados.whatsapp);
+      fd.append("vagaId", vagaAberta.id);
+      fd.append("file", dados.arquivo);
+      const res = await fetch("/api/vagas/candidatura", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || "Não conseguimos enviar sua candidatura. Tente de novo.");
+    }
     const q = new URLSearchParams();
     q.set("vaga", vagaAberta.titulo);
     q.set("unidade", unidadeLabel(unidade));
@@ -225,7 +246,7 @@ function destacar(s: string): string {
 
 function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
   vaga: Vaga; unidade: Unidade; onClose: () => void;
-  onEnviar: (d: { nome: string; whatsapp: string; arquivo: { nome: string; mime: string; url: string; tamanho: number } }) => void;
+  onEnviar: (d: { nome: string; whatsapp: string; arquivo: File }) => Promise<void>;
 }) {
   const [nome, setNome] = useState("");
   const [zap, setZap] = useState("");
@@ -263,11 +284,10 @@ function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
     if (!validar() || !arquivo) return;
     setEnviando(true);
     try {
-      const url = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error("leitura")); fr.readAsDataURL(arquivo); });
-      onEnviar({ nome: nome.trim(), whatsapp: zap.trim(), arquivo: { nome: arquivo.name, mime: arquivo.type || "application/octet-stream", url, tamanho: arquivo.size } });
-    } catch {
+      await onEnviar({ nome: nome.trim(), whatsapp: zap.trim(), arquivo });
+    } catch (e) {
       setEnviando(false);
-      setErros({ geral: "Não conseguimos enviar sua candidatura. Tente um arquivo menor ou tente de novo." });
+      setErros({ geral: e instanceof Error && e.message ? e.message : "Não conseguimos enviar sua candidatura. Tente um arquivo menor ou tente de novo." });
     }
   };
 

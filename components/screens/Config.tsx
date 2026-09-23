@@ -75,7 +75,7 @@ export default function Config() {
 
 /** Aba Empresa: edita nome e logo do espaço de trabalho (canto superior esquerdo). */
 function EmpresaTab() {
-  const { workspace, setWorkspace, restaurarDados } = useApp();
+  const { workspace, setWorkspace, restaurarDados, demo } = useApp();
   const [nome, setNome] = useState(workspace.nome);
   const [confirmReset, setConfirmReset] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -120,6 +120,7 @@ function EmpresaTab() {
         O nome e o logo aparecem no canto superior esquerdo e valem para todos os usuários.
       </p>
 
+      {demo && (<>
       <div style={css("font-size:13px; font-weight:700; color:#7A8090; margin-top:10px;")}>Dados de exemplo</div>
       <div style={css("background:#fff; border:1px solid #ECEDF1; border-radius:14px; padding:16px 20px; display:flex; align-items:center; gap:16px;")}>
         <div style={css("flex:1; min-width:0;")}>
@@ -128,6 +129,7 @@ function EmpresaTab() {
         </div>
         <Hoverable as="button" onClick={() => setConfirmReset(true)} s={css("flex:none; border:1px solid #E2E3E9; background:#fff; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:700; color:#CC3338; cursor:pointer;")} hover="background:#FDECEC; border-color:#F3C2C4">Restaurar</Hoverable>
       </div>
+      </>)}
       {confirmReset && (
         <ConfirmModal
           titulo="Restaurar dados de exemplo"
@@ -583,11 +585,11 @@ function SenhaPessoa({ id, nome, email }: { id: string; nome: string; email: str
     setSenha(s); setConfirmar(s); setReveal(true); setMsg(null);
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     setMsg(null);
     if (senha.length < 6) { setMsg({ ok: false, texto: "A senha precisa ter ao menos 6 caracteres." }); return; }
     if (senha !== confirmar) { setMsg({ ok: false, texto: "As senhas não conferem." }); return; }
-    const r = gravarSenha(id, senha);
+    const r = await gravarSenha(id, senha);
     if (!r.ok) { setMsg({ ok: false, texto: r.error ?? "Falha ao trocar a senha." }); return; }
     setMsg({ ok: true, texto: `Senha alterada. Passe a nova senha para ${primeiro} — já vale no próximo login.` });
     setConfirmar("");
@@ -628,12 +630,12 @@ function SenhaPessoa({ id, nome, email }: { id: string; nome: string; email: str
           <div>
             <label style={css("display:block; font-size:12px; font-weight:700; color:#5B6472; margin-bottom:6px;")}>Confirmar nova senha</label>
             <div style={css("position:relative;")}>
-              <input type={reveal ? "text" : "password"} value={confirmar} onChange={(e) => setConfirmar(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") salvar(); }} placeholder="Repita a nova senha" style={inpField} />
+              <input type={reveal ? "text" : "password"} value={confirmar} onChange={(e) => setConfirmar(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void salvar(); }} placeholder="Repita a nova senha" style={inpField} />
               {olho}
             </div>
           </div>
           <div style={css("display:flex; align-items:center; gap:16px; flex-wrap:wrap;")}>
-            <Hoverable as="button" type="button" onClick={salvar} s={css("border:none; border-radius:9px; padding:10px 18px; font-size:13px; font-weight:700; color:#fff; cursor:pointer; background:#955C6B;")} hover="filter:brightness(1.07)">Salvar nova senha</Hoverable>
+            <Hoverable as="button" type="button" onClick={() => void salvar()} s={css("border:none; border-radius:9px; padding:10px 18px; font-size:13px; font-weight:700; color:#fff; cursor:pointer; background:#955C6B;")} hover="filter:brightness(1.07)">Salvar nova senha</Hoverable>
             <Hoverable as="button" type="button" onClick={gerar} s={css("border:none; background:transparent; color:#955C6B; cursor:pointer; font-size:12.5px; font-weight:700; padding:0; text-decoration:underline;")} hover="filter:brightness(1.1)">Gerar uma senha</Hoverable>
           </div>
         </div>
@@ -655,10 +657,13 @@ function CriarPessoa({ onClose }: { onClose: () => void }) {
 
   const gerarSenha = () => setSenha(Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6).toUpperCase());
 
-  const salvar = () => {
-    setErro(null);
+  const [salvando, setSalvando] = useState(false);
+  const salvar = async () => {
+    if (salvando) return;
+    setErro(null); setSalvando(true);
     const id = `u-${Date.now()}`;
-    const r = addUsuario({ id, nome: nome.trim(), email: email.trim().toLowerCase(), cargo, ini: inits(nome), cor: corDoCargo(cargo), ativo: true }, senha);
+    const r = await addUsuario({ id, nome: nome.trim(), email: email.trim().toLowerCase(), cargo, ini: inits(nome), cor: corDoCargo(cargo), ativo: true }, senha);
+    setSalvando(false);
     if (!r.ok) { setErro(r.error ?? "Falha ao criar."); return; }
     onClose();
   };
@@ -769,11 +774,11 @@ function PerfilTab() {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [pwReveal, setPwReveal] = useState(false);
 
-  const salvarSenha = () => {
+  const salvarSenha = async () => {
     setPwMsg(null);
     if (novaSenha.length < 6) { setPwMsg({ ok: false, texto: "A senha precisa ter ao menos 6 caracteres." }); return; }
     if (novaSenha !== confirmar) { setPwMsg({ ok: false, texto: "As senhas não conferem." }); return; }
-    const r = gravarSenha(u.id, novaSenha);
+    const r = await gravarSenha(u.id, novaSenha);
     if (!r.ok) { setPwMsg({ ok: false, texto: r.error ?? "Falha ao trocar a senha." }); return; }
     setNovaSenha(""); setConfirmar("");
     setPwMsg({ ok: true, texto: "Senha alterada com sucesso." });

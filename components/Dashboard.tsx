@@ -72,7 +72,7 @@ function SemAcessoTarefa({ onClose }: { onClose: () => void }) {
 }
 
 function Gate() {
-  const { authed, hasSession, authReady, hydrated, tasks, canAccessPage, goto, setTaskDetailOpen } = useApp();
+  const { authed, hasSession, authReady, hydrated, bootstrapError, reload, tasks, canAccessPage, goto, setTaskDetailOpen } = useApp();
   // Deep-link compartilhado: ?tarefa=<id> (lido uma vez no mount).
   const [linkId] = useState(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tarefa")));
   const [denied, setDenied] = useState(false);
@@ -87,10 +87,31 @@ function Gate() {
     if (typeof window !== "undefined") window.history.replaceState(null, "", window.location.pathname);
   }, [authReady, authed, hydrated, linkId, tasks, canAccessPage, goto, setTaskDetailOpen]);
 
-  if (!authReady || !hydrated) return <Carregando />;
-  if (!hasSession || !authed) return <Login />;
+  if (!authReady) return <Carregando />;
+  if (!hasSession) return <Login />;
+  // Com Supabase: sessão ok, dados ainda carregando (ou falharam).
+  if (!hydrated) return bootstrapError ? <ErroCarga msg={bootstrapError} onRetry={() => void reload()} /> : <Carregando />;
+  if (!authed) return <Login />;
   if (denied) return <SemAcessoTarefa onClose={() => setDenied(false)} />;
   return <Shell />;
+}
+
+/** Falha ao carregar os dados do servidor (mostra o motivo + "Recarregar"). */
+function ErroCarga({ msg, onRetry }: { msg: string; onRetry: () => void }) {
+  const { logout } = useApp();
+  return (
+    <div style={css(`height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
+      <div style={css("width:100%; max-width:440px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:14px; background:#fff; border-radius:22px; padding:44px 40px; box-shadow:0 30px 80px rgba(20,24,40,.35); text-align:center;")}>
+        <img src="/logo.png" alt="Ju Budelon" style={css("height:96px; width:auto; object-fit:contain; margin-bottom:2px;")} />
+        <div style={css("font-size:17px; font-weight:800; color:#1B1B28; letter-spacing:-0.2px;")}>Não foi possível carregar os dados</div>
+        <div style={css("font-size:13px; font-weight:500; line-height:1.55; color:#7A8090; word-break:break-word;")}>{msg}</div>
+        <div style={css("display:flex; gap:10px; margin-top:8px;")}>
+          <button onClick={onRetry} style={css("border:none; cursor:pointer; background:#955C6B; color:#fff; font-weight:700; font-size:14px; padding:11px 28px; border-radius:999px;")}>Recarregar</button>
+          <button onClick={logout} style={css("border:1px solid #E2E3E9; cursor:pointer; background:#fff; color:#5B6472; font-weight:700; font-size:14px; padding:11px 22px; border-radius:999px;")}>Sair</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Tela de carregamento (logo + "Carregando…"). */

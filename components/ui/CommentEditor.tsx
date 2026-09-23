@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { ACCENT } from "@/lib/theme";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
-import { uploadLocal, type UploadResult } from "@/lib/upload";
+import { uploadArquivo, LIMITE_ANEXO, type UploadResult } from "@/lib/upload";
 import { Svg } from "./Svg";
 import Hoverable from "./Hoverable";
 import MediaViewer from "./MediaViewer";
@@ -55,6 +55,7 @@ const MEDIA_SIZES: { label: string; pct: number }[] = [
  * Sem backend nesta fase: os arquivos viram data-URL (lib/upload.ts).
  */
 export default function CommentEditor({
+  taskId,
   initialHtml,
   onSubmit,
   onCancel,
@@ -68,7 +69,7 @@ export default function CommentEditor({
   onBlur,
   zoomOnClick = false,
 }: {
-  /** Mantido por compatibilidade com o sistema original (pasta do upload). */
+  /** Pasta do upload no Storage (id da tarefa/candidato). */
   taskId?: string;
   initialHtml?: string;
   onSubmit?: (p: Payload) => void;
@@ -321,7 +322,7 @@ export default function CommentEditor({
 
   // Imagens grandes são redimensionadas/recomprimidas no navegador (o dado fica
   // no localStorage nesta fase, então quanto menor, melhor).
-  const LIMITE_ARQ = 4 * 1024 * 1024;
+  const LIMITE_ARQ = LIMITE_ANEXO();
   const comprimirImagem = async (file: File): Promise<File> => {
     if (!file.type.startsWith("image/") || file.type === "image/gif" || file.size <= 600 * 1024) return file;
     try {
@@ -348,16 +349,16 @@ export default function CommentEditor({
     const file = await comprimirImagem(file0);
     if (file.size > LIMITE_ARQ) {
       window.alert(file.type.startsWith("video/")
-        ? "Vídeo muito grande para anexar aqui (limite ~4 MB). Comprima o vídeo ou envie por link."
+        ? `Vídeo muito grande para anexar aqui (limite ${Math.round(LIMITE_ARQ / 1048576)} MB). Comprima o vídeo ou envie por link.`
         : file.type.startsWith("image/")
         ? "Imagem muito grande mesmo após compressão. Tente uma imagem menor."
-        : "Arquivo muito grande para anexar aqui (limite ~4 MB).");
+        : `Arquivo muito grande para anexar aqui (limite ${Math.round(LIMITE_ARQ / 1048576)} MB).`);
       return null;
     }
     try {
-      return await uploadLocal(file);
-    } catch {
-      window.alert("Falha ao ler o arquivo.");
+      return await uploadArquivo(file, { dir: "tarefas", id: taskId });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Falha ao enviar o arquivo.");
       return null;
     }
   };

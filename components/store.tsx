@@ -17,6 +17,9 @@ import { fmtNowBR } from "@/lib/format";
 import { hojeSP, addDias, proximaApos, isoParaBR } from "@/lib/recorrencia";
 import { spacesTree } from "@/lib/seed";
 import { DB_KEY, loadDb, saveDb, seedDb, slugify, type Db } from "@/lib/localdb";
+import { apiJson, authHeaders, getSupabaseBrowser } from "@/lib/supabase-browser";
+import { dataUrlParaFile, uploadAvatar } from "@/lib/upload";
+import type { AppData } from "@/lib/data";
 import type {
   Client,
   Comentario,
@@ -36,11 +39,14 @@ import type {
 } from "@/lib/types";
 
 /**
- * STORE EM MEMÓRIA (fase sem backend).
+ * STORE do app. As telas usam a mesma API (useApp) nos dois modos:
  *
- * Todo o "banco" é um objeto (`Db`, ver lib/localdb.ts) guardado no localStorage. As telas
- * usam a mesma API do sistema da Target (useApp), então ligar o Supabase depois é trocar
- * as funções de escrita aqui — as telas não mudam.
+ *  - COM SUPABASE (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY definidos): login pelo Supabase
+ *    Auth; os dados vêm de /api/bootstrap (recortados por cargo no servidor); toda
+ *    escrita é otimista no estado local e persistida nas rotas /api/* (Bearer da
+ *    sessão). O realtime_ping (tabela-sinal) avisa quando algo mudou e o app refaz o
+ *    bootstrap — várias abas/pessoas ficam em sincronia.
+ *  - SEM SUPABASE (modo demo, fase 1): tudo no localStorage (`Db`, lib/localdb.ts).
  */
 const SESSION_KEY = "jb.session";
 
@@ -62,15 +68,22 @@ export type ListGroupBy =
 
 type Store = {
   // auth / usuário logado
+  /** true = modo demo (sem Supabase): dados de exemplo no localStorage. */
+  demo: boolean;
   authed: boolean;
   hasSession: boolean;
   authReady: boolean;
   hydrated: boolean;
+  /** Falha ao carregar os dados do servidor (mostra "Recarregar"). */
+  bootstrapError: string | null;
+  /** Erro de acesso mostrado na tela de login (ex.: e-mail sem cadastro na equipe). */
+  authErro: string | null;
+  reload: () => Promise<void>;
   currentUser: TeamMember;
   login: (email: string, senha: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
-  /** Troca a senha (na demo, fica no localStorage). */
-  setSenha: (userId: string, senha: string) => { ok: boolean; error?: string };
+  /** Troca a senha de uma pessoa (a própria, ou de outra se Administrador). */
+  setSenha: (userId: string, senha: string) => Promise<{ ok: boolean; error?: string }>;
   // controle de acesso por cargo
   isAdmin: boolean;
   canSeeAll: boolean;
@@ -88,7 +101,7 @@ type Store = {
   // dados
   team: TeamMember[];
   updateUsuario: (id: string, patch: Partial<TeamMember>) => void;
-  addUsuario: (u: TeamMember, senha: string) => { ok: boolean; error?: string };
+  addUsuario: (u: TeamMember, senha: string) => Promise<{ ok: boolean; error?: string }>;
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => void;
   addTask: (t: Task) => void;
@@ -119,7 +132,7 @@ type Store = {
   removerGrupoInterno: (id: string) => void;
   workspace: Workspace;
   setWorkspace: (patch: Partial<Workspace>) => void;
-  /** Apaga as edições locais e volta aos dados de exemplo. */
+  /** Modo demo: apaga as edições locais e volta aos dados de exemplo. Com Supabase: recarrega do servidor. */
   restaurarDados: () => void;
 
   // navegação
@@ -169,12 +182,26 @@ export function useApp(): Store {
 
 const FALLBACK_USER: TeamMember = { id: "", nome: "—", cargo: "", ini: "—", cor: "#5B6472" };
 
+/** Db vazio (com Supabase o conteúdo vem do bootstrap; até lá, nada). */
+function dbVazio(): Db {
+  return { ...seedDb(), team: [], senhas: {}, clients: [], tasks: [], talentos: [], unidades: [], vagas: [], gruposInternos: [], acessos: {}, escopoProprio: {} };
+}
+
+/** Cookie com o access token — só para a mídia do /api/anexo (tags <img> e links não
+ *  enviam Bearer). Sincronizado com a sessão (login/refresh/logout). */
+function setMediaCookie(token: string | null) {
+  if (typeof document === "undefined") return;
+  const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = token
+    ? `jb-at=${token}; path=/; max-age=3600; SameSite=Lax${secure}`
+    : `jb-at=; path=/; max-age=0; SameSite=Lax${secure}`;
+}
+
 /**
- * Gera as ocorrências vencidas das tarefas recorrentes (o que o cron faria no servidor).
- *  - modo 'novo': cria uma tarefa NOVA carregando a recorrência adiante e desliga a âncora.
- *  - modo 'reagendar': reseta a MESMA tarefa (status "verificar") e avança o vencimento.
+ * Modo demo: gera as ocorrências vencidas das tarefas recorrentes (o que o cron faz no
+ * servidor quando há Supabase).
  */
-function gerarRecorrentes(tasks: Task[]): Task[] {
+function gerarRecorrentesLocal(tasks: Task[]): Task[] {
   const hoje = hojeSP();
   const out: Task[] = [];
   let i = 0;
@@ -198,32 +225,37 @@ function gerarRecorrentes(tasks: Task[]): Task[] {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [db, setDb] = useState<Db>(seedDb);
+  // Modo: com Supabase (auth + API) ou demo (localStorage). Decidido uma vez.
+  const [demo] = useState(() => !getSupabaseBrowser());
+  const [db, setDb] = useState<Db>(demo ? seedDb : dbVazio);
   const [hydrated, setHydrated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null); // usuarios.id logado
+  const [authEmail, setAuthEmail] = useState<string | null>(null); // e-mail da sessão Supabase
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [authErro, setAuthErro] = useState<string | null>(null);
 
-  // Carrega o "banco" e a sessão do localStorage (uma vez, no cliente).
+  // ── modo demo: carrega o "banco" e a sessão do localStorage ─────────────────
   useEffect(() => {
+    if (!demo) return;
     const d = loadDb();
-    d.tasks = gerarRecorrentes(d.tasks);
+    d.tasks = gerarRecorrentesLocal(d.tasks);
     setDb(d);
     setHydrated(true);
     try { setSessionId(localStorage.getItem(SESSION_KEY)); } catch { /* ignore */ }
     setAuthReady(true);
-  }, []);
+  }, [demo]);
 
-  // Persiste toda mudança (depois de hidratar, para não sobrescrever com o seed).
-  // `skipSave` evita regravar o que acabou de chegar de OUTRA aba (evento storage).
+  // Persiste toda mudança (só no demo, depois de hidratar). `skipSave` evita regravar
+  // o que acabou de chegar de OUTRA aba (evento storage).
   const skipSave = useRef(false);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!demo || !hydrated) return;
     if (skipSave.current) { skipSave.current = false; return; }
     saveDb(db);
-  }, [db, hydrated]);
-
-  // Outra aba gravou (ex.: candidatura pela página pública /vagas) → recarrega.
+  }, [db, hydrated, demo]);
   useEffect(() => {
+    if (!demo) return;
     const onStorage = (e: StorageEvent) => {
       if (e.key !== DB_KEY || !e.newValue) return;
       skipSave.current = true;
@@ -231,13 +263,135 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [demo]);
+
+  // ── modo Supabase: sessão do Auth ───────────────────────────────────────────
+  useEffect(() => {
+    if (demo) return;
+    const sb = getSupabaseBrowser();
+    if (!sb) return;
+    const { data: sub } = sb.auth.onAuthStateChange((_evt, session) => {
+      setAuthEmail(session?.user.email ?? null);
+      setMediaCookie(session?.access_token ?? null);
+      try { sb.realtime.setAuth(session?.access_token ?? null); } catch { /* noop */ }
+      setAuthReady(true);
+    });
+    sb.auth.getSession()
+      .then(({ data: s }) => { setAuthEmail(s.session?.user.email ?? null); setMediaCookie(s.session?.access_token ?? null); setAuthReady(true); })
+      .catch(() => setAuthReady(true));
+    const t = setTimeout(() => setAuthReady(true), 5000); // nunca ficar preso no "Carregando…"
+    return () => { clearTimeout(t); sub.subscription.unsubscribe(); };
+  }, [demo]);
+
+  // Re-busca o /api/bootstrap (recortado por cargo) e aplica. `epoch` faz a última
+  // resposta vencer. Falha num re-fetch já hidratado não derruba a tela.
+  const reloadEpoch = useRef(0);
+  const hydratedRef = useRef(false);
+  const versaoRef = useRef<string | null>(null);
+  const reload = useCallback(async () => {
+    if (demo) return;
+    const epoch = ++reloadEpoch.current;
+    try {
+      const res = await fetch("/api/bootstrap", { headers: await authHeaders() });
+      if (res.status === 401 || res.status === 403) {
+        const j = await res.json().catch(() => ({}));
+        await getSupabaseBrowser()?.auth.signOut().catch(() => {});
+        setAuthEmail(null); setMediaCookie(null); setSessionId(null);
+        setAuthErro(res.status === 403 ? (j?.error === "Usuário inativo." ? "Este usuário está inativo." : "Este e-mail não está cadastrado na equipe.") : null);
+        return;
+      }
+      if (!res.ok) throw new Error(`bootstrap ${res.status}`);
+      const j = (await res.json()) as { data?: AppData; userId?: string; versao?: string | null; demo?: boolean };
+      if (j.demo) throw new Error("Banco não configurado no servidor (SUPABASE_SERVICE_ROLE_KEY).");
+      if (!j.data) throw new Error("bootstrap vazio");
+      if (epoch !== reloadEpoch.current) return; // resposta obsoleta
+      setDb((d) => ({ ...d, ...j.data, senhas: {}, clients: [] }));
+      setSessionId(j.userId ?? null);
+      versaoRef.current = typeof j.versao === "string" ? j.versao : null;
+      setBootstrapError(null);
+      hydratedRef.current = true; setHydrated(true);
+    } catch (e) {
+      console.error("Falha ao carregar dados (bootstrap):", e);
+      if (!hydratedRef.current) setBootstrapError(e instanceof Error ? e.message : String(e));
+    }
+  }, [demo]);
+
+  // Hidratação inicial (uma vez, após autenticar) + recorrências vencidas do dia.
+  useEffect(() => {
+    if (demo || !authReady || hydrated || !authEmail) return;
+    void (async () => {
+      await reload();
+      try {
+        const r = await apiJson<{ geradas?: number; reagendadas?: number }>("/api/automacoes/gerar-recorrentes-lote", "POST", {});
+        if ((r.geradas ?? 0) + (r.reagendadas ?? 0) > 0) void reload();
+      } catch { /* o cron do servidor cobre */ }
+    })();
+  }, [demo, authReady, authEmail, hydrated, reload]);
+
+  // Realtime: assina a tabela-sinal `realtime_ping` e re-busca o bootstrap (debounce).
+  // Fallbacks: checagem de versão ao voltar para a aba + backstop de 5 min.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleReload = useCallback(() => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(() => { void reload(); }, 1000);
+  }, [reload]);
+  const checarVersao = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bootstrap/versao", { headers: await authHeaders() });
+      if (!res.ok) return;
+      const j = await res.json().catch(() => ({}));
+      const v = typeof j?.v === "string" ? j.v : null;
+      if (v !== versaoRef.current) scheduleReload();
+    } catch { /* offline */ }
+  }, [scheduleReload]);
+  useEffect(() => {
+    if (demo || !authReady || !authEmail) return;
+    const sb = getSupabaseBrowser();
+    if (!sb) return;
+    sb.auth.getSession().then(({ data }) => { const tk = data.session?.access_token; if (tk) { try { sb.realtime.setAuth(tk); } catch { /* noop */ } } });
+    const ch = sb.channel("realtime-ping")
+      .on("postgres_changes", { event: "*", schema: "public", table: "realtime_ping" }, () => scheduleReload())
+      .subscribe();
+    const onVisible = () => { if (document.visibilityState === "visible") void checarVersao(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    const backstop = setInterval(() => { if (document.visibilityState === "visible") void checarVersao(); }, 5 * 60_000);
+    return () => {
+      sb.removeChannel(ch);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      clearInterval(backstop);
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    };
+  }, [demo, authReady, authEmail, scheduleReload, checarVersao]);
 
   const patchDb = useCallback((fn: (d: Db) => Partial<Db>) => setDb((d) => ({ ...d, ...fn(d) })), []);
+
+  /** Persistência (modo Supabase). A UI já foi atualizada de forma otimista; se o
+   *  servidor recusar, loga e refaz o bootstrap para a tela voltar ao que está gravado. */
+  const persist = useCallback(async (url: string, method: "POST" | "PATCH" | "DELETE", body: unknown): Promise<{ ok: boolean; error?: string }> => {
+    if (demo) return { ok: true };
+    try {
+      await apiJson(url, method, body);
+      return { ok: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`Falha ao salvar (${method} ${url}):`, msg);
+      scheduleReload();
+      return { ok: false, error: msg };
+    }
+  }, [demo, scheduleReload]);
+
+  /** Imagem que a tela entregou como data-URL → URL pública no Storage (modo Supabase). */
+  const resolverImagem = useCallback(async (valor: string | null | undefined, dir: "usuarios" | "workspace" | "grupos", chave: string): Promise<string | null | undefined> => {
+    if (demo || !valor || !valor.startsWith("data:")) return valor;
+    return uploadAvatar(dataUrlParaFile(valor), dir, chave);
+  }, [demo]);
 
   const { team, tasks, clients: allClients, talentos, unidades, vagas, linkbio, gruposInternos, workspace, acessos, escopoProprio } = db;
   const currentUser: TeamMember = (sessionId && team.find((t) => t.id === sessionId)) || FALLBACK_USER;
   const authed = !!sessionId && currentUser.id !== "";
+  const hasSession = demo ? !!sessionId : !!authEmail;
 
   // Cargo → acessos.
   const canSeeAll = CARGOS_FULL.includes(currentUser.cargo);
@@ -315,55 +469,97 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [recModalScope, setRecModalScope] = useState<string | null>(null);
   const [talentoFormOpen, setTalentoFormOpen] = useState(false);
 
-  // Clientes ativos/pausados nas seleções; inativos ficam à parte (só p/ resolver nomes).
+  // Clientes (legado do demo): ativos/pausados nas seleções; inativos só p/ resolver nomes.
   const clients = useMemo(() => allClients.filter((c) => c.status !== "inativo"), [allClients]);
   const clientesInativos = useMemo(() => allClients.filter((c) => c.status === "inativo"), [allClients]);
 
   const value: Store = {
+    demo,
     authed,
-    hasSession: !!sessionId,
+    hasSession,
     authReady,
     hydrated,
+    bootstrapError,
+    authErro,
+    reload,
     currentUser,
     login: async (email, senha) => {
+      setAuthErro(null);
       const e = email.trim().toLowerCase();
-      const u = team.find((t) => (t.email ?? "").toLowerCase() === e);
-      if (!u) return { ok: false, error: "Email ou senha incorretos." };
-      if (u.ativo === false) return { ok: false, error: "Usuário inativo." };
-      if ((db.senhas[u.id] ?? "") !== senha) return { ok: false, error: "Email ou senha incorretos." };
-      setSessionId(u.id);
-      try { localStorage.setItem(SESSION_KEY, u.id); } catch { /* ignore */ }
+      if (demo) {
+        const u = team.find((t) => (t.email ?? "").toLowerCase() === e);
+        if (!u) return { ok: false, error: "Email ou senha incorretos." };
+        if (u.ativo === false) return { ok: false, error: "Usuário inativo." };
+        if ((db.senhas[u.id] ?? "") !== senha) return { ok: false, error: "Email ou senha incorretos." };
+        setSessionId(u.id);
+        try { localStorage.setItem(SESSION_KEY, u.id); } catch { /* ignore */ }
+        return { ok: true };
+      }
+      const sb = getSupabaseBrowser();
+      if (!sb) return { ok: false, error: "Login indisponível." };
+      const { data: res, error } = await sb.auth.signInWithPassword({ email: e, password: senha });
+      if (error || !res.session) return { ok: false, error: /invalid/i.test(error?.message ?? "") ? "Email ou senha incorretos." : (error?.message || "Falha ao entrar.") };
       return { ok: true };
     },
-    logout: () => { setSessionId(null); try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ } },
-    setSenha: (userId, senha) => {
+    logout: () => {
+      if (demo) { setSessionId(null); try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ } return; }
+      getSupabaseBrowser()?.auth.signOut().catch(() => {});
+      setAuthEmail(null); setMediaCookie(null); setSessionId(null);
+      setDb(dbVazio()); setHydrated(false); hydratedRef.current = false; versaoRef.current = null;
+    },
+    setSenha: async (userId, senha) => {
       if (senha.length < 6) return { ok: false, error: "A senha precisa ter ao menos 6 caracteres." };
-      patchDb((d) => ({ senhas: { ...d.senhas, [userId]: senha } }));
-      return { ok: true };
+      if (demo) { patchDb((d) => ({ senhas: { ...d.senhas, [userId]: senha } })); return { ok: true }; }
+      if (userId === currentUser.id) {
+        const sb = getSupabaseBrowser();
+        const { error } = await sb!.auth.updateUser({ password: senha });
+        return error ? { ok: false, error: error.message } : { ok: true };
+      }
+      try { await apiJson("/api/usuarios", "PATCH", { id: userId, patch: { senha } }); return { ok: true }; }
+      catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
     },
     isAdmin,
     canSeeAll,
     canEditResponsavel,
     podeTrocarResp,
     acessos,
-    setAcessos: (next) => patchDb(() => ({ acessos: next })),
+    setAcessos: (next) => { patchDb(() => ({ acessos: next })); void persist("/api/acessos", "PATCH", { acessos: next }); },
     canAccessPage,
     landingPage,
     canEditPage,
     escopoProprio,
-    setEscopoProprio: (next) => patchDb(() => ({ escopoProprio: next })),
+    setEscopoProprio: (next) => { patchDb(() => ({ escopoProprio: next })); void persist("/api/acessos", "PATCH", { escopoProprio: next }); },
     ownScopeOnly,
 
     team,
-    updateUsuario: (id, patch) => patchDb((d) => ({ team: d.team.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
-    addUsuario: (u, senha) => {
+    updateUsuario: (id, patch) => {
+      void (async () => {
+        let p = patch;
+        if ("foto" in patch) {
+          try { p = { ...patch, foto: (await resolverImagem(patch.foto, "usuarios", id)) || undefined }; }
+          catch (e) { console.error("Falha ao enviar a foto:", e); return; }
+        }
+        patchDb((d) => ({ team: d.team.map((t) => (t.id === id ? { ...t, ...p } : t)) }));
+        void persist("/api/usuarios", "PATCH", { id, patch: p });
+      })();
+    },
+    addUsuario: async (u, senha) => {
       const e = (u.email ?? "").trim().toLowerCase();
       if (!u.nome.trim()) return { ok: false, error: "Informe o nome." };
       if (!e) return { ok: false, error: "Informe o e-mail." };
       if (team.some((t) => (t.email ?? "").toLowerCase() === e)) return { ok: false, error: "Já existe uma pessoa com este e-mail." };
       if (senha.length < 6) return { ok: false, error: "A senha precisa ter ao menos 6 caracteres." };
-      patchDb((d) => ({ team: [...d.team, { ...u, email: e }], senhas: { ...d.senhas, [u.id]: senha } }));
-      return { ok: true };
+      if (demo) {
+        patchDb((d) => ({ team: [...d.team, { ...u, email: e }], senhas: { ...d.senhas, [u.id]: senha } }));
+        return { ok: true };
+      }
+      try {
+        const r = await apiJson<{ user: TeamMember }>("/api/usuarios", "POST", { nome: u.nome.trim(), email: e, cargo: u.cargo, senha });
+        patchDb((d) => ({ team: [...d.team.filter((t) => t.id !== r.user.id), r.user] }));
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
     },
     tasks,
     updateTask: (id, patch) => {
@@ -375,43 +571,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs], atualizada: nowBR.date, atualizadaHora: nowBR.hora }
         : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
       patchDb((d) => ({ tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) }));
+      void persist("/api/tarefas", "PATCH", { id, patch: fp });
     },
-    addTask: (t) => patchDb((d) => ({ tasks: [t, ...d.tasks] })),
-    removeTask: (id) => patchDb((d) => {
-      // Remove o id + todos os descendentes (subtarefas).
-      const mortos = new Set<string>([id]);
-      let cresceu = true;
-      while (cresceu) {
-        cresceu = false;
-        for (const t of d.tasks) if (t.parentId && mortos.has(t.parentId) && !mortos.has(t.id)) { mortos.add(t.id); cresceu = true; }
-      }
-      return { tasks: d.tasks.filter((t) => !mortos.has(t.id)) };
-    }),
-    criarRecorrencia: async (t) => { patchDb((d) => ({ tasks: [t, ...d.tasks] })); return { ok: true }; },
+    addTask: (t) => { patchDb((d) => ({ tasks: [t, ...d.tasks] })); void persist("/api/tarefas", "POST", { task: t }); },
+    removeTask: (id) => {
+      patchDb((d) => {
+        // Remove o id + todos os descendentes (subtarefas).
+        const mortos = new Set<string>([id]);
+        let cresceu = true;
+        while (cresceu) {
+          cresceu = false;
+          for (const t of d.tasks) if (t.parentId && mortos.has(t.parentId) && !mortos.has(t.id)) { mortos.add(t.id); cresceu = true; }
+        }
+        return { tasks: d.tasks.filter((t) => !mortos.has(t.id)) };
+      });
+      void persist("/api/tarefas", "DELETE", { id });
+    },
+    criarRecorrencia: async (t) => {
+      const r = await persist("/api/tarefas", "POST", { task: t });
+      if (r.ok) patchDb((d) => ({ tasks: [t, ...d.tasks] }));
+      return r;
+    },
     setRecorrencia: async (id, rec) => {
-      patchDb((d) => ({
-        tasks: d.tasks.map((t) => {
-          if (t.id !== id) return t;
-          if (!rec) return { ...t, rec: undefined };
-          // Recalcula a próxima ocorrência (a partir de hoje) ao ligar/editar a regra.
-          const regra = { frequencia: rec.freq, dia_semana: rec.diaSemana ?? null, dia_mes: rec.diaMes ?? null };
-          return { ...t, rec: { ...rec, proxima: rec.proxima ?? proximaApos(hojeSP(), regra) } };
-        }),
-      }));
-      return { ok: true };
+      const regra = rec ? { frequencia: rec.freq, dia_semana: rec.diaSemana ?? null, dia_mes: rec.diaMes ?? null } : null;
+      // Recalcula a próxima ocorrência (a partir de hoje) ao ligar/editar a regra.
+      const recFinal = rec && regra ? { ...rec, proxima: rec.proxima ?? proximaApos(hojeSP(), regra) } : rec;
+      patchDb((d) => ({ tasks: d.tasks.map((t) => (t.id !== id ? t : recFinal ? { ...t, rec: recFinal } : { ...t, rec: undefined })) }));
+      return persist("/api/tarefas", "PATCH", { id, patch: { rec: recFinal } });
     },
     clients,
     clientesInativos,
     talentos,
-    addTalento: (t) => patchDb((d) => ({ talentos: [t, ...d.talentos] })),
+    addTalento: (t) => { patchDb((d) => ({ talentos: [t, ...d.talentos] })); void persist("/api/talentos", "POST", { talento: t }); },
     updateTalento: (id, patch) => {
       const old = talentos.find((t) => t.id === id);
       if (!old) return;
       const logs = buildTalentoLogs(old, patch, currentUser);
       const fp: Partial<Talento> = logs.length ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs] } : patch;
       patchDb((d) => ({ talentos: d.talentos.map((t) => (t.id === id ? { ...t, ...fp } : t)) }));
+      void persist("/api/talentos", "PATCH", { id, patch: fp });
     },
-    removeTalento: (id) => patchDb((d) => ({ talentos: d.talentos.filter((t) => t.id !== id) })),
+    removeTalento: (id) => { patchDb((d) => ({ talentos: d.talentos.filter((t) => t.id !== id) })); void persist("/api/talentos", "DELETE", { id }); },
     unidades,
     addUnidade: (u) => {
       // Slug único a partir de "cidade nome"; colisão ganha sufixo numérico.
@@ -420,38 +620,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
       while (unidades.some((x) => x.slug === slug)) slug = `${base}-${n++}`;
       const nova: Unidade = { ...u, id: `u-${Date.now()}`, slug, criada: new Date().toISOString() };
       patchDb((d) => ({ unidades: [...d.unidades, nova] }));
+      void persist("/api/unidades", "POST", { unidade: nova });
       return nova;
     },
-    updateUnidade: (id, patch) => patchDb((d) => ({ unidades: d.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
-    removeUnidade: (id) => patchDb((d) => ({
-      unidades: d.unidades.filter((x) => x.id !== id),
-      vagas: d.vagas.filter((v) => v.unidadeId !== id),
-      talentos: d.talentos.map((t) => (t.unidadeId === id ? { ...t, unidadeId: undefined, vagaId: undefined } : t)),
-    })),
+    updateUnidade: (id, patch) => { patchDb((d) => ({ unidades: d.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) })); void persist("/api/unidades", "PATCH", { id, patch }); },
+    removeUnidade: (id) => {
+      patchDb((d) => ({
+        unidades: d.unidades.filter((x) => x.id !== id),
+        vagas: d.vagas.filter((v) => v.unidadeId !== id),
+        talentos: d.talentos.map((t) => (t.unidadeId === id ? { ...t, unidadeId: undefined, vagaId: undefined } : t)),
+      }));
+      void persist("/api/unidades", "DELETE", { id });
+    },
     vagas,
     addVaga: (v) => {
       const nova: Vaga = { ...v, id: `v-${Date.now()}`, criada: new Date().toISOString() };
       patchDb((d) => ({ vagas: [...d.vagas, nova] }));
+      void persist("/api/vagas", "POST", { vaga: nova });
       return nova;
     },
-    updateVaga: (id, patch) => patchDb((d) => ({
-      vagas: d.vagas.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-      // Renomear a vaga reflete no texto dos candidatos vinculados.
-      talentos: patch.titulo ? d.talentos.map((t) => (t.vagaId === id ? { ...t, vaga: patch.titulo } : t)) : d.talentos,
-    })),
-    removeVaga: (id) => patchDb((d) => ({
-      vagas: d.vagas.filter((x) => x.id !== id),
-      talentos: d.talentos.map((t) => (t.vagaId === id ? { ...t, vagaId: undefined } : t)),
-    })),
+    updateVaga: (id, patch) => {
+      patchDb((d) => ({
+        vagas: d.vagas.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+        // Renomear a vaga reflete no texto dos candidatos vinculados.
+        talentos: patch.titulo ? d.talentos.map((t) => (t.vagaId === id ? { ...t, vaga: patch.titulo } : t)) : d.talentos,
+      }));
+      void persist("/api/vagas", "PATCH", { id, patch });
+    },
+    removeVaga: (id) => {
+      patchDb((d) => ({ vagas: d.vagas.filter((x) => x.id !== id), talentos: d.talentos.map((t) => (t.vagaId === id ? { ...t, vagaId: undefined } : t)) }));
+      void persist("/api/vagas", "DELETE", { id });
+    },
     linkbio,
-    setLinkbio: (patch) => patchDb((d) => ({ linkbio: { ...d.linkbio, ...patch } })),
+    setLinkbio: (patch) => { patchDb((d) => ({ linkbio: { ...d.linkbio, ...patch } })); void persist("/api/vagas", "PATCH", { pagina: patch }); },
     gruposInternos,
-    criarGrupoInterno: (g) => patchDb((d) => ({ gruposInternos: [...d.gruposInternos, g] })),
-    updateGrupoInterno: (id, patch) => patchDb((d) => ({ gruposInternos: d.gruposInternos.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
-    removerGrupoInterno: (id) => patchDb((d) => ({ gruposInternos: d.gruposInternos.filter((x) => x.id !== id) })),
+    criarGrupoInterno: (g) => {
+      void (async () => {
+        let grupo = g;
+        try { grupo = { ...g, logo: (await resolverImagem(g.logo, "grupos", g.id)) || undefined }; }
+        catch (e) { console.error("Falha ao enviar o logo:", e); }
+        patchDb((d) => ({ gruposInternos: [...d.gruposInternos, grupo] }));
+        void persist("/api/grupos", "POST", { grupo });
+      })();
+    },
+    updateGrupoInterno: (id, patch) => {
+      void (async () => {
+        let p = patch;
+        if ("logo" in patch) {
+          try { p = { ...patch, logo: (await resolverImagem(patch.logo, "grupos", id)) || undefined }; }
+          catch (e) { console.error("Falha ao enviar o logo:", e); return; }
+        }
+        patchDb((d) => ({ gruposInternos: d.gruposInternos.map((x) => (x.id === id ? { ...x, ...p } : x)) }));
+        void persist("/api/grupos", "PATCH", { id, patch: p });
+      })();
+    },
+    removerGrupoInterno: (id) => { patchDb((d) => ({ gruposInternos: d.gruposInternos.filter((x) => x.id !== id) })); void persist("/api/grupos", "DELETE", { id }); },
     workspace,
-    setWorkspace: (patch) => patchDb((d) => ({ workspace: { ...d.workspace, ...patch } })),
-    restaurarDados: () => { const d = seedDb(); d.tasks = gerarRecorrentes(d.tasks); setDb(d); },
+    setWorkspace: (patch) => {
+      void (async () => {
+        let p = patch;
+        if ("logo" in patch) {
+          try { p = { ...patch, logo: (await resolverImagem(patch.logo, "workspace", "logo")) || null }; }
+          catch (e) { console.error("Falha ao enviar o logo:", e); return; }
+        }
+        patchDb((d) => ({ workspace: { ...d.workspace, ...p } }));
+        void persist("/api/workspace", "PATCH", p);
+      })();
+    },
+    restaurarDados: () => {
+      if (!demo) { void reload(); return; }
+      const d = seedDb(); d.tasks = gerarRecorrentesLocal(d.tasks); setDb(d);
+    },
 
     screen,
     goto: (s) => {
