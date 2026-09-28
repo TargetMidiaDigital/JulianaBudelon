@@ -301,7 +301,14 @@ export default function BancoTalentos() {
                                 <span style={css(`width:6px; height:6px; border-radius:50%; background:${vagaCor(t.vaga)};`)} />{t.vaga}
                               </span>
                             )}
-                            {t.qualidade && <span style={css("font-size:11.5px; font-weight:600; color:#5B6472; background:#EDEEF2; padding:3px 9px; border-radius:7px;")}>{t.qualidade}</span>}
+                            {(() => {
+                              const q = QUALIDADE_TALENTO.find((x) => x.v === (t.qualidade || "Aguardando Análise"));
+                              return (
+                                <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${q ? `${q.cor}22` : "#EDEEF2"}; color:#3A3F4C;`)}>
+                                  {q && <span style={css(`width:6px; height:6px; border-radius:50%; background:${q.cor};`)} />}{t.qualidade || "Aguardando Análise"}
+                                </span>
+                              );
+                            })()}
                           </div>
                           {unidadeDe(t.unidadeId) && (
                             <div style={css("margin-top:8px; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#7A8090;")}>
