@@ -164,6 +164,9 @@ type Store = {
   // modais
   taskDetailOpen: string | null;
   setTaskDetailOpen: (id: string | null) => void;
+  /** Candidato a abrir no Banco de Talentos (deep-link ?talento=<id> vindo do aviso no WhatsApp). */
+  talentoDetailOpen: string | null;
+  setTalentoDetailOpen: (id: string | null) => void;
   taskFormOpen: boolean;
   setTaskFormOpen: (v: boolean) => void;
   taskFormPrefill: { cliente?: string | null; gestor?: string | null } | null;
@@ -434,7 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     landedRef.current = true;
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
-      if (sp.get("tarefa") || sp.get("page")) return;
+      if (sp.get("tarefa") || sp.get("talento") || sp.get("page")) return;
     }
     setScreen(landingPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -466,6 +469,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── modais ─────────────────────────────────────────────────────────────────
   const [taskDetailOpen, setTaskDetailOpen] = useState<string | null>(null);
+  const [talentoDetailOpen, setTalentoDetailOpen] = useState<string | null>(null);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [taskFormPrefill, setTaskFormPrefill] = useState<{ cliente?: string | null; gestor?: string | null } | null>(null);
   const [recModalScope, setRecModalScope] = useState<string | null>(null);
@@ -738,6 +742,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     taskDetailOpen,
     setTaskDetailOpen,
+    talentoDetailOpen,
+    setTalentoDetailOpen,
     taskFormOpen,
     setTaskFormOpen,
     taskFormPrefill,

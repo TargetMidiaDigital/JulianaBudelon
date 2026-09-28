@@ -8,7 +8,8 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
 - **Operacional → Tarefas** — lista agrupável (status / responsável / prioridade / vencimento / tipo)
   e quadro kanban; edição inline de título, cliente, responsável, prioridade, status e vencimento;
   seleção múltipla com ações em lote; descrição rica e comentários com imagem/vídeo/anexo;
-  recorrências (diária / semanal / mensal); link compartilhável `?tarefa=<id>`.
+  recorrências (diária / semanal / mensal); link compartilhável `?tarefa=<id>` (e `?talento=<id>`
+  abre um candidato no Banco de Talentos).
 - **Recrutamento → Banco de Talentos** — quadro por etapa e lista ordenável; detalhe do candidato
   com status, vaga, qualidade, WhatsApp, currículo/anexos e comentários; cadastro de novo candidato.
 - **Recrutamento → Vagas** — cadastro de unidades e de vagas (sempre vinculadas a uma unidade), com
@@ -28,6 +29,14 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   de PDF) e **Ferramentas** (ligar/desligar a análise automática na candidatura). Tudo na tabela
   `agente_ia` (linha `recrutamento`), via `/api/agente/config`. Sem token, o resto do sistema
   funciona e o candidato fica "Aguardando Análise". Nenhuma variável de ambiente de IA.
+- **Configurações → WhatsApp** (Administrador) — igual ao Cachorrão HD: credenciais da **Uazapi**
+  (URL + token write-only, em `agente_ia`), **conexão do número** (status, QR Code, desconectar,
+  pelo proxy `/api/whatsapp/instancia`) e **grupos de notificação** (`whatsapp_grupos`: JID,
+  liga/desliga, testar, excluir, via `/api/whatsapp/grupos`). A cada candidatura pela página
+  pública, os grupos ativos recebem nome, vaga, unidade e o link `/?talento=<id>` que abre o
+  candidato no painel (o arquivo do currículo não vai: é documento pessoal). Interruptor em
+  Agente IA → Ferramentas → "Avisar novo currículo no grupo". Em desenvolvimento (link
+  `localhost`) o aviso não sai. Código em [`lib/whatsapp.ts`](lib/whatsapp.ts).
 - **Página pública `/vagas`** (link na bio, no desenho do linkbio do Cachorrão HD) — hub com um botão
   por unidade → `/vagas/<unidade>` com um botão por vaga → popup nome / WhatsApp / currículo →
   `/vagas/obrigado`. A candidatura entra no Banco de Talentos com status "Novo". O Pixel do Facebook é
@@ -59,7 +68,8 @@ Banco: projeto Supabase `pqcbenrlejgtpsfqukcr` (sa-east-1). O schema está em
 `realtime_ping`; RLS ligado sem policies — só o servidor acessa, com a service role). A migration
 0005 adiciona as colunas da análise por IA em `talento` (`resumo`, `analise`, `nota_ia`,
 `qualidade_ia`, `analisado_em`, `analise_erro`) e `requisitos`/`diferenciais` em `vaga`; a 0006
-cria `agente_ia` (token do OpenRouter, modelo, motor de PDF, prompt e ferramentas do agente).
+cria `agente_ia` (token do OpenRouter, modelo, motor de PDF, prompt e ferramentas do agente); a
+0007 adiciona `uazapi_url`/`uazapi_token` em `agente_ia` e cria `whatsapp_grupos`.
 Pessoas entram por **Configurações → Pessoas**, que cria o login no Auth e a linha em `usuarios`
 (o e-mail é o vínculo entre os dois).
 

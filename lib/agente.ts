@@ -28,6 +28,11 @@ export const MODELO_RECRUTAMENTO_PADRAO = "google/gemini-2.5-flash";
 /** Interruptores da aba Ferramentas. Chave ausente = ligado. */
 export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: string }[] = [
   {
+    key: "notificar_curriculo",
+    nome: "Avisar novo currículo no grupo de WhatsApp",
+    descricao: "A cada candidatura recebida pela página de vagas, avisa os grupos cadastrados em Configurações → WhatsApp com o nome, a vaga, a unidade e o link do candidato. O arquivo do currículo não vai na mensagem — abre pelo painel, que tem login.",
+  },
+  {
     key: "analisar_curriculo",
     nome: "Analisar currículo ao receber candidatura",
     descricao: "Quando chega uma candidatura pela página de vagas, a IA lê o currículo e grava o resumo e a nota de aderência à vaga no candidato. Desligado, a análise só roda pelo botão \"Analisar com IA\" no candidato. Atenção: o conteúdo do currículo é enviado ao OpenRouter.",

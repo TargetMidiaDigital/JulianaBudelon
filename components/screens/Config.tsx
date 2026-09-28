@@ -15,8 +15,9 @@ import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
 import AgenteIATab from "./AgenteIATab";
+import WhatsAppTab from "./WhatsAppTab";
 
-type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "agente" | "perfil";
+type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "agente" | "whatsapp" | "perfil";
 
 // Grupos internos: setores disponíveis e cargos selecionáveis em "Quem pode ver"
 // por setor (Administrador é sempre implícito e não entra na lista).
@@ -37,6 +38,7 @@ export default function Config() {
     ...(isAdmin ? [{ key: "grupos" as ConfigTab, label: "Grupos" }] : []),
     ...(isAdmin ? [{ key: "acessos" as ConfigTab, label: "Acessos" }] : []),
     ...(isAdmin ? [{ key: "agente" as ConfigTab, label: "Agente IA" }] : []),
+    ...(isAdmin ? [{ key: "whatsapp" as ConfigTab, label: "WhatsApp" }] : []),
     { key: "perfil", label: "Perfil" },
   ];
   const [tab, setTab] = useState<ConfigTab>("perfil");
@@ -72,6 +74,7 @@ export default function Config() {
       {tab === "grupos" && (isAdmin ? <GruposTab /> : <Placeholder titulo="Grupos" texto="Acesso restrito a Administrador." />)}
       {tab === "acessos" && (isAdmin ? <AcessosTab /> : <Placeholder titulo="Acessos" texto="Acesso restrito a Administrador." />)}
       {tab === "agente" && (isAdmin ? <AgenteIATab /> : <Placeholder titulo="Agente IA" texto="Acesso restrito a Administrador." />)}
+      {tab === "whatsapp" && (isAdmin ? <WhatsAppTab /> : <Placeholder titulo="WhatsApp" texto="Acesso restrito a Administrador." />)}
     </div>
   );
 }

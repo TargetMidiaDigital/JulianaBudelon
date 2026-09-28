@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { css } from "@/lib/css";
 import { foneBR } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
@@ -111,7 +111,7 @@ function NotaBadge({ t }: { t: Talento }) {
 const ARQUIVO_KEYS = ["desqualificado", "contratado", "antigos"];
 
 export default function BancoTalentos() {
-  const { canEditPage, talentos, unidades, updateTalento, removeTalento, setTalentoFormOpen } = useApp();
+  const { canEditPage, talentos, unidades, updateTalento, removeTalento, setTalentoFormOpen, talentoDetailOpen, setTalentoDetailOpen } = useApp();
   const unidadeDe = (id?: string) => unidades.find((u) => u.id === id);
   const [vista, setVista] = useState<"list" | "board">("board");
   const [filtro, setFiltro] = useState<Filtro>(null);
@@ -119,6 +119,12 @@ export default function BancoTalentos() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [abertoId, setAbertoId] = useState<string | null>(null);
+  // Deep-link ?talento=<id> (aviso no WhatsApp): abre o candidato e limpa o pedido.
+  useEffect(() => {
+    if (!talentoDetailOpen) return;
+    setAbertoId(talentoDetailOpen);
+    setTalentoDetailOpen(null);
+  }, [talentoDetailOpen, setTalentoDetailOpen]);
 
   const editavel = canEditPage("recrutamento-talentos");
   const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
