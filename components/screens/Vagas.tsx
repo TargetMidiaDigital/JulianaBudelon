@@ -92,6 +92,9 @@ export default function Vagas() {
         <a href="/vagas" target="_blank" rel="noreferrer" style={css(btnGhost + "text-decoration:none;")}>Abrir <Svg size={13} sw={2.2}><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></Svg></a>
       </div>
 
+      {/* Página pública: textos (logo abaixo do link, como pediu a Ju) */}
+      <PaginaConfig linkbio={linkbio} onSave={setLinkbio} editavel={editavel} />
+
       {formUnidade.aberto && (
         <UnidadeForm
           inicial={formUnidade.editando}
@@ -205,9 +208,6 @@ export default function Vagas() {
           )}
         </div>
       </div>
-
-      {/* Página pública: textos */}
-      <PaginaConfig linkbio={linkbio} onSave={setLinkbio} editavel={editavel} />
 
       {confirm && (
         <ConfirmModal
