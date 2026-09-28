@@ -20,6 +20,8 @@ import MediaViewer from "../ui/MediaViewer";
 import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
+import BotaoWhatsapp from "../ui/BotaoWhatsapp";
+import { linkWhatsappCandidato } from "@/lib/whatsapp-candidato";
 
 /** Como o anexo é exibido no visualizador: imagem/vídeo/pdf têm preview; o resto é "file". */
 function tipoDoAnexo(a: Anexo): "image" | "video" | "pdf" | "file" {
@@ -76,7 +78,7 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
   onDelete?: () => void;
 }) {
   useFecharComEsc(true, onClose);
-  const { team, currentUser, unidades, vagas, analisarTalento } = useApp();
+  const { team, currentUser, unidades, vagas, analisarTalento, workspace } = useApp();
   const l = talento;
   // Análise por IA: estado local do botão; o resultado chega pelo store (patch do talento).
   const [analisando, setAnalisando] = useState(false);
@@ -192,10 +194,12 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
               <Row label="WhatsApp">
                 <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
                   {wa ? (
-                    <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" style={css("display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#1B7F4D; text-decoration:none;")}>
-                      <Svg size={15} stroke="#1B7F4D"><path d="M21 15.5a2 2 0 0 1-2 2 16 16 0 0 1-14-14 2 2 0 0 1 2-2h2.6a1 1 0 0 1 1 .76l.7 2.8a1 1 0 0 1-.27.95l-1.2 1.2a13 13 0 0 0 5 5l1.2-1.2a1 1 0 0 1 .95-.27l2.8.7a1 1 0 0 1 .76 1z" /></Svg>
-                      {foneBR(l.fone)}
-                    </a>
+                    <>
+                      <a href={linkWhatsappCandidato(l, workspace.nome) ?? `https://wa.me/${wa}`} target="_blank" rel="noreferrer" title="Abrir o WhatsApp com a mensagem de primeiro contato pronta" style={css("display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#1B7F4D; text-decoration:none;")}>
+                        {foneBR(l.fone)}
+                      </a>
+                      <BotaoWhatsapp candidato={l} size={26} />
+                    </>
                   ) : <Plain>—</Plain>}
                   {canEdit && <EditableTitle value="" placeholder="" onSave={(v) => onPatch({ fone: normalizarWhatsapp(v) })} textStyle="font-size:12px;" pencilSize={12} />}
                 </div>

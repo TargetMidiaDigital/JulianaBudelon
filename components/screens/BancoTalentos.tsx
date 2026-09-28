@@ -5,7 +5,8 @@ import { css } from "@/lib/css";
 import { foneBR } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
 import type { Talento } from "@/lib/types";
-import { TALENTO_STATUS, corDeTexto, statusPill, notaCor } from "@/lib/talento-dims";
+import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, statusPill } from "@/lib/talento-dims";
+import BotaoWhatsapp from "../ui/BotaoWhatsapp";
 import { unidadeLabel } from "@/lib/localdb";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -13,19 +14,24 @@ import Menu, { MenuItem } from "../ui/Menu";
 import TalentoDetail from "../modals/TalentoDetail";
 import { useApp } from "../store";
 
-// ── Vista LISTA: tabela ordenável ──
-type SortKey = "criada" | "nome" | "status" | "vaga" | "fone" | "qualidade" | "nota";
-const COLS: { label: string; key: SortKey }[] = [
+// ── Vista LISTA: tabela ordenável — mesmas colunas da tabela do Banco de Talentos do
+// Cachorrão HD (Data · Qualidade · Unidade · Nome · WhatsApp · Status · Vaga · Turno ·
+// Resumo do currículo · Currículo). O botão verde abre o WhatsApp com a mensagem pronta.
+type SortKey = "criada" | "qualidade" | "unidade" | "nome" | "status" | "vaga" | "turno";
+const COLS: { label: string; key?: SortKey }[] = [
   { label: "Data criada", key: "criada" },
-  { label: "Contato", key: "nome" },
+  { label: "Qualidade", key: "qualidade" },
+  { label: "Unidade", key: "unidade" },
+  { label: "Nome", key: "nome" },
+  { label: "WhatsApp" },
   { label: "Status", key: "status" },
   { label: "Vaga", key: "vaga" },
-  { label: "WhatsApp", key: "fone" },
-  { label: "Qualidade", key: "qualidade" },
-  { label: "Nota IA", key: "nota" },
+  { label: "Turno", key: "turno" },
+  { label: "Resumo do currículo" },
+  { label: "Currículo" },
 ];
-const GRID = "140px minmax(180px,1.4fr) 190px 170px 160px 150px 90px";
-const GRID_MIN = 1080;
+const GRID = "120px 150px 170px minmax(170px,1.2fr) 175px 170px 190px 90px minmax(220px,1.6fr) 150px";
+const GRID_MIN = 1640;
 
 const dataBR = (iso?: string): string => {
   if (!iso) return "—";
@@ -93,19 +99,6 @@ function TalentoFiltro({ talentos, filtro, onChange, statusPermitidos }: { talen
 
 const vagaCor = (v?: string) => corDeTexto(v);
 
-/** Nota da análise por IA (0–100) como selo colorido; "—" sem análise. */
-function NotaBadge({ t }: { t: Talento }) {
-  const n = t.analise?.nota;
-  if (n == null) return <span style={css("font-size:12px; color:#C7CAD2;")}>{t.analiseErro ? "erro" : "—"}</span>;
-  const cor = notaCor(n);
-  const desatualizada = !!t.analise?.vagaId && !!t.vagaId && t.analise.vagaId !== t.vagaId;
-  return (
-    <span title={desatualizada ? `Análise feita para ${t.analise?.vagaTitulo ?? "outra vaga"} — reanalise` : `Aderência à vaga: ${n}/100 (${t.analise?.classificacao})`} style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:7px; background:${cor}1A; color:${cor}; font-variant-numeric:tabular-nums; white-space:nowrap;`)}>
-      <Svg size={11} sw={2.4} stroke={cor}><path d="M12 3l1.9 5.6H20l-4.8 3.5 1.8 5.6L12 14.3l-5 3.4 1.8-5.6L4 8.6h6.1z" /></Svg>{n}{desatualizada ? " !" : ""}
-    </span>
-  );
-}
-
 // Status "de arquivo": saem da visão por padrão (igual às tarefas validadas). Um único botão
 // na toolbar mostra/esconde os três de uma vez.
 const ARQUIVO_KEYS = ["desqualificado", "contratado", "antigos"];
@@ -144,15 +137,12 @@ export default function BancoTalentos() {
           const ib = TALENTO_STATUS.findIndex((e) => e.key === b.status);
           return (ia - ib) * sort.dir;
         }
-        if (sort.key === "nota") {
-          // Sem análise vai sempre para o fim, em qualquer direção.
-          const na = a.analise?.nota, nb = b.analise?.nota;
-          if (na == null && nb == null) return 0;
-          if (na == null) return 1;
-          if (nb == null) return -1;
-          return (na - nb) * sort.dir;
+        if (sort.key === "qualidade") {
+          const ordem = QUALIDADE_TALENTO.map((q) => q.v);
+          return (ordem.indexOf(a.qualidade ?? "") - ordem.indexOf(b.qualidade ?? "")) * sort.dir;
         }
-        const av = a[sort.key], bv = b[sort.key];
+        const av = sort.key === "unidade" ? unidadeLabel(unidadeDe(a.unidadeId)) : a[sort.key];
+        const bv = sort.key === "unidade" ? unidadeLabel(unidadeDe(b.unidadeId)) : b[sort.key];
         if (!av && !bv) return 0;
         if (!av) return 1;
         if (!bv) return -1;
@@ -217,19 +207,32 @@ export default function BancoTalentos() {
           <div style={css("flex:1; min-height:0; overflow:auto; border:1px solid #ECEDF1; border-radius:12px; background:#fff;")}>
             <div style={css(`min-width:${GRID_MIN}px;`)}>
               <div style={css(`position:sticky; top:0; z-index:20; min-width:${GRID_MIN}px; display:grid; grid-template-columns:${GRID}; gap:14px; padding:11px 18px; border-bottom:1px solid #ECEDF1; background:#F4F5F7; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
-                {COLS.map((col) => (
-                  <Hoverable key={col.key} onClick={() => toggleSort(col.key)} s={css("display:flex; align-items:center; gap:4px; overflow:hidden; cursor:pointer; user-select:none;")} hover="color:#5B6472">
+                {COLS.map((col) => col.key ? (
+                  <Hoverable key={col.label} onClick={() => toggleSort(col.key!)} s={css("display:flex; align-items:center; gap:4px; overflow:hidden; cursor:pointer; user-select:none;")} hover="color:#5B6472">
                     <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{col.label}</span>
                     <span style={css(`color:${BRAND}; font-weight:800;`)}>{sort?.key === col.key ? (sort.dir === 1 ? "↑" : "↓") : ""}</span>
                   </Hoverable>
+                ) : (
+                  <span key={col.label} style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{col.label}</span>
                 ))}
               </div>
               {linhas.map((t) => {
                 const p = statusPill(t.status);
+                const q = QUALIDADE_TALENTO.find((x) => x.v === (t.qualidade || "Aguardando Análise"));
+                const cv = (t.anexos ?? []).find((a) => /\.(pdf|docx?|jpe?g|png|webp)$/i.test(a.nome)) ?? t.anexos?.[0];
                 return (
-                  <Hoverable key={t.id} onClick={() => abrir(t.id)} s={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:13px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer; font-size:13px; color:#3A3F4C;`)} hover="background:#FAFAFB">
+                  <Hoverable key={t.id} onClick={() => abrir(t.id)} s={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:12px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer; font-size:13px; color:#3A3F4C;`)} hover="background:#FAFAFB">
                     <span style={css("color:#7A8090; white-space:nowrap;")}>{dataBR(t.criada)}</span>
+                    <span style={css("overflow:hidden;")}>
+                      <span style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; white-space:nowrap; background:${q ? `${q.cor}22` : "#EDEEF2"}; color:#3A3F4C;`)}>
+                        {q && <span style={css(`width:7px; height:7px; border-radius:50%; background:${q.cor};`)} />}{t.qualidade || "Aguardando Análise"}
+                      </span>
+                    </span>
+                    <span style={css("color:#7A8090; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{unidadeDe(t.unidadeId) ? unidadeLabel(unidadeDe(t.unidadeId)) : "—"}</span>
                     <span style={css("font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{t.nome}</span>
+                    <span style={css("display:inline-flex; align-items:center; gap:8px; overflow:hidden; white-space:nowrap; font-variant-numeric:tabular-nums;")}>
+                      {t.fone ? <>{foneBR(t.fone)}<BotaoWhatsapp candidato={t} /></> : "—"}
+                    </span>
                     <span style={css("overflow:hidden;")}>
                       <span style={css(`display:inline-flex; align-items:center; gap:6px; background:${p.bg}; color:${p.fg}; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap;`)}>
                         <span style={css(`width:7px; height:7px; border-radius:50%; background:${p.fg};`)} />{p.label}
@@ -237,14 +240,23 @@ export default function BancoTalentos() {
                     </span>
                     <span style={css("overflow:hidden;")}>
                       {t.vaga ? (
-                        <span style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:3px 9px; border-radius:7px; white-space:nowrap; background:${vagaCor(t.vaga)}1A; color:${vagaCor(t.vaga)};`)}>
-                          <span style={css(`width:7px; height:7px; border-radius:50%; background:${vagaCor(t.vaga)};`)} />{t.vaga}
+                        <span style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:3px 9px; border-radius:7px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; background:${vagaCor(t.vaga)}1A; color:${vagaCor(t.vaga)};`)}>
+                          <span style={css(`width:7px; height:7px; border-radius:50%; flex:none; background:${vagaCor(t.vaga)};`)} />{t.vaga}
                         </span>
                       ) : "—"}
                     </span>
-                    <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums;")}>{t.fone ? foneBR(t.fone) : "—"}</span>
-                    <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{txt(t.qualidade)}</span>
-                    <span><NotaBadge t={t} /></span>
+                    <span style={css("color:#7A8090; white-space:nowrap;")}>{t.turno || "—"}</span>
+                    <span title={t.analise?.resumo || t.analiseErro || undefined} style={css(`overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px; color:${t.analise ? "#3A3F4C" : "#B6BAC4"};`)}>
+                      {t.analise?.resumo || (t.analiseErro ? "Sem análise — abra para ver o motivo" : "Aguardando análise")}
+                    </span>
+                    <span style={css("overflow:hidden;")}>
+                      {cv ? (
+                        <a href={cv.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={cv.nome} style={css("display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#2563EB; text-decoration:none; max-width:100%; overflow:hidden;")}>
+                          <Svg size={14} stroke="#2563EB" style={css("flex:none;")}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></Svg>
+                          <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{cv.nome}</span>
+                        </a>
+                      ) : <span style={css("color:#B6BAC4;")}>—</span>}
+                    </span>
                   </Hoverable>
                 );
               })}
@@ -290,14 +302,17 @@ export default function BancoTalentos() {
                               </span>
                             )}
                             {t.qualidade && <span style={css("font-size:11.5px; font-weight:600; color:#5B6472; background:#EDEEF2; padding:3px 9px; border-radius:7px;")}>{t.qualidade}</span>}
-                            <NotaBadge t={t} />
                           </div>
                           {unidadeDe(t.unidadeId) && (
                             <div style={css("margin-top:8px; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#7A8090;")}>
                               <Svg size={12} sw={2.2} stroke="#9398A6"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>{unidadeLabel(unidadeDe(t.unidadeId))}
                             </div>
                           )}
-                          {t.fone && <div style={css("margin-top:10px; font-size:12.5px; color:#7A8090; font-variant-numeric:tabular-nums;")}>{foneBR(t.fone)}</div>}
+                          {t.fone && (
+                            <div style={css("margin-top:10px; display:flex; align-items:center; gap:8px; font-size:12.5px; color:#7A8090; font-variant-numeric:tabular-nums;")}>
+                              {foneBR(t.fone)}<BotaoWhatsapp candidato={t} size={24} />
+                            </div>
+                          )}
                         </Hoverable>
                       ))}
                       {col.length === 0 && (
