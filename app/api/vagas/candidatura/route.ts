@@ -3,7 +3,7 @@ import { getSupabase } from "@/lib/supabase";
 import { normalizarWhatsapp } from "@/lib/format";
 import { unidadeDe, vagaDe, type UnidadeRow, type VagaRow } from "@/lib/data";
 import { slugify, unidadeLabel, vagaLabel } from "@/lib/localdb";
-import { analisarTalento, temIA } from "@/lib/analise-curriculo";
+import { analisarTalento, ferramentaLigada } from "@/lib/analise-curriculo";
 
 /**
  * ROTA PÚBLICA (sem sessão, por design) — o candidato se inscreve pela página /vagas.
@@ -19,7 +19,8 @@ import { analisarTalento, temIA } from "@/lib/analise-curriculo";
  *
  * Depois de gravar, dispara a análise do currículo por IA em segundo plano (`after`): o
  * candidato já aparece no Banco de Talentos e, segundos depois, recebe resumo + classificação
- * (o realtime_ping avisa o painel). Sem ANTHROPIC_API_KEY, fica "Aguardando Análise".
+ * (o realtime_ping avisa o painel). Interruptor: Configurações → Agente IA → Ferramentas →
+ * "Analisar currículo ao receber candidatura". Sem token do OpenRouter, fica "Aguardando Análise".
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -84,6 +85,14 @@ export async function POST(req: Request) {
   };
   const { error } = await sb.from("talento").insert(row);
   if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
-  if (temIA()) after(async () => { try { await analisarTalento(sb, id); } catch (e) { console.error("Análise por IA (candidatura):", e); } });
+  after(async () => {
+    try {
+      if (!(await ferramentaLigada(sb, "analisar_curriculo"))) return;
+      // `analisarTalento` não lança: devolve o motivo (sem token, formato…). Sem este log,
+      // um currículo sem análise simplesmente não apareceria analisado e ninguém saberia por quê.
+      const r = await analisarTalento(sb, id);
+      if (!r.ok) console.warn(`[candidatura] sem análise para ${id}: ${r.erro}`);
+    } catch (e) { console.error("[candidatura] análise falhou:", e instanceof Error ? e.message : e); }
+  });
   return NextResponse.json({ ok: true });
 }

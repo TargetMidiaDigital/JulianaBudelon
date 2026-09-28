@@ -16,13 +16,18 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   descrição, requisitos e diferenciais (preenchidos pelo catálogo de cargos em `lib/seed.ts`);
   é o que a IA compara com o currículo.
 - **Análise de currículo por IA** — ao entrar uma candidatura pela página pública (ou pelo botão
-  "Analisar com IA" no candidato), o servidor lê o currículo (PDF/imagem direto; DOCX vira texto),
-  junta com a vaga e pede à Claude API um resumo (experiência, formação, pontos fortes, alertas)
-  e a classificação candidato × vaga (nota 0–100 + Ótimo/Bom/Ruim + justificativa + lacunas).
-  A "Qualidade" só é preenchida automaticamente enquanto estiver "Aguardando Análise" — a decisão
-  humana prevalece. Código em [`lib/analise-curriculo.ts`](lib/analise-curriculo.ts) e rota
-  `/api/talentos/analisar`. Exige `ANTHROPIC_API_KEY` (opcional `ANTHROPIC_MODEL`, padrão
-  `claude-opus-5`); sem a chave o restante do sistema funciona e o candidato fica "Aguardando Análise".
+  "Analisar com IA" no candidato), o servidor lê o currículo (PDF pelo file-parser do OpenRouter;
+  imagem pela visão do modelo; DOCX vira texto), junta com a vaga e pede ao modelo um resumo
+  (experiência, formação, pontos fortes, alertas) e a classificação candidato × vaga (nota 0–100 +
+  Ótimo/Bom/Ruim + justificativa + lacunas), em JSON. A "Qualidade" só é preenchida automaticamente
+  enquanto estiver "Aguardando Análise" — a decisão humana prevalece. Código em
+  [`lib/analise-curriculo.ts`](lib/analise-curriculo.ts) e rota `/api/talentos/analisar`.
+- **Configurações → Agente IA** (Administrador) — mesmo desenho do CRM do Cachorrão HD: agente
+  **RECRUTAMENTO** com abas **Prompt** (instruções editáveis; o formato JSON é fixo no código),
+  **LLM** (token do OpenRouter — write-only, nunca volta ao navegador —, modelo e motor de leitura
+  de PDF) e **Ferramentas** (ligar/desligar a análise automática na candidatura). Tudo na tabela
+  `agente_ia` (linha `recrutamento`), via `/api/agente/config`. Sem token, o resto do sistema
+  funciona e o candidato fica "Aguardando Análise". Nenhuma variável de ambiente de IA.
 - **Página pública `/vagas`** (link na bio, no desenho do linkbio do Cachorrão HD) — hub com um botão
   por unidade → `/vagas/<unidade>` com um botão por vaga → popup nome / WhatsApp / currículo →
   `/vagas/obrigado`. A candidatura entra no Banco de Talentos com status "Novo". O Pixel do Facebook é
@@ -53,7 +58,8 @@ Banco: projeto Supabase `pqcbenrlejgtpsfqukcr` (sa-east-1). O schema está em
 `cargo_acesso`, `cargo_permissao`, `grupo_interno`, `tarefas`, `unidade`, `vaga`, `talento`,
 `realtime_ping`; RLS ligado sem policies — só o servidor acessa, com a service role). A migration
 0005 adiciona as colunas da análise por IA em `talento` (`resumo`, `analise`, `nota_ia`,
-`qualidade_ia`, `analisado_em`, `analise_erro`) e `requisitos`/`diferenciais` em `vaga`.
+`qualidade_ia`, `analisado_em`, `analise_erro`) e `requisitos`/`diferenciais` em `vaga`; a 0006
+cria `agente_ia` (token do OpenRouter, modelo, motor de PDF, prompt e ferramentas do agente).
 Pessoas entram por **Configurações → Pessoas**, que cria o login no Auth e a linha em `usuarios`
 (o e-mail é o vínculo entre os dois).
 

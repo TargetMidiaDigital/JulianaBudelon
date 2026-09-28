@@ -14,8 +14,9 @@ import Menu, { MenuItem } from "../ui/Menu";
 import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
+import AgenteIATab from "./AgenteIATab";
 
-type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "perfil";
+type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "agente" | "perfil";
 
 // Grupos internos: setores disponíveis e cargos selecionáveis em "Quem pode ver"
 // por setor (Administrador é sempre implícito e não entra na lista).
@@ -26,7 +27,7 @@ const GRUPO_CARGOS_POR_SETOR: Record<string, Cargo[]> = {
 };
 const SETOR_COR: Record<string, string> = { Operacional: "#1B7F4D", Recrutamento: "#C2410C" };
 
-/** Página de configurações: Empresa · Pessoas · Grupos · Acessos são só p/ Administrador;
+/** Página de configurações: Empresa · Pessoas · Grupos · Acessos · Agente IA são só p/ Administrador;
  *  os demais cargos só enxergam o Perfil. */
 export default function Config() {
   const { isAdmin } = useApp();
@@ -35,6 +36,7 @@ export default function Config() {
     ...(isAdmin ? [{ key: "pessoas" as ConfigTab, label: "Pessoas" }] : []),
     ...(isAdmin ? [{ key: "grupos" as ConfigTab, label: "Grupos" }] : []),
     ...(isAdmin ? [{ key: "acessos" as ConfigTab, label: "Acessos" }] : []),
+    ...(isAdmin ? [{ key: "agente" as ConfigTab, label: "Agente IA" }] : []),
     { key: "perfil", label: "Perfil" },
   ];
   const [tab, setTab] = useState<ConfigTab>("perfil");
@@ -69,6 +71,7 @@ export default function Config() {
       {tab === "pessoas" && (isAdmin ? <PessoasTab /> : <Placeholder titulo="Pessoas" texto="Acesso restrito a Administrador." />)}
       {tab === "grupos" && (isAdmin ? <GruposTab /> : <Placeholder titulo="Grupos" texto="Acesso restrito a Administrador." />)}
       {tab === "acessos" && (isAdmin ? <AcessosTab /> : <Placeholder titulo="Acessos" texto="Acesso restrito a Administrador." />)}
+      {tab === "agente" && (isAdmin ? <AgenteIATab /> : <Placeholder titulo="Agente IA" texto="Acesso restrito a Administrador." />)}
     </div>
   );
 }
