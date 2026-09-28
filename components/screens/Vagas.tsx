@@ -5,7 +5,7 @@ import { css } from "@/lib/css";
 import { BRAND } from "@/lib/theme";
 import { corDeTexto } from "@/lib/talento-dims";
 import { unidadeLabel, vagaLabel } from "@/lib/localdb";
-import { CARGOS_VAGA } from "@/lib/seed";
+import { CARGOS_VAGA, cargoDoCatalogo } from "@/lib/seed";
 import type { LinkBioConfig, Turno, Unidade, Vaga } from "@/lib/types";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -182,7 +182,7 @@ export default function Vagas() {
                         <span style={css(`flex:none; width:9px; height:9px; border-radius:50%; background:${cor};`)} />
                         <div style={css("flex:1; min-width:0;")}>
                           <div style={css("font-size:13.5px; font-weight:700; color:#1B1B28;")}>{v.titulo}{v.turno ? <span style={css("margin-left:8px; font-size:11px; font-weight:800; color:#5B6472; background:#EDEEF2; padding:2px 8px; border-radius:6px; letter-spacing:.3px;")}>{v.turno.toUpperCase()}</span> : null}</div>
-                          <div style={css("font-size:12px; color:#9398A6; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{v.descricao || "Sem descrição"}</div>
+                          <div style={css(`font-size:12px; color:${v.descricao || v.requisitos ? "#9398A6" : "#D97706"}; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{v.descricao || (v.requisitos ? v.requisitos.split("\n")[0] : "Sem descrição — a análise por IA fica sem base para esta vaga")}</div>
                         </div>
                         <span title="Candidatos vinculados" style={css("flex:none; display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#5B6472;")}>
                           <Svg size={14} sw={2} stroke="#9398A6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></Svg>{n}
@@ -257,18 +257,34 @@ function UnidadeForm({ inicial, onClose, onSave }: { inicial?: Unidade; onClose:
   );
 }
 
-function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inicial?: Vaga; unidades: Unidade[]; unidadePadrao?: string; onClose: () => void; onSave: (d: { unidadeId: string; titulo: string; turno: Turno; descricao?: string; ativa: boolean }) => void }) {
+function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inicial?: Vaga; unidades: Unidade[]; unidadePadrao?: string; onClose: () => void; onSave: (d: { unidadeId: string; titulo: string; turno: Turno; descricao?: string; requisitos?: string; diferenciais?: string; ativa: boolean }) => void }) {
   const [unidadeId, setUnidadeId] = useState(inicial?.unidadeId ?? unidadePadrao ?? unidades[0]?.id ?? "");
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [turno, setTurno] = useState<Turno>(inicial?.turno ?? "");
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
+  const [requisitos, setRequisitos] = useState(inicial?.requisitos ?? "");
+  const [diferenciais, setDiferenciais] = useState(inicial?.diferenciais ?? "");
   const [ativa, setAtiva] = useState(inicial?.ativa ?? true);
   const [erro, setErro] = useState<string | null>(null);
   const u = unidades.find((x) => x.id === unidadeId);
+  const catalogo = cargoDoCatalogo(titulo);
+  // Título do catálogo → preenche descrição/requisitos/diferenciais que ainda estiverem vazios.
+  const usarCatalogo = (forcar = false) => {
+    const c = cargoDoCatalogo(titulo);
+    if (!c) return;
+    if (forcar || !descricao.trim()) setDescricao(c.descricao);
+    if (forcar || !requisitos.trim()) setRequisitos(c.requisitos);
+    if (forcar || !diferenciais.trim()) setDiferenciais(c.diferenciais);
+  };
+  const mudarTitulo = (v: string) => {
+    setTitulo(v);
+    const c = cargoDoCatalogo(v);
+    if (c && !descricao.trim() && !requisitos.trim() && !diferenciais.trim()) { setDescricao(c.descricao); setRequisitos(c.requisitos); setDiferenciais(c.diferenciais); }
+  };
   const salvar = () => {
     if (!unidadeId) { setErro("Selecione a unidade."); return; }
     if (!titulo.trim()) { setErro("Informe o título da vaga."); return; }
-    onSave({ unidadeId, titulo: titulo.trim(), turno, descricao: descricao.trim() || undefined, ativa });
+    onSave({ unidadeId, titulo: titulo.trim(), turno, descricao: descricao.trim() || undefined, requisitos: requisitos.trim() || undefined, diferenciais: diferenciais.trim() || undefined, ativa });
   };
   const selBox = (open: boolean) => css(`display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box; border:1px solid ${open ? "#D6D7DE" : "#E2E3E9"}; border-radius:9px; font-size:13.5px; padding:9px 12px; cursor:pointer; background:#fff; text-align:left;`);
   return (
@@ -293,7 +309,7 @@ function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inici
         </div>
         <div>
           <label style={lbl}>Título da vaga</label>
-          <input autoFocus list="cargos-vaga" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="ex.: Auxiliar de Cozinha/Confeitaria" style={inp} />
+          <input autoFocus list="cargos-vaga" value={titulo} onChange={(e) => mudarTitulo(e.target.value)} placeholder="ex.: Auxiliar de Cozinha/Confeitaria" style={inp} />
           <datalist id="cargos-vaga">{CARGOS_VAGA.map((c) => <option key={c} value={c} />)}</datalist>
         </div>
         <div>
@@ -314,11 +330,25 @@ function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inici
           <div style={css("padding-top:6px;")}><AtivaPill ativa={ativa} onChange={setAtiva} labels={["Aberta", "Pausada"]} /></div>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
-          <label style={lbl}>Descrição (opcional, uso interno)</label>
-          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Responsabilidades, requisitos, horário…" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
+          <div style={css("display:flex; align-items:center; gap:10px; margin-bottom:6px;")}>
+            <label style={{ ...lbl, marginBottom: 0 }}>Descrição do cargo (uso interno — base da análise por IA)</label>
+            <span style={{ flex: 1 }} />
+            {catalogo && (
+              <Hoverable as="button" type="button" onClick={() => usarCatalogo(true)} s={css("border:none; background:transparent; color:#2563EB; font-size:12px; font-weight:700; cursor:pointer; padding:0;")} hover="text-decoration:underline">Usar o padrão do catálogo</Hoverable>
+            )}
+          </div>
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Rotina e responsabilidades do cargo nesta unidade…" style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
+        </div>
+        <div>
+          <label style={lbl}>Requisitos obrigatórios (um por linha)</label>
+          <textarea value={requisitos} onChange={(e) => setRequisitos(e.target.value)} rows={4} placeholder={"Experiência em…\nDisponibilidade para…"} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
+        </div>
+        <div>
+          <label style={lbl}>Diferenciais (um por linha)</label>
+          <textarea value={diferenciais} onChange={(e) => setDiferenciais(e.target.value)} rows={4} placeholder={"Curso de…\nMorar perto da unidade"} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
         </div>
       </div>
-      <p style={css("margin:0; font-size:11.5px; color:#9398A6;")}>Na página pública o botão fica “Vaga — {titulo.trim() || "…"}{turno ? ` [${turno.toUpperCase()}]` : ""}”.</p>
+      <p style={css("margin:0; font-size:11.5px; color:#9398A6; line-height:1.5;")}>Na página pública o botão fica “Vaga — {titulo.trim() || "…"}{turno ? ` [${turno.toUpperCase()}]` : ""}”. Descrição, requisitos e diferenciais não aparecem para o candidato: a IA usa esses textos para resumir o currículo e dar a nota de aderência à vaga.</p>
       {erro && <div style={css("font-size:12.5px; color:#CC3338; font-weight:600;")}>{erro}</div>}
       <div style={css("display:flex; justify-content:flex-end; gap:10px;")}>
         <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:700; color:#5B6472; cursor:pointer;")} hover="background:#F4F4F7">Cancelar</Hoverable>

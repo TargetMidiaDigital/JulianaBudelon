@@ -103,29 +103,96 @@ export const seedUnidades: Unidade[] = [
   { id: "u-palhoca", slug: "palhoca-pedra-branca", cidade: "Palhoça", nome: "Pedra Branca", ativa: false, criada: iso(20) },
 ];
 
-/** Cargos oferecidos pela Ju Budelon (catálogo padrão; a lista real é por unidade). */
-export const CARGOS_VAGA = [
-  "Auxiliar de Cozinha/Confeitaria",
-  "Auxiliar de Serviços Gerais (Limpeza)",
-  "Auxiliar de Expedição",
-  "Assistente Administrativo/Financeiro",
-  "Estagiário Administrativo – 4h",
-  "Analista de Marketing",
-  "Analista de Recursos Humanos",
-  "Assistente de Recursos Humanos",
-  "Atendente de Cafeteria",
-  "Líder de Produção",
-  "Supervisora de Loja",
+/**
+ * Catálogo de cargos da Ju Budelon: título + descrição, requisitos e diferenciais padrão.
+ * É o que a IA compara com o currículo (Vagas → Nova vaga preenche a partir daqui; a
+ * equipe pode ajustar por unidade).
+ */
+export type CargoCatalogo = { titulo: string; descricao: string; requisitos: string; diferenciais: string };
+export const CATALOGO_VAGAS: CargoCatalogo[] = [
+  {
+    titulo: "Auxiliar de Cozinha/Confeitaria",
+    descricao: "Apoio à produção de doces, bolos, salgados e pães na cozinha da unidade: pré-preparo, pesagem, montagem, finalização, organização e higienização da área.",
+    requisitos: "Experiência em cozinha, confeitaria, padaria ou produção de alimentos\nDisponibilidade para o turno da vaga, inclusive fins de semana\nNoções de higiene e manipulação de alimentos\nAgilidade e trabalho em equipe",
+    diferenciais: "Curso de manipulação de alimentos / boas práticas\nExperiência com confeitaria artesanal ou panificação\nMorar perto da unidade",
+  },
+  {
+    titulo: "Auxiliar de Serviços Gerais (Limpeza)",
+    descricao: "Limpeza e conservação da loja, cozinha, banheiros e áreas comuns; reposição de materiais; apoio à organização do estoque.",
+    requisitos: "Experiência em limpeza (comércio, restaurante, hotelaria ou similar)\nDisponibilidade de horário, inclusive fins de semana\nOrganização e atenção a detalhes",
+    diferenciais: "Conhecimento de produtos e rotinas de higienização em cozinha\nMorar perto da unidade",
+  },
+  {
+    titulo: "Auxiliar de Expedição",
+    descricao: "Separação, conferência e embalagem dos pedidos da produção para as lojas e delivery; controle de saída; organização do estoque e da câmara fria.",
+    requisitos: "Experiência em expedição, estoque, almoxarifado ou logística\nAtenção a detalhes e conferência\nDisponibilidade para início cedo / turno da vaga",
+    diferenciais: "Experiência com alimentos perecíveis / cadeia fria\nCNH B\nNoções de planilha ou sistema de estoque",
+  },
+  {
+    titulo: "Assistente Administrativo/Financeiro",
+    descricao: "Rotinas administrativas e financeiras: contas a pagar e receber, conciliação, emissão de notas, controle de documentos e apoio à gestão.",
+    requisitos: "Experiência em rotinas administrativas ou financeiras\nExcel / Planilhas em nível intermediário\nOrganização e boa comunicação escrita",
+    diferenciais: "Cursando ou formado em Administração, Contábeis ou áreas afins\nExperiência com sistema de gestão (ERP)\nConhecimento de fluxo de caixa e conciliação bancária",
+  },
+  {
+    titulo: "Estagiário Administrativo – 4h",
+    descricao: "Estágio de 4h/dia no administrativo: apoio a lançamentos, organização de documentos, planilhas, atendimento interno e rotinas de RH/financeiro.",
+    requisitos: "Cursando ensino superior (Administração, Contábeis, RH, Marketing ou afins)\nDisponibilidade de 4h diárias\nNoções de Excel / Google Planilhas",
+    diferenciais: "Boa comunicação\nInteresse em gastronomia e varejo\nPrevisão de formatura em 1 ano ou mais",
+  },
+  {
+    titulo: "Analista de Marketing",
+    descricao: "Planejamento e execução do marketing da marca: redes sociais, campanhas, conteúdo, lançamentos de produtos, parcerias e análise de resultados.",
+    requisitos: "Experiência em marketing digital ou gestão de redes sociais\nProdução de conteúdo (texto e imagem/vídeo)\nLeitura de métricas (Instagram, Meta Ads)",
+    diferenciais: "Formação em Marketing, Publicidade ou Comunicação\nExperiência em food service, varejo ou marcas de consumo\nEdição de vídeo (Reels) e design (Canva/Figma)\nGestão de tráfego pago",
+  },
+  {
+    titulo: "Analista de Recursos Humanos",
+    descricao: "Recrutamento e seleção, integração, treinamento, departamento pessoal (ponto, férias, admissão e demissão) e clima da equipe nas unidades.",
+    requisitos: "Experiência em RH generalista (R&S e DP)\nConhecimento de legislação trabalhista básica\nOrganização e boa comunicação",
+    diferenciais: "Formação em RH, Psicologia ou Administração\nExperiência com alta rotatividade (varejo / food service)\nFerramentas de ponto e folha",
+  },
+  {
+    titulo: "Assistente de Recursos Humanos",
+    descricao: "Apoio ao RH: triagem de currículos, agendamento de entrevistas, documentação de admissão, controle de ponto e benefícios.",
+    requisitos: "Experiência ou estágio em RH / DP\nOrganização e discrição com dados\nExcel / Planilhas básico",
+    diferenciais: "Cursando RH, Psicologia ou Administração\nExperiência com recrutamento de vagas operacionais",
+  },
+  {
+    titulo: "Atendente de Cafeteria",
+    descricao: "Atendimento ao cliente no balcão e mesas, preparo de cafés e bebidas, montagem de pedidos, operação de caixa e organização da loja.",
+    requisitos: "Experiência em atendimento ao público (cafeteria, restaurante, loja ou similar)\nSimpatia, agilidade e boa comunicação\nDisponibilidade para o turno da vaga, inclusive fins de semana",
+    diferenciais: "Curso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da unidade",
+  },
+  {
+    titulo: "Líder de Produção",
+    descricao: "Liderança da equipe da cozinha de produção: planejamento da produção diária, padrão de qualidade, fichas técnicas, controle de perdas, escalas e treinamento.",
+    requisitos: "Experiência liderando equipe de cozinha, confeitaria ou produção de alimentos\nDomínio de processos de produção e padronização (fichas técnicas)\nDisponibilidade de horário, inclusive início cedo",
+    diferenciais: "Formação em Gastronomia ou Confeitaria\nExperiência com produção em escala para várias lojas\nControle de CMV e perdas",
+  },
+  {
+    titulo: "Supervisora de Loja",
+    descricao: "Gestão da unidade: equipe de atendimento, padrão de loja, caixa e fechamento, estoque e pedidos, experiência do cliente e metas de venda.",
+    requisitos: "Experiência como líder / supervisor(a) em loja, cafeteria ou restaurante\nGestão de equipe e escalas\nDisponibilidade para fins de semana e feriados",
+    diferenciais: "Experiência com metas e indicadores de venda\nConhecimento de PDV, estoque e fechamento de caixa\nFormação em Administração ou Gastronomia",
+  },
 ];
+
+/** Só os títulos (datalist do formulário de vaga e opções de cargo do candidato). */
+export const CARGOS_VAGA = CATALOGO_VAGAS.map((c) => c.titulo);
+
+/** Descrição/requisitos/diferenciais padrão de um cargo do catálogo (ou undefined). */
+export const cargoDoCatalogo = (titulo: string): CargoCatalogo | undefined =>
+  CATALOGO_VAGAS.find((c) => c.titulo.localeCompare(titulo.trim(), "pt", { sensitivity: "base" }) === 0);
 
 export const seedVagas: Vaga[] = [
   // Florianópolis — Centro: catálogo completo
-  ...CARGOS_VAGA.map((titulo, i): Vaga => ({
-    id: `v-${i + 1}`, unidadeId: "u-centro", titulo, turno: "", ativa: true, criada: iso(30 - i),
+  ...CATALOGO_VAGAS.map(({ titulo, descricao, requisitos, diferenciais }, i): Vaga => ({
+    id: `v-${i + 1}`, unidadeId: "u-centro", titulo, turno: "", descricao, requisitos, diferenciais, ativa: true, criada: iso(30 - i),
   })),
   // São José — Kobrasol: só as vagas de loja
-  { id: "v-12", unidadeId: "u-kobrasol", titulo: "Atendente de Cafeteria", turno: "Diurno", ativa: true, criada: iso(8) },
-  { id: "v-13", unidadeId: "u-kobrasol", titulo: "Auxiliar de Cozinha/Confeitaria", turno: "", ativa: true, criada: iso(5) },
+  { id: "v-12", unidadeId: "u-kobrasol", ...cargoDoCatalogo("Atendente de Cafeteria")!, turno: "Diurno", ativa: true, criada: iso(8) },
+  { id: "v-13", unidadeId: "u-kobrasol", ...cargoDoCatalogo("Auxiliar de Cozinha/Confeitaria")!, turno: "", ativa: true, criada: iso(5) },
 ];
 
 export const seedLinkBio: LinkBioConfig = {

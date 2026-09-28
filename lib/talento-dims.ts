@@ -43,3 +43,6 @@ export const QUALIDADE_TALENTO: TalentoOpt[] = [
   { v: "Bom", cor: "#2ecd6f" },
   { v: "Ótimo", cor: "#0231E8" },
 ];
+
+/** Cor da nota da IA (0–100): mesmas cores da Qualidade — Ruim < 50 ≤ Bom < 75 ≤ Ótimo. */
+export const notaCor = (n: number): string => (n >= 75 ? "#0231E8" : n >= 50 ? "#2ecd6f" : "#e50000");

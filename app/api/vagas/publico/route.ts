@@ -20,7 +20,7 @@ export async function GET() {
   ]);
   const w = ws as { nome?: string | null; logo?: string | null; vagas_pagina?: unknown } | null;
   const unidades = ((us ?? []) as UnidadeRow[]).map(unidadeDe);
-  const vagas = ((vs ?? []) as VagaRow[]).map((r) => { const v = vagaDe({ ...r, descricao: null }); return { id: v.id, unidadeId: v.unidadeId, titulo: v.titulo, turno: v.turno ?? "", ativa: true }; });
+  const vagas = ((vs ?? []) as VagaRow[]).map((r) => { const v = vagaDe({ ...r, descricao: null, requisitos: null, diferenciais: null }); return { id: v.id, unidadeId: v.unidadeId, titulo: v.titulo, turno: v.turno ?? "", ativa: true }; });
   return NextResponse.json(
     { demo: false, unidades, vagas, pagina: linkbioDe(w?.vagas_pagina), empresa: { nome: w?.nome ?? "", logo: w?.logo ?? null } },
     { headers: { "cache-control": "public, max-age=60" } },

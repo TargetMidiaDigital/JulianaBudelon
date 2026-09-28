@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Anexo, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Prioridade, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
+import type { AnaliseIA, Anexo, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Prioridade, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import { DEFAULT_ESCOPO, isCargoFull } from "./acesso";
 import { seedLinkBio } from "./seed";
 
@@ -109,7 +109,26 @@ export function taskDe(t: TarefaRow): Task {
 export type TalentoRow = {
   id: string; nome: string; status: string | null; vaga: string | null; vaga_id: string | null; unidade_id: string | null; turno: string | null;
   origem: string | null; fone: string | null; qualidade: string | null; criada: string | null; ultimos_comentarios: unknown; anexos: unknown;
+  resumo?: string | null; analise?: unknown; nota_ia?: number | null; qualidade_ia?: string | null; analisado_em?: string | null; analise_erro?: string | null;
 };
+
+/** jsonb `talento.analise` → AnaliseIA (tolerante a campos ausentes). */
+export function parseAnalise(raw: unknown, fallback?: { resumo?: string | null; nota?: number | null; classificacao?: string | null; em?: string | null }): AnaliseIA | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const a = raw as Record<string, unknown>;
+  const cls = String(a.classificacao ?? fallback?.classificacao ?? "");
+  if (cls !== "Ótimo" && cls !== "Bom" && cls !== "Ruim") return undefined;
+  const num = Number(a.nota ?? fallback?.nota);
+  return {
+    resumo: String(a.resumo ?? fallback?.resumo ?? ""),
+    experiencia: strArr(a.experiencia), formacao: strArr(a.formacao), pontosFortes: strArr(a.pontosFortes), alertas: strArr(a.alertas), lacunas: strArr(a.lacunas),
+    nota: Number.isFinite(num) ? Math.max(0, Math.min(100, Math.round(num))) : 0,
+    classificacao: cls, justificativa: String(a.justificativa ?? ""),
+    vagaId: a.vagaId ? String(a.vagaId) : undefined, vagaTitulo: a.vagaTitulo ? String(a.vagaTitulo) : undefined,
+    modelo: a.modelo ? String(a.modelo) : undefined, em: a.em ? String(a.em) : fallback?.em ?? undefined,
+  };
+}
+
 export function talentoDe(r: TalentoRow): Talento {
   return {
     id: r.id, nome: r.nome, status: r.status ?? "novo",
@@ -118,6 +137,8 @@ export function talentoDe(r: TalentoRow): Talento {
     origem: r.origem === "linkbio" ? "linkbio" : r.origem === "manual" ? "manual" : undefined,
     fone: r.fone ?? undefined, qualidade: r.qualidade ?? undefined, criada: r.criada ?? undefined,
     comentarios: parseComentarios(r.ultimos_comentarios), anexos: parseAnexos(r.anexos),
+    analise: parseAnalise(r.analise, { resumo: r.resumo, nota: r.nota_ia, classificacao: r.qualidade_ia, em: r.analisado_em }),
+    analiseErro: r.analise_erro ?? undefined,
   };
 }
 
@@ -126,10 +147,14 @@ export function unidadeDe(r: UnidadeRow): Unidade {
   return { id: r.id, slug: r.slug, cidade: r.cidade ?? "", nome: r.nome, ativa: r.ativa !== false, criada: r.criada ?? undefined };
 }
 
-export type VagaRow = { id: string; unidade_id: string; titulo: string; turno: string | null; descricao: string | null; ativa: boolean | null; criada: string | null };
+export type VagaRow = { id: string; unidade_id: string; titulo: string; turno: string | null; descricao: string | null; requisitos?: string | null; diferenciais?: string | null; ativa: boolean | null; criada: string | null };
 export function vagaDe(r: VagaRow): Vaga {
   const t = r.turno === "Diurno" || r.turno === "Noturno" ? r.turno : "";
-  return { id: r.id, unidadeId: r.unidade_id, titulo: r.titulo, turno: t, descricao: r.descricao ?? undefined, ativa: r.ativa !== false, criada: r.criada ?? undefined };
+  return {
+    id: r.id, unidadeId: r.unidade_id, titulo: r.titulo, turno: t,
+    descricao: r.descricao ?? undefined, requisitos: r.requisitos ?? undefined, diferenciais: r.diferenciais ?? undefined,
+    ativa: r.ativa !== false, criada: r.criada ?? undefined,
+  };
 }
 
 export type GrupoRow = { id: string; nome: string; descricao: string | null; setores: unknown; visivel_cargos: unknown; logo: string | null };

@@ -19,6 +19,8 @@ function mapCols(p: Partial<Vaga>): Record<string, unknown> {
   if ("titulo" in p) c.titulo = (p.titulo ?? "").trim();
   if ("turno" in p) c.turno = p.turno === "Diurno" || p.turno === "Noturno" ? p.turno : "";
   if ("descricao" in p) c.descricao = (p.descricao ?? "").trim() || null;
+  if ("requisitos" in p) c.requisitos = (p.requisitos ?? "").trim() || null;
+  if ("diferenciais" in p) c.diferenciais = (p.diferenciais ?? "").trim() || null;
   if ("ativa" in p) c.ativa = p.ativa !== false;
   return c;
 }

@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { normalizarWhatsapp } from "@/lib/format";
 import { unidadeDe, vagaDe, type UnidadeRow, type VagaRow } from "@/lib/data";
 import { slugify, unidadeLabel, vagaLabel } from "@/lib/localdb";
+import { analisarTalento, temIA } from "@/lib/analise-curriculo";
 
 /**
  * ROTA PÚBLICA (sem sessão, por design) — o candidato se inscreve pela página /vagas.
@@ -15,9 +16,13 @@ import { slugify, unidadeLabel, vagaLabel } from "@/lib/localdb";
  *    do tipo/tamanho → 400. Só CRIA — nunca lê nem lista candidatos.
  *
  *  POST multipart { nome, whatsapp, vagaId, file } → { ok }
+ *
+ * Depois de gravar, dispara a análise do currículo por IA em segundo plano (`after`): o
+ * candidato já aparece no Banco de Talentos e, segundos depois, recebe resumo + classificação
+ * (o realtime_ping avisa o painel). Sem ANTHROPIC_API_KEY, fica "Aguardando Análise".
  */
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const BUCKET = "task-anexos";
 const MAX_BYTES = 3 * 1024 * 1024;
@@ -79,5 +84,6 @@ export async function POST(req: Request) {
   };
   const { error } = await sb.from("talento").insert(row);
   if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
+  if (temIA()) after(async () => { try { await analisarTalento(sb, id); } catch (e) { console.error("Análise por IA (candidatura):", e); } });
   return NextResponse.json({ ok: true });
 }

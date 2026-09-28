@@ -114,6 +114,8 @@ type Store = {
   addTalento: (t: Talento) => void;
   updateTalento: (id: string, patch: Partial<Talento>) => void;
   removeTalento: (id: string) => void;
+  /** Análise do currículo por IA (servidor). Resolve com a mensagem de erro, ou null se deu certo. */
+  analisarTalento: (id: string) => Promise<string | null>;
   // Recrutamento → Vagas (unidades + vagas + página pública)
   unidades: Unidade[];
   addUnidade: (u: Omit<Unidade, "id" | "slug" | "criada">) => Unidade;
@@ -612,6 +614,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void persist("/api/talentos", "PATCH", { id, patch: fp });
     },
     removeTalento: (id) => { patchDb((d) => ({ talentos: d.talentos.filter((t) => t.id !== id) })); void persist("/api/talentos", "DELETE", { id }); },
+    analisarTalento: async (id) => {
+      if (demo) return "A análise por IA funciona com o Supabase ligado (fora do modo demo).";
+      try {
+        const r = await apiJson<{ ok: boolean; talento?: Talento | null; error?: string }>("/api/talentos/analisar", "POST", { id });
+        if (r.talento) { const t = r.talento; patchDb((d) => ({ talentos: d.talentos.map((x) => (x.id === id ? { ...x, ...t } : x)) })); }
+        return r.ok ? null : (r.error || "Falha na análise.");
+      } catch (e) {
+        // 422 = análise não concluída (sem currículo, formato, IA…) — a mensagem vem do servidor.
+        scheduleReload();
+        return e instanceof Error ? e.message : "Falha na análise.";
+      }
+    },
     unidades,
     addUnidade: (u) => {
       // Slug único a partir de "cidade nome"; colisão ganha sufixo numérico.

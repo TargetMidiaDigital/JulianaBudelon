@@ -5,7 +5,7 @@ import { css } from "@/lib/css";
 import { foneBR } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
 import type { Talento } from "@/lib/types";
-import { TALENTO_STATUS, corDeTexto, statusPill } from "@/lib/talento-dims";
+import { TALENTO_STATUS, corDeTexto, statusPill, notaCor } from "@/lib/talento-dims";
 import { unidadeLabel } from "@/lib/localdb";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -14,7 +14,7 @@ import TalentoDetail from "../modals/TalentoDetail";
 import { useApp } from "../store";
 
 // ── Vista LISTA: tabela ordenável ──
-type SortKey = "criada" | "nome" | "status" | "vaga" | "fone" | "qualidade";
+type SortKey = "criada" | "nome" | "status" | "vaga" | "fone" | "qualidade" | "nota";
 const COLS: { label: string; key: SortKey }[] = [
   { label: "Data criada", key: "criada" },
   { label: "Contato", key: "nome" },
@@ -22,9 +22,10 @@ const COLS: { label: string; key: SortKey }[] = [
   { label: "Vaga", key: "vaga" },
   { label: "WhatsApp", key: "fone" },
   { label: "Qualidade", key: "qualidade" },
+  { label: "Nota IA", key: "nota" },
 ];
-const GRID = "140px minmax(180px,1.4fr) 190px 170px 160px 160px";
-const GRID_MIN = 1000;
+const GRID = "140px minmax(180px,1.4fr) 190px 170px 160px 150px 90px";
+const GRID_MIN = 1080;
 
 const dataBR = (iso?: string): string => {
   if (!iso) return "—";
@@ -92,6 +93,19 @@ function TalentoFiltro({ talentos, filtro, onChange, statusPermitidos }: { talen
 
 const vagaCor = (v?: string) => corDeTexto(v);
 
+/** Nota da análise por IA (0–100) como selo colorido; "—" sem análise. */
+function NotaBadge({ t }: { t: Talento }) {
+  const n = t.analise?.nota;
+  if (n == null) return <span style={css("font-size:12px; color:#C7CAD2;")}>{t.analiseErro ? "erro" : "—"}</span>;
+  const cor = notaCor(n);
+  const desatualizada = !!t.analise?.vagaId && !!t.vagaId && t.analise.vagaId !== t.vagaId;
+  return (
+    <span title={desatualizada ? `Análise feita para ${t.analise?.vagaTitulo ?? "outra vaga"} — reanalise` : `Aderência à vaga: ${n}/100 (${t.analise?.classificacao})`} style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:7px; background:${cor}1A; color:${cor}; font-variant-numeric:tabular-nums; white-space:nowrap;`)}>
+      <Svg size={11} sw={2.4} stroke={cor}><path d="M12 3l1.9 5.6H20l-4.8 3.5 1.8 5.6L12 14.3l-5 3.4 1.8-5.6L4 8.6h6.1z" /></Svg>{n}{desatualizada ? " !" : ""}
+    </span>
+  );
+}
+
 // Status "de arquivo": saem da visão por padrão (igual às tarefas validadas). Um único botão
 // na toolbar mostra/esconde os três de uma vez.
 const ARQUIVO_KEYS = ["desqualificado", "contratado", "antigos"];
@@ -123,6 +137,14 @@ export default function BancoTalentos() {
           const ia = TALENTO_STATUS.findIndex((e) => e.key === a.status);
           const ib = TALENTO_STATUS.findIndex((e) => e.key === b.status);
           return (ia - ib) * sort.dir;
+        }
+        if (sort.key === "nota") {
+          // Sem análise vai sempre para o fim, em qualquer direção.
+          const na = a.analise?.nota, nb = b.analise?.nota;
+          if (na == null && nb == null) return 0;
+          if (na == null) return 1;
+          if (nb == null) return -1;
+          return (na - nb) * sort.dir;
         }
         const av = a[sort.key], bv = b[sort.key];
         if (!av && !bv) return 0;
@@ -216,6 +238,7 @@ export default function BancoTalentos() {
                     </span>
                     <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-variant-numeric:tabular-nums;")}>{t.fone ? foneBR(t.fone) : "—"}</span>
                     <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{txt(t.qualidade)}</span>
+                    <span><NotaBadge t={t} /></span>
                   </Hoverable>
                 );
               })}
@@ -261,6 +284,7 @@ export default function BancoTalentos() {
                               </span>
                             )}
                             {t.qualidade && <span style={css("font-size:11.5px; font-weight:600; color:#5B6472; background:#EDEEF2; padding:3px 9px; border-radius:7px;")}>{t.qualidade}</span>}
+                            <NotaBadge t={t} />
                           </div>
                           {unidadeDe(t.unidadeId) && (
                             <div style={css("margin-top:8px; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#7A8090;")}>

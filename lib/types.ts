@@ -116,7 +116,9 @@ export type Vaga = {
   unidadeId: string;
   titulo: string; // ex.: "Auxiliar de Cozinha"
   turno?: Turno;
-  descricao?: string;
+  descricao?: string; // resumo do cargo / rotina (uso interno; base da análise por IA)
+  requisitos?: string; // obrigatórios, um por linha
+  diferenciais?: string; // desejáveis, um por linha
   ativa: boolean; // pausada some da página pública
   criada?: string; // ISO
 };
@@ -131,6 +133,26 @@ export type LinkBioConfig = {
   pixelId?: string;
 };
 
+/** Classificação da IA — mesmos rótulos da "Qualidade" (sem o "Aguardando Análise"). */
+export type ClassificacaoIA = "Ótimo" | "Bom" | "Ruim";
+
+/** Resultado da análise do currículo por IA (resumo + classificação candidato × vaga). */
+export type AnaliseIA = {
+  resumo: string; // 3–5 frases sobre o candidato
+  experiencia: string[]; // experiências relevantes (cargo · empresa · período)
+  formacao: string[]; // formação e cursos
+  pontosFortes: string[];
+  alertas: string[]; // pontos de atenção (lacunas de tempo, troca frequente, distância…)
+  nota: number; // 0–100, aderência à vaga
+  classificacao: ClassificacaoIA;
+  justificativa: string; // por que essa nota/classificação
+  lacunas: string[]; // requisitos da vaga não atendidos / não comprovados
+  vagaId?: string; // vaga usada na comparação (se mudar, a análise está desatualizada)
+  vagaTitulo?: string;
+  modelo?: string;
+  em?: string; // ISO
+};
+
 /** Candidato (Recrutamento → Banco de Talentos). */
 export type Talento = {
   id: string;
@@ -142,10 +164,12 @@ export type Talento = {
   turno?: Turno;
   origem?: "linkbio" | "manual";
   fone?: string; // WhatsApp (só dígitos, com DDI)
-  qualidade?: string; // Aguardando Análise / Ruim / Bom / Ótimo
+  qualidade?: string; // Aguardando Análise / Ruim / Bom / Ótimo (decisão humana; a IA só preenche enquanto "Aguardando Análise")
   criada?: string; // ISO
   comentarios?: Comentario[];
   anexos?: Anexo[];
+  analise?: AnaliseIA; // análise do currículo por IA (servidor)
+  analiseErro?: string; // última falha da análise (ex.: formato não suportado)
 };
 
 export type Sector = {

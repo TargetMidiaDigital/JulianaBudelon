@@ -27,6 +27,7 @@ function mapCols(p: Partial<Talento>): Record<string, unknown> {
   // Colunas jsonb: arrays de verdade (JSON.stringify gravaria um escalar string).
   if ("comentarios" in p) c.ultimos_comentarios = p.comentarios ?? [];
   if ("anexos" in p) c.anexos = p.anexos ?? [];
+  // `analise` / `analiseErro` são escritos só pelo servidor (/api/talentos/analisar) — ignorados aqui.
   return c;
 }
 

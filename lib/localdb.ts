@@ -1,7 +1,7 @@
 import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import {
   seedTeam, seedSenhas, seedClients, seedTasks, seedTalentos, seedGrupos, seedWorkspace, seedAcessos, seedEscopoProprio,
-  seedUnidades, seedVagas, seedLinkBio,
+  seedUnidades, seedVagas, seedLinkBio, cargoDoCatalogo,
 } from "./seed";
 
 /**
@@ -29,7 +29,7 @@ export type Db = {
 
 export const DB_KEY = "jb.db.v1";
 
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 export function seedDb(): Db {
   return {
@@ -54,8 +54,17 @@ export function loadDb(): Db {
     if ((d.seedVersion ?? 1) < 2) {
       out.vagas = seed.vagas;
       out.talentos = seed.talentos;
-      out.seedVersion = SEED_VERSION;
     }
+    // v3 (28/09/2026): vagas ganharam descrição/requisitos/diferenciais (base da análise por IA).
+    // Vagas salvas sem esses textos recebem o padrão do catálogo; as já editadas ficam como estão.
+    if ((d.seedVersion ?? 1) < 3) {
+      out.vagas = out.vagas.map((v) => {
+        if (v.descricao || v.requisitos) return v;
+        const c = cargoDoCatalogo(v.titulo);
+        return c ? { ...v, descricao: c.descricao, requisitos: c.requisitos, diferenciais: c.diferenciais } : v;
+      });
+    }
+    out.seedVersion = SEED_VERSION;
     return out;
   } catch {
     return seedDb();

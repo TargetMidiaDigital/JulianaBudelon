@@ -1,12 +1,12 @@
 "use client";
 
 import { useFecharComEsc } from "../ui/useFecharComEsc";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { foneBR, normalizarWhatsapp } from "@/lib/format";
 import { uploadArquivo, LIMITE_ANEXO } from "@/lib/upload";
 import type { Anexo, Comentario, Talento } from "@/lib/types";
-import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, type TalentoOpt } from "@/lib/talento-dims";
+import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, notaCor, type TalentoOpt } from "@/lib/talento-dims";
 import { unidadeLabel } from "@/lib/localdb";
 import { CARGOS_VAGA } from "@/lib/seed";
 import { Avatar } from "../ui/bits";
@@ -76,8 +76,19 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
   onDelete?: () => void;
 }) {
   useFecharComEsc(true, onClose);
-  const { team, currentUser, unidades, vagas } = useApp();
+  const { team, currentUser, unidades, vagas, analisarTalento } = useApp();
   const l = talento;
+  // Análise por IA: estado local do botão; o resultado chega pelo store (patch do talento).
+  const [analisando, setAnalisando] = useState(false);
+  const [erroAnalise, setErroAnalise] = useState<string | null>(null);
+  const analisar = async () => {
+    if (analisando) return;
+    setAnalisando(true); setErroAnalise(null);
+    const erro = await analisarTalento(l.id);
+    setAnalisando(false);
+    if (erro) setErroAnalise(erro);
+  };
+  useEffect(() => { setErroAnalise(null); }, [l.id]);
   // Vaga = cargo (catálogo + títulos já cadastrados em Vagas); Unidade é um campo à parte.
   // O vínculo com a vaga cadastrada (vagaId) é refeito sempre que cargo + unidade batem.
   const cargos = [...new Set([...CARGOS_VAGA, ...vagas.map((v) => v.titulo), ...(l.vaga ? [l.vaga] : [])])];
@@ -112,7 +123,11 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
           window.alert(e instanceof Error ? e.message : `Falha ao enviar "${file.name}".`);
         }
       }
-      if (novos.length) onPatch({ anexos: [...anexos, ...novos] });
+      if (novos.length) {
+        onPatch({ anexos: [...anexos, ...novos] });
+        // Primeiro currículo do candidato → já dispara a análise (o servidor espera o PATCH chegar).
+        if (!l.analise && novos.some((a) => /\.(pdf|docx|jpe?g|png|webp)$/i.test(a.nome))) void analisar();
+      }
     } finally {
       setEnviando(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -186,6 +201,9 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
                 </div>
               </Row>
             </div>
+
+            {/* Análise por IA (resumo do currículo + classificação para a vaga) */}
+            <AnaliseBloco talento={l} canEdit={canEdit} analisando={analisando} erro={erroAnalise ?? l.analiseErro} onAnalisar={analisar} temCurriculo={anexos.some((a) => /\.(pdf|docx|jpe?g|png|webp)$/i.test(a.nome))} />
 
             {/* Currículo / Anexos */}
             <div style={css("margin-top:20px; padding-top:16px; border-top:1px solid #F0F1F4;")}>
@@ -284,6 +302,86 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
         />
       )}
     </>
+  );
+}
+
+/** Cartão "Análise por IA": nota + classificação, resumo, pontos fortes, alertas, lacunas, experiência e formação. */
+function AnaliseBloco({ talento: l, canEdit, analisando, erro, onAnalisar, temCurriculo }: { talento: Talento; canEdit: boolean; analisando: boolean; erro?: string | null; onAnalisar: () => void; temCurriculo: boolean }) {
+  const a = l.analise;
+  const [aberto, setAberto] = useState(false);
+  const desatualizada = !!a?.vagaId && !!l.vagaId && a.vagaId !== l.vagaId;
+  const quando = a?.em ? new Date(a.em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const cor = a ? notaCor(a.nota) : "#9398A6";
+  const botao = canEdit && (
+    <Hoverable as="button" onClick={onAnalisar} {...{ disabled: analisando || !temCurriculo }} title={!temCurriculo ? "Anexe o currículo (PDF, DOCX ou imagem) para analisar" : undefined} s={css(`display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#fff; background:${analisando || !temCurriculo ? "#B6BAC4" : "#955C6B"}; border:none; border-radius:8px; padding:6px 12px; cursor:${analisando || !temCurriculo ? "default" : "pointer"};`)} hover={analisando || !temCurriculo ? undefined : "filter:brightness(1.1)"}>
+      <Svg size={13} sw={2.2}><path d="M12 3l1.9 5.6H20l-4.8 3.5 1.8 5.6L12 14.3l-5 3.4 1.8-5.6L4 8.6h6.1z" /></Svg>
+      {analisando ? "Analisando…" : a ? "Reanalisar" : "Analisar com IA"}
+    </Hoverable>
+  );
+  const Lista = ({ titulo, itens, cor: c }: { titulo: string; itens: string[]; cor: string }) => itens.length ? (
+    <div>
+      <div style={css(`font-size:11px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:${c}; margin-bottom:4px;`)}>{titulo}</div>
+      <ul style={css("margin:0; padding-left:16px; display:flex; flex-direction:column; gap:3px;")}>
+        {itens.map((x, i) => <li key={i} style={css("font-size:12.5px; color:#3A3F4C; line-height:1.45;")}>{x}</li>)}
+      </ul>
+    </div>
+  ) : null;
+  return (
+    <div style={css("margin-top:20px; padding-top:16px; border-top:1px solid #F0F1F4;")}>
+      <div style={css("display:flex; align-items:center; gap:10px; margin-bottom:10px;")}>
+        <span style={css("font-size:12px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; color:#9398A6;")}>Análise por IA</span>
+        <span style={{ flex: 1 }} />
+        {botao}
+      </div>
+      {analisando && (
+        <div style={css("display:flex; align-items:center; gap:9px; font-size:12.5px; color:#7A8090; background:#FAFAFB; border:1px dashed #E2E3E9; border-radius:10px; padding:10px 12px; margin-bottom:10px;")}>
+          <span style={css("width:14px; height:14px; border:2px solid #E2E3E9; border-top-color:#955C6B; border-radius:50%; animation:spin .8s linear infinite;")} />
+          Lendo o currículo e comparando com a vaga… isso leva de 20 a 60 segundos.
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        </div>
+      )}
+      {!analisando && erro && (
+        <div style={css("font-size:12.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:10px; padding:9px 12px; margin-bottom:10px; line-height:1.45;")}>{erro}</div>
+      )}
+      {!a && !analisando && !erro && (
+        <div style={css("font-size:12.5px; color:#B6BAC4; padding:4px 0; line-height:1.5;")}>
+          {temCurriculo ? "Ainda não analisado. Clique em “Analisar com IA” para gerar o resumo do currículo e a nota para a vaga." : "Anexe o currículo para a IA resumir e classificar o candidato para a vaga."}
+        </div>
+      )}
+      {a && (
+        <div style={css("border:1px solid #ECEDF1; border-radius:12px; overflow:hidden;")}>
+          <div style={css(`display:flex; align-items:center; gap:14px; padding:12px 14px; background:${cor}0D;`)}>
+            <div style={css(`flex:none; width:54px; height:54px; border-radius:12px; background:${cor}; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1;`)}>
+              <span style={css("font-size:20px; font-weight:800; font-variant-numeric:tabular-nums;")}>{a.nota}</span>
+              <span style={css("font-size:9px; font-weight:700; opacity:.85; margin-top:2px;")}>/100</span>
+            </div>
+            <div style={css("flex:1; min-width:0;")}>
+              <div style={css(`font-size:14px; font-weight:800; color:${cor};`)}>{a.classificacao}<span style={css("font-size:12.5px; font-weight:600; color:#5B6472;")}> para {a.vagaTitulo || "a vaga"}</span></div>
+              <div style={css("font-size:11.5px; color:#9398A6; margin-top:3px;")}>{quando}{a.modelo ? ` · ${a.modelo}` : ""}</div>
+              {desatualizada && <div style={css("margin-top:5px; font-size:11.5px; font-weight:700; color:#B45309;")}>A vaga do candidato mudou desde a análise — clique em Reanalisar.</div>}
+            </div>
+          </div>
+          <div style={css("padding:12px 14px; display:flex; flex-direction:column; gap:12px;")}>
+            <p style={css("margin:0; font-size:13px; color:#1B1B28; line-height:1.55;")}>{a.resumo}</p>
+            {a.justificativa && <p style={css("margin:0; font-size:12.5px; color:#5B6472; line-height:1.5; font-style:italic;")}>{a.justificativa}</p>}
+            <Lista titulo="Pontos fortes" itens={a.pontosFortes} cor="#1B7F4D" />
+            <Lista titulo="Alertas" itens={a.alertas} cor="#B45309" />
+            <Lista titulo="Lacunas para a vaga" itens={a.lacunas} cor="#B42318" />
+            {(a.experiencia.length > 0 || a.formacao.length > 0) && (
+              <div>
+                <Hoverable as="button" onClick={() => setAberto((v) => !v)} s={css("border:none; background:transparent; padding:0; font-size:12px; font-weight:700; color:#2563EB; cursor:pointer;")} hover="text-decoration:underline">{aberto ? "Ocultar experiência e formação" : "Ver experiência e formação"}</Hoverable>
+                {aberto && (
+                  <div style={css("display:flex; flex-direction:column; gap:10px; margin-top:8px;")}>
+                    <Lista titulo="Experiência" itens={a.experiencia} cor="#5B6472" />
+                    <Lista titulo="Formação" itens={a.formacao} cor="#5B6472" />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
