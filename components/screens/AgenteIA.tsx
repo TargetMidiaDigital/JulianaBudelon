@@ -245,6 +245,41 @@ function FerramentasSub({ cfg, onSave, ro }: { cfg: AgenteConfigPublica; onSave:
   const [salvando, setSalvando] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const ligada = (k: string) => cfg.ferramentas[k] !== false;
+  // Grupos que recebem o aviso de currículo (ids de whatsapp_grupos). Salva a cada clique.
+  const alternarGrupo = async (id: string) => {
+    if (ro || salvando) return;
+    const atual = cfg.notificarGrupos;
+    const novos = atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id];
+    setSalvando("grupo:" + id); setErro(null);
+    try { await onSave({ notificarGrupos: novos }); }
+    catch (e) { setErro(e instanceof Error ? e.message : "Falha ao salvar."); }
+    finally { setSalvando(null); }
+  };
+  const GruposDoAviso = () => {
+    const on = ligada("notificar_curriculo");
+    if (!cfg.grupos.length) {
+      return <div style={css("margin-top:10px; font-size:12.5px; color:#B45309; background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; padding:8px 12px; line-height:1.45;")}>Nenhum grupo de WhatsApp cadastrado. Cadastre em <b>Configurações → WhatsApp → Grupos de notificação</b> e volte aqui para escolher.</div>;
+    }
+    return (
+      <div style={css(`margin-top:10px; opacity:${on ? 1 : 0.55};`)}>
+        <div style={css("font-size:11.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#9398A6; margin-bottom:7px;")}>Grupos que recebem o aviso</div>
+        <div style={css("display:flex; gap:6px; flex-wrap:wrap;")}>
+          {cfg.grupos.map((g) => {
+            const sel = cfg.notificarGrupos.includes(g.id);
+            const busy = salvando === "grupo:" + g.id;
+            return (
+              <Hoverable key={g.id} as="button" type="button" role="checkbox" aria-checked={sel} title={`${g.grupo_id}${g.ativo ? "" : " · pausado em Configurações → WhatsApp"}`} onClick={() => alternarGrupo(g.id)} s={css(`display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; padding:6px 12px; border-radius:999px; cursor:${ro ? "default" : "pointer"}; border:1px solid ${sel ? "transparent" : "#E2E3E9"}; background:${sel ? `${BRAND}1A` : "#fff"}; color:${sel ? BRAND : "#5B6472"}; opacity:${busy ? 0.6 : 1};`)} hover={ro || sel ? undefined : "background:#FAFAFB"}>
+                <span style={css(`width:14px; height:14px; border-radius:4px; flex:none; display:flex; align-items:center; justify-content:center; background:${sel ? BRAND : "#fff"}; border:1.5px solid ${sel ? BRAND : "#C7CAD2"};`)}>{sel && <Svg size={10} sw={3} stroke="#fff"><path d="M4 12.6 9.2 18 20 6.6" /></Svg>}</span>
+                {g.nome}{!g.ativo && <span style={css("font-size:10.5px; font-weight:800; color:#B45309; background:#FEF3C7; padding:1px 6px; border-radius:6px;")}>PAUSADO</span>}
+              </Hoverable>
+            );
+          })}
+        </div>
+        {on && cfg.notificarGrupos.length === 0 && <div style={css("margin-top:8px; font-size:12px; font-weight:600; color:#B45309;")}>Nenhum grupo escolhido: a ferramenta está ligada, mas nenhum aviso vai sair.</div>}
+        {on && cfg.notificarGrupos.length > 0 && cfg.grupos.filter((g) => cfg.notificarGrupos.includes(g.id)).every((g) => !g.ativo) && <div style={css("margin-top:8px; font-size:12px; font-weight:600; color:#B45309;")}>Todos os grupos escolhidos estão pausados em Configurações → WhatsApp.</div>}
+      </div>
+    );
+  };
   const alternar = async (k: string) => {
     setSalvando(k); setErro(null);
     try { await onSave({ ferramentas: { [k]: !ligada(k) } }); }
@@ -262,6 +297,7 @@ function FerramentasSub({ cfg, onSave, ro }: { cfg: AgenteConfigPublica; onSave:
               <div style={css("flex:1; min-width:0;")}>
                 <div style={css("font-size:14px; font-weight:600; color:#1B1B28;")}>{f.nome}</div>
                 <div style={css("font-size:12.5px; color:#9398A6; margin-top:3px; line-height:1.5;")}>{f.descricao}</div>
+                {f.key === "notificar_curriculo" && <GruposDoAviso />}
               </div>
               <Hoverable as="button" role="switch" aria-checked={on} title={on ? "Desligar" : "Ligar"} onClick={salvando || ro ? undefined : () => alternar(f.key)} s={css(`flex:none; width:44px; height:24px; border-radius:999px; border:none; cursor:${ro ? "default" : "pointer"}; position:relative; background:${on ? "#1B7F4D" : "#D6D7DE"}; opacity:${salvando === f.key ? 0.6 : 1}; transition:background .15s;`)}>
                 <span style={css(`position:absolute; top:3px; left:${on ? 23 : 3}px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .15s;`)} />

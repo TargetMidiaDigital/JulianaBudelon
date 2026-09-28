@@ -4,7 +4,7 @@ import { normalizarWhatsapp } from "@/lib/format";
 import { unidadeDe, vagaDe, type UnidadeRow, type VagaRow } from "@/lib/data";
 import { slugify, unidadeLabel, vagaLabel } from "@/lib/localdb";
 import { analisarTalento, ferramentaLigada } from "@/lib/analise-curriculo";
-import { notificarGrupos, origemDeRequest, textoNovoCandidato } from "@/lib/whatsapp";
+import { notificarCurriculo, origemDeRequest, textoNovoCandidato } from "@/lib/whatsapp";
 
 /**
  * ROTA PÚBLICA (sem sessão, por design) — o candidato se inscreve pela página /vagas.
@@ -88,11 +88,10 @@ export async function POST(req: Request) {
   const { error } = await sb.from("talento").insert(row);
   if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
   after(async () => {
-    // Aviso no grupo de WhatsApp (Configurações → WhatsApp). Best-effort: nunca lança.
-    // Interruptor: Agente IA → Ferramentas → "Avisar novo currículo no grupo".
+    // Aviso nos grupos de WhatsApp escolhidos em Agente IA → Ferramentas. Best-effort: nunca lança.
     try {
       if (await ferramentaLigada(sb, "notificar_curriculo")) {
-        await notificarGrupos(sb, textoNovoCandidato({ id, nome, fone, vaga: vaga.titulo, unidade: unidadeLabel(unidade), turno: vaga.turno || null, temCurriculo: true }, origemDeRequest(req)), "recrutamento");
+        await notificarCurriculo(sb, textoNovoCandidato({ id, nome, fone, vaga: vaga.titulo, unidade: unidadeLabel(unidade), turno: vaga.turno || null, temCurriculo: true }, origemDeRequest(req)));
       }
     } catch (e) { console.error("[candidatura] aviso no grupo falhou:", e instanceof Error ? e.message : e); }
     try {

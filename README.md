@@ -33,9 +33,10 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   (URL + token write-only, em `agente_ia`), **conexão do número** (status, QR Code, desconectar,
   pelo proxy `/api/whatsapp/instancia`) e **grupos de notificação** (`whatsapp_grupos`: JID,
   liga/desliga, testar, excluir, via `/api/whatsapp/grupos`). A cada candidatura pela página
-  pública, os grupos ativos recebem nome, vaga, unidade e o link `/?talento=<id>` que abre o
-  candidato no painel (o arquivo do currículo não vai: é documento pessoal). Interruptor em
-  Agente IA → Ferramentas → "Avisar novo currículo no grupo". Em desenvolvimento (link
+  pública, os grupos **escolhidos em Recrutamento → Agente IA → Ferramentas** (entre os
+  cadastrados, coluna `agente_ia.notificar_grupos`) recebem nome, vaga, unidade e o link
+  `/?talento=<id>` que abre o candidato no painel (o arquivo do currículo não vai: é documento
+  pessoal). Nenhum grupo escolhido = nenhum aviso. Em desenvolvimento (link
   `localhost`) o aviso não sai. Código em [`lib/whatsapp.ts`](lib/whatsapp.ts).
 - **Página pública `/vagas`** (link na bio, no desenho do linkbio do Cachorrão HD) — hub com um botão
   por unidade → `/vagas/<unidade>` com um botão por vaga → popup "Sobre a vaga" (descrição, requisitos, diferenciais) → nome / WhatsApp / currículo →

@@ -95,15 +95,28 @@ export function textoNovoCandidato(c: CandidatoNotify, origem: string): string {
   return ["🧁 Novo candidato no Banco de Talentos", "", ...linhas, ...link].join("\n");
 }
 
+/**
+ * Aviso de currículo novo: vai só para os grupos escolhidos em Recrutamento → Agente IA →
+ * Ferramentas (`agente_ia.notificar_grupos`). Nenhum escolhido = nada sai.
+ */
+export async function notificarCurriculo(sb: SupabaseClient, texto: string): Promise<void> {
+  const { data } = await sb.from("agente_ia").select("notificar_grupos").eq("slug", AGENTE_RECRUTAMENTO).maybeSingle();
+  const ids = ((data as { notificar_grupos?: string[] | null } | null)?.notificar_grupos ?? []).map(String);
+  if (!ids.length) { console.warn("[whatsapp] aviso de currículo não enviado: nenhum grupo escolhido em Agente IA → Ferramentas."); return; }
+  await notificarGrupos(sb, texto, { ids });
+}
+
 /** Mensagem que o botão "Testar" da tela de grupos envia. */
 export const TEXTO_TESTE_GRUPO = "✅ Teste da Ju Budelon: este grupo está configurado para receber as notificações do sistema.";
 
 /**
- * Envia `texto` para os grupos ATIVOS do setor. Best-effort: lê os grupos, dispara um
- * sendText por grupo e engole qualquer falha (JID inválido, Uazapi fora do ar) — só
- * registra no log. Nunca lança: uma candidatura não pode falhar porque o WhatsApp falhou.
+ * Envia `texto` para grupos ATIVOS: os escolhidos por id (`ids`) ou, sem lista, todos os do
+ * setor. Best-effort: lê os grupos, dispara um sendText por grupo e engole qualquer falha
+ * (JID inválido, Uazapi fora do ar) — só registra no log. Nunca lança: uma candidatura não
+ * pode falhar porque o WhatsApp falhou.
  */
-export async function notificarGrupos(sb: SupabaseClient, texto: string, setor: SetorGrupo = SETOR_PADRAO): Promise<void> {
+export async function notificarGrupos(sb: SupabaseClient, texto: string, opts: { ids?: string[]; setor?: SetorGrupo } = {}): Promise<void> {
+  const setor = opts.setor ?? SETOR_PADRAO;
   // Máquina de desenvolvimento aponta para o MESMO banco e a MESMA instância da produção:
   // mensagem com link localhost nunca é útil — melhor não sair.
   if (/localhost|127\.0\.0\.1/.test(texto)) {
@@ -113,7 +126,10 @@ export async function notificarGrupos(sb: SupabaseClient, texto: string, setor: 
   try {
     const creds = await getUazapiCreds(sb);
     if (!creds) return;
-    const { data } = await sb.from("whatsapp_grupos").select("grupo_id").eq("ativo", true).contains("setores", [setor]);
+    if (opts.ids && opts.ids.length === 0) return; // lista explícita vazia: ninguém escolhido
+    let q = sb.from("whatsapp_grupos").select("grupo_id").eq("ativo", true);
+    q = opts.ids ? q.in("id", opts.ids) : q.contains("setores", [setor]);
+    const { data } = await q;
     const grupos = (data ?? []) as { grupo_id: string }[];
     if (!grupos.length) return;
     await Promise.allSettled(

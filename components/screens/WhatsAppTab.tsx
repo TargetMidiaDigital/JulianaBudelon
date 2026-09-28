@@ -353,7 +353,7 @@ function Grupos({ configurado }: { configurado: boolean }) {
             ))}
           </div>
         )}
-        <p style={nota}>O que é enviado e quando: Recrutamento → Agente IA → Ferramentas → “Avisar novo currículo no grupo”. A mensagem leva nome, vaga, unidade e o link do candidato; o arquivo do currículo não vai, porque é documento pessoal.</p>
+        <p style={nota}>Cadastrar aqui não faz o grupo receber nada sozinho: em <b>Recrutamento → Agente IA → Ferramentas</b> → “Avisar novo currículo no grupo” você escolhe quais destes grupos recebem o aviso. A mensagem leva nome, vaga, unidade e o link do candidato; o arquivo do currículo não vai, porque é documento pessoal.</p>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
       {confirmDel && (

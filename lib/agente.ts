@@ -30,7 +30,7 @@ export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: s
   {
     key: "notificar_curriculo",
     nome: "Avisar novo currículo no grupo de WhatsApp",
-    descricao: "A cada candidatura recebida pela página de vagas, avisa os grupos cadastrados em Configurações → WhatsApp com o nome, a vaga, a unidade e o link do candidato. O arquivo do currículo não vai na mensagem — abre pelo painel, que tem login.",
+    descricao: "A cada candidatura recebida pela página de vagas, avisa os grupos escolhidos abaixo (cadastrados em Configurações → WhatsApp) com o nome, a vaga, a unidade e o link do candidato. O arquivo do currículo não vai na mensagem — abre pelo painel, que tem login.",
   },
   {
     key: "analisar_curriculo",
@@ -60,6 +60,9 @@ export const PROMPT_RECRUTAMENTO_PADRAO = [
   "- No resumo não repita idade, gênero, estado civil, religião nem aparência: a nota é sobre experiência e requisitos, nunca sobre a pessoa.",
 ].join("\n");
 
+/** Grupo de WhatsApp cadastrado (Configurações → WhatsApp), como a tela do agente enxerga. */
+export type GrupoResumo = { id: string; nome: string; grupo_id: string; ativo: boolean };
+
 /** O que a tela de configuração recebe (sem o token). */
 export type AgenteConfigPublica = {
   configurado: boolean; // tem token
@@ -67,4 +70,8 @@ export type AgenteConfigPublica = {
   engine: string;
   prompt: string; // vazio = padrão
   ferramentas: Record<string, boolean>;
+  /** ids (whatsapp_grupos) que recebem o aviso de currículo novo. Vazio = ninguém. */
+  notificarGrupos: string[];
+  /** grupos cadastrados, para escolher acima. */
+  grupos: GrupoResumo[];
 };
