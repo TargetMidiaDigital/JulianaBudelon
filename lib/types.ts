@@ -178,7 +178,7 @@ export type Sector = {
   children: { label: string; page: ScreenPage }[];
 };
 
-export type ScreenPage = "listaview" | "recrutamento-talentos" | "recrutamento-vagas" | "config";
+export type ScreenPage = "listaview" | "recrutamento-talentos" | "recrutamento-vagas" | "recrutamento-agente" | "config";
 
 /** Nível de acesso de um cargo a uma tela do menu. */
 export type NivelAcesso = "nenhum" | "ver" | "editar";

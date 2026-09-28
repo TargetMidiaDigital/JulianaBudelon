@@ -14,7 +14,7 @@ import type { AnaliseIA, Anexo, Comentario, Talento } from "./types";
  *   2) a resposta é JSON (response_format do OpenRouter + validação aqui), gravada em colunas.
  *
  * Config (token, modelo, motor de PDF, prompt, ferramentas) vem da linha `recrutamento` da
- * tabela `agente_ia` — Configurações → Agente IA. Nada de variável de ambiente.
+ * tabela `agente_ia` — Recrutamento → Agente IA. Nada de variável de ambiente.
  *
  * O arquivo é baixado do bucket PRIVADO com service role e mandado em base64 — nenhuma
  * URL do Storage sai para terceiro. ⚠️ O conteúdo do currículo (dado pessoal) vai para o
@@ -171,7 +171,7 @@ export async function analisarTalento(sb: SupabaseClient, id: string, autor = "s
   };
 
   const cfg = await carregarConfigRecrutamento(sb);
-  if (!cfg) return falhar("Token do OpenRouter não configurado (Configurações → Agente IA → LLM).");
+  if (!cfg) return falhar("Token do OpenRouter não configurado (Recrutamento → Agente IA → LLM).");
 
   let anexo = escolherCurriculo(talento.anexos ?? []);
   if (!anexo) {
@@ -219,7 +219,7 @@ export async function analisarTalento(sb: SupabaseClient, id: string, autor = "s
     });
     const bruto = extrairJson(textoDaMensagem(msg));
     saida = parseAnalise(bruto);
-    if (!saida) return falhar("A IA não devolveu a análise no formato esperado. Tente de novo ou troque o modelo em Configurações → Agente IA → LLM.");
+    if (!saida) return falhar("A IA não devolveu a análise no formato esperado. Tente de novo ou troque o modelo em Recrutamento → Agente IA → LLM.");
   } catch (e) {
     const detalhe = e instanceof Error ? e.message : "erro desconhecido";
     console.error("[analise-curriculo]", detalhe);

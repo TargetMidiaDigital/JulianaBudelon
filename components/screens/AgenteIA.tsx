@@ -14,11 +14,12 @@ import Menu, { MenuItem } from "../ui/Menu";
 import { useApp } from "../store";
 
 /**
- * Configurações → Agente IA. Mesmo desenho do CRM do Cachorrão HD (Agente IA → RECRUTAMENTO):
+ * Recrutamento → Agente IA. Mesmo desenho do CRM do Cachorrão HD (Agente IA → RECRUTAMENTO):
  * um agente que não conversa com ninguém — lê currículo, resume e classifica para a vaga —
  * com três abas: Prompt (instruções), LLM (token OpenRouter + modelo + motor de PDF) e
  * Ferramentas (interruptores das automações). Lê/grava em /api/agente/config; o token é
- * write-only (o servidor devolve só "configurado").
+ * write-only (o servidor devolve só "configurado"). Nível "ver" (Configurações → Acessos)
+ * enxerga tudo sem os botões de salvar.
  */
 
 type Sub = "prompt" | "llm" | "ferramentas";
@@ -57,8 +58,9 @@ function BotaoSalvar({ onClick, estado, disabled }: { onClick: () => void; estad
   );
 }
 
-export default function AgenteIATab() {
-  const { demo } = useApp();
+export default function AgenteIA() {
+  const { demo, canEditPage } = useApp();
+  const editavel = canEditPage("recrutamento-agente");
   const [sub, setSub] = useState<Sub>("prompt");
   const [cfg, setCfg] = useState<AgenteConfigPublica | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -77,17 +79,31 @@ export default function AgenteIATab() {
     setCfg(j);
   };
 
+  const cabecalho = (
+    <div className="m-wrap" style={css("display:flex; align-items:center; gap:16px;")}>
+      <div style={{ flex: 1 }}>
+        <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Agente IA</h1>
+        <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>Lê o currículo de cada candidatura, resume e dá a nota de aderência à vaga · igual ao agente de recrutamento do Cachorrão HD</p>
+      </div>
+    </div>
+  );
+
   if (demo) {
     return (
-      <div style={css(card + " padding:40px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;")}>
-        <div style={css("font-size:15px; font-weight:800; color:#1B1B28;")}>Agente IA</div>
-        <div style={css("font-size:13px; color:#9398A6; max-width:420px; line-height:1.5;")}>A análise de currículos por IA funciona com o Supabase ligado. No modo demo não há onde guardar o token do OpenRouter nem currículos no Storage.</div>
+      <div className="m-pad" style={css("padding:24px 30px 40px; display:flex; flex-direction:column; gap:18px;")}>
+        {cabecalho}
+        <div style={css(card + " padding:40px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;")}>
+          <div style={css("font-size:15px; font-weight:800; color:#1B1B28;")}>Disponível com o Supabase ligado</div>
+          <div style={css("font-size:13px; color:#9398A6; max-width:420px; line-height:1.5;")}>No modo demo não há onde guardar o token do OpenRouter nem currículos no Storage.</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={css("display:flex; flex-direction:column; gap:14px;")}>
+    <div className="m-pad" style={css("padding:24px 30px 40px; display:flex; flex-direction:column; gap:18px;")}>
+      {cabecalho}
+      {!editavel && <div style={css("font-size:12.5px; font-weight:600; color:#5B6472; background:#F4F5F7; border:1px solid #E2E3E9; border-radius:10px; padding:9px 12px;")}>Você tem acesso somente de leitura nesta tela. Para alterar, peça a um administrador (Configurações → Acessos).</div>}
       {/* Cabeçalho do agente + sub-abas */}
       <div style={css("display:flex; align-items:center; gap:14px; flex-wrap:wrap;")}>
         <div style={css("display:flex; align-items:center; gap:10px;")}>
@@ -114,15 +130,15 @@ export default function AgenteIATab() {
       {erro && <div style={css("font-size:12.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:10px; padding:9px 12px;")}>{erro}</div>}
       {!cfg && !erro && <div style={css("font-size:13px; color:#9398A6; padding:6px 2px;")}>Carregando…</div>}
 
-      {cfg && sub === "prompt" && <PromptSub cfg={cfg} onSave={salvar} />}
-      {cfg && sub === "llm" && <LLMSub cfg={cfg} onSave={salvar} />}
-      {cfg && sub === "ferramentas" && <FerramentasSub cfg={cfg} onSave={salvar} />}
+      {cfg && sub === "prompt" && <PromptSub cfg={cfg} onSave={salvar} ro={!editavel} />}
+      {cfg && sub === "llm" && <LLMSub cfg={cfg} onSave={salvar} ro={!editavel} />}
+      {cfg && sub === "ferramentas" && <FerramentasSub cfg={cfg} onSave={salvar} ro={!editavel} />}
     </div>
   );
 }
 
 /** Aba Prompt: instruções que a IA segue. O formato JSON da resposta é fixo no código. */
-function PromptSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void> }) {
+function PromptSub({ cfg, onSave, ro }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void>; ro?: boolean }) {
   const [prompt, setPrompt] = useState(cfg.prompt || PROMPT_RECRUTAMENTO_PADRAO);
   const [estado, setEstado] = useState<"idle" | "salvando" | "salvo">("idle");
   const [erro, setErro] = useState<string | null>(null);
@@ -136,13 +152,13 @@ function PromptSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Reco
   return (
     <div style={css(card)}>
       <Cabecalho titulo="Instruções da análise" sub="Como a IA deve ler o currículo e dar a nota para a vaga.">
-        <Hoverable as="button" title="Restaurar o texto padrão" onClick={() => setPrompt(PROMPT_RECRUTAMENTO_PADRAO)} s={css("flex:none; width:34px; height:34px; border:1px solid #E2E3E9; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F4F4F7">
+        {!ro && <Hoverable as="button" title="Restaurar o texto padrão" onClick={() => setPrompt(PROMPT_RECRUTAMENTO_PADRAO)} s={css("flex:none; width:34px; height:34px; border:1px solid #E2E3E9; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F4F4F7">
           <Svg size={15} sw={2.2}><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></Svg>
-        </Hoverable>
-        <BotaoSalvar onClick={salvar} estado={estado} disabled={!mudou} />
+        </Hoverable>}
+        {!ro && <BotaoSalvar onClick={salvar} estado={estado} disabled={!mudou} />}
       </Cabecalho>
       <div style={css("padding:16px 20px; display:flex; flex-direction:column; gap:10px;")}>
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={18} style={{ ...inp, resize: "vertical", lineHeight: 1.55, fontFamily: "inherit" }} />
+        <textarea value={prompt} readOnly={ro} onChange={(e) => setPrompt(e.target.value)} rows={18} style={{ ...inp, resize: "vertical", lineHeight: 1.55, fontFamily: "inherit" }} />
         {erro && <div style={css("font-size:12.5px; color:#CC3338; font-weight:600;")}>{erro}</div>}
         <p style={nota}>
           A análise aparece no detalhe do candidato, em <b>Banco de Talentos</b>, e alimenta a coluna <b>Nota IA</b>. O <b>formato da resposta</b> (resumo, nota 0–100, Ótimo/Bom/Ruim, justificativa, lacunas) é fixo no código e vai anexado a este texto — editar aqui não quebra a leitura do resultado. Vale manter a instrução de usar só o que está escrito no documento: sem ela o modelo preenche lacuna inventando. E a linha que proíbe comentar idade, gênero ou aparência existe de propósito: isso alimenta decisão de contratação.
@@ -153,7 +169,7 @@ function PromptSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Reco
 }
 
 /** Aba LLM: token do OpenRouter (write-only), modelo e motor de leitura de PDF. */
-function LLMSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void> }) {
+function LLMSub({ cfg, onSave, ro }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void>; ro?: boolean }) {
   const [token, setToken] = useState("");
   const [modelo, setModelo] = useState(cfg.modelo || MODELO_RECRUTAMENTO_PADRAO);
   const [engine, setEngine] = useState(cfg.engine || PDF_ENGINE_PADRAO);
@@ -175,7 +191,7 @@ function LLMSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<
   return (
     <div style={css(card)}>
       <Cabecalho titulo="LLM do recrutamento" sub="Conta do OpenRouter e modelo que lê o currículo e escreve a análise.">
-        <BotaoSalvar onClick={salvar} estado={estado} disabled={!mudou} />
+        {!ro && <BotaoSalvar onClick={salvar} estado={estado} disabled={!mudou} />}
       </Cabecalho>
       <div style={css("padding:16px 20px; display:flex; flex-direction:column; gap:16px;")}>
         <div>
@@ -183,7 +199,7 @@ function LLMSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<
             <label style={{ ...lbl, marginBottom: 0 }}>Token do OpenRouter</label>
             <span style={css(`display:inline-flex; align-items:center; gap:6px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; background:${cfg.configurado ? "#E7F6EC" : "#F1F2F5"}; color:${cfg.configurado ? "#1B7F4D" : "#8A90A0"};`)}>{cfg.configurado ? "Configurado" : "Não configurado"}</span>
           </div>
-          <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder={cfg.configurado ? "•••••••• (mantido — digite para trocar)" : "sk-or-v1-…"} style={{ ...inp, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }} />
+          <input type="password" autoComplete="off" readOnly={ro} value={token} onChange={(e) => setToken(e.target.value)} placeholder={cfg.configurado ? "•••••••• (mantido — digite para trocar)" : "sk-or-v1-…"} style={{ ...inp, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace" }} />
           <p style={{ ...nota, marginTop: 6 }}>A chave fica só no servidor e nunca volta para o navegador. Crie em <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" style={css(`color:${BRAND}; font-weight:700;`)}>openrouter.ai/keys</a>.</p>
         </div>
         <div className="m-grid-1" style={css("display:grid; grid-template-columns:1fr 1fr; gap:14px;")}>
@@ -199,7 +215,7 @@ function LLMSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<
                 <MenuItem key={m.id} checked={m.id === modelo} onClick={() => { setModelo(m.id); close(); }}><span style={{ flex: 1, fontWeight: 600 }}>{m.label}</span></MenuItem>
               ))}
             </Menu>
-            <input value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="ex.: google/gemini-2.5-flash" style={{ ...inp, marginTop: 8, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 12.5 }} />
+            <input value={modelo} readOnly={ro} onChange={(e) => setModelo(e.target.value)} placeholder="ex.: google/gemini-2.5-flash" style={{ ...inp, marginTop: 8, fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace", fontSize: 12.5 }} />
             <p style={{ ...nota, marginTop: 6 }}>Precisa ser multimodal e aceitar saída em JSON: o currículo chega como PDF, mas também como foto do papel. <a href="https://openrouter.ai/models" target="_blank" rel="noreferrer" style={css(`color:${BRAND}; font-weight:700;`)}>Ver modelos</a>.</p>
           </div>
           <div>
@@ -225,7 +241,7 @@ function LLMSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<
 }
 
 /** Aba Ferramentas: interruptores das automações do recrutamento. */
-function FerramentasSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void> }) {
+function FerramentasSub({ cfg, onSave, ro }: { cfg: AgenteConfigPublica; onSave: (b: Record<string, unknown>) => Promise<void>; ro?: boolean }) {
   const [salvando, setSalvando] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const ligada = (k: string) => cfg.ferramentas[k] !== false;
@@ -247,7 +263,7 @@ function FerramentasSub({ cfg, onSave }: { cfg: AgenteConfigPublica; onSave: (b:
                 <div style={css("font-size:14px; font-weight:600; color:#1B1B28;")}>{f.nome}</div>
                 <div style={css("font-size:12.5px; color:#9398A6; margin-top:3px; line-height:1.5;")}>{f.descricao}</div>
               </div>
-              <Hoverable as="button" role="switch" aria-checked={on} title={on ? "Desligar" : "Ligar"} onClick={salvando ? undefined : () => alternar(f.key)} s={css(`flex:none; width:44px; height:24px; border-radius:999px; border:none; cursor:pointer; position:relative; background:${on ? "#1B7F4D" : "#D6D7DE"}; opacity:${salvando === f.key ? 0.6 : 1}; transition:background .15s;`)}>
+              <Hoverable as="button" role="switch" aria-checked={on} title={on ? "Desligar" : "Ligar"} onClick={salvando || ro ? undefined : () => alternar(f.key)} s={css(`flex:none; width:44px; height:24px; border-radius:999px; border:none; cursor:${ro ? "default" : "pointer"}; position:relative; background:${on ? "#1B7F4D" : "#D6D7DE"}; opacity:${salvando === f.key ? 0.6 : 1}; transition:background .15s;`)}>
                 <span style={css(`position:absolute; top:3px; left:${on ? 23 : 3}px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .15s;`)} />
               </Hoverable>
             </div>

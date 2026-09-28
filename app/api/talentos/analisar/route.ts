@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (!sb) return NextResponse.json({ error: "Análise por IA disponível só com o Supabase ligado." }, { status: 503 });
   const sess = await requireEditor(req, sb, "recrutamento-talentos");
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  if (!(await temIA(sb))) return NextResponse.json({ error: "Token do OpenRouter não configurado (Configurações → Agente IA → LLM)." }, { status: 503 });
+  if (!(await temIA(sb))) return NextResponse.json({ error: "Token do OpenRouter não configurado (Recrutamento → Agente IA → LLM)." }, { status: 503 });
   const { id } = (await req.json().catch(() => ({}))) as { id?: string };
   if (!id) return NextResponse.json({ error: "id obrigatório." }, { status: 400 });
   const r = await analisarTalento(sb, id, sess.userId);

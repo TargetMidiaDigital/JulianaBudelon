@@ -10,6 +10,7 @@ import Topbar from "./Topbar";
 import ListaView from "./screens/ListaView";
 import BancoTalentos from "./screens/BancoTalentos";
 import Vagas from "./screens/Vagas";
+import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
 import TaskDetail from "./modals/TaskDetail";
 import TaskForm from "./modals/TaskForm";
@@ -26,6 +27,7 @@ function Screens() {
       {screen === "listaview" && <ListaView selectable />}
       {screen === "recrutamento-talentos" && <BancoTalentos />}
       {screen === "recrutamento-vagas" && <Vagas />}
+      {screen === "recrutamento-agente" && <AgenteIA />}
       {screen === "config" && <Config />}
     </div>
   );

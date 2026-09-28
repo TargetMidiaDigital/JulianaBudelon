@@ -12,6 +12,7 @@ const TITLES: Record<ScreenPage, string> = {
   listaview: "Tarefas",
   "recrutamento-talentos": "Banco de Talentos",
   "recrutamento-vagas": "Vagas",
+  "recrutamento-agente": "Agente IA",
   config: "Configurações",
 };
 

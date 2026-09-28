@@ -22,6 +22,7 @@ export const spacesTree: Sector[] = [
     children: [
       { label: "Banco de Talentos", page: "recrutamento-talentos" },
       { label: "Vagas", page: "recrutamento-vagas" },
+      { label: "Agente IA", page: "recrutamento-agente" },
     ],
   },
 ];

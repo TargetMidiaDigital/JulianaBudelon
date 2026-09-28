@@ -23,7 +23,7 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   Ótimo/Bom/Ruim + justificativa + lacunas), em JSON. A "Qualidade" só é preenchida automaticamente
   enquanto estiver "Aguardando Análise" — a decisão humana prevalece. Código em
   [`lib/analise-curriculo.ts`](lib/analise-curriculo.ts) e rota `/api/talentos/analisar`.
-- **Configurações → Agente IA** (Administrador) — mesmo desenho do CRM do Cachorrão HD: agente
+- **Recrutamento → Agente IA** (tela própria, permissão em Configurações → Acessos) — mesmo desenho do CRM do Cachorrão HD: agente
   **RECRUTAMENTO** com abas **Prompt** (instruções editáveis; o formato JSON é fixo no código),
   **LLM** (token do OpenRouter — write-only, nunca volta ao navegador —, modelo e motor de leitura
   de PDF) e **Ferramentas** (ligar/desligar a análise automática na candidatura). Tudo na tabela

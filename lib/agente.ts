@@ -40,7 +40,7 @@ export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: s
 ];
 
 /**
- * Instruções padrão do agente (a parte que a equipe pode editar em Configurações → Agente IA
+ * Instruções padrão do agente (a parte que a equipe pode editar em Recrutamento → Agente IA
  * → Prompt). O FORMATO da resposta (JSON com resumo, nota etc.) é fixo no código e vai
  * anexado a estas instruções — editar o texto aqui não quebra a leitura do resultado.
  */

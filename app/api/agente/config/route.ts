@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { requireAdmin } from "@/lib/auth-admin";
+import { nivelNaTela, requireEditor, requireSession } from "@/lib/auth-admin";
 import { AGENTE_RECRUTAMENTO, MODELO_RECRUTAMENTO_PADRAO, PDF_ENGINE_PADRAO, PDF_ENGINES, type AgenteConfigPublica } from "@/lib/agente";
 
 /**
- * Configuração do agente de RECRUTAMENTO (Configurações → Agente IA), linha `recrutamento`
+ * Configuração do agente de RECRUTAMENTO (Recrutamento → Agente IA), linha `recrutamento`
  * de `agente_ia`. Mesmo desenho do /api/llm/config do Cachorrão HD: o TOKEN do OpenRouter é
- * write-only — nunca volta ao navegador, só o status "configurado". Só Administrador.
+ * write-only — nunca volta ao navegador, só o status "configurado".
+ * Autorização pela matriz de Acessos, tela "recrutamento-agente": ver → GET; editar → POST.
  *  - GET  → { configurado, modelo, engine, prompt, ferramentas }
  *  - POST { token?, modelo?, engine?, prompt?, ferramentas? } → { ok }  (só grava o que vier)
  */
@@ -30,16 +31,17 @@ async function ler(sb: NonNullable<ReturnType<typeof getSupabase>>): Promise<Age
 export async function GET(req: Request) {
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ demo: true });
-  const adm = await requireAdmin(req, sb);
-  if (!adm.ok) return NextResponse.json({ error: adm.error }, { status: adm.status });
+  const sess = await requireSession(req, sb);
+  if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
+  if ((await nivelNaTela(sb, sess.cargo, "recrutamento-agente")) === "nenhum") return NextResponse.json({ error: "Sem acesso a esta tela." }, { status: 403 });
   return NextResponse.json(await ler(sb));
 }
 
 export async function POST(req: Request) {
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ error: "Disponível só com o Supabase ligado." }, { status: 503 });
-  const adm = await requireAdmin(req, sb);
-  if (!adm.ok) return NextResponse.json({ error: adm.error }, { status: adm.status });
+  const sess = await requireEditor(req, sb, "recrutamento-agente");
+  if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
   const body = (await req.json().catch(() => ({}))) as { token?: string; modelo?: string; engine?: string; prompt?: string; ferramentas?: Record<string, unknown> };
 
   const payload: Record<string, unknown> = { slug: AGENTE_RECRUTAMENTO, nome: "RECRUTAMENTO" };

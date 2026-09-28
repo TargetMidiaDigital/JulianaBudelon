@@ -21,7 +21,7 @@ import { notificarGrupos, origemDeRequest, textoNovoCandidato } from "@/lib/what
  * Depois de gravar, dispara a análise do currículo por IA em segundo plano (`after`): o
  * candidato já aparece no Banco de Talentos e, segundos depois, recebe resumo + classificação
  * (o realtime_ping avisa o painel), e avisa os grupos de WhatsApp cadastrados. Interruptores:
- * Configurações → Agente IA → Ferramentas. Sem token do OpenRouter, fica "Aguardando Análise";
+ * Recrutamento → Agente IA → Ferramentas. Sem token do OpenRouter, fica "Aguardando Análise";
  * sem Uazapi/grupos, nenhum aviso sai.
  */
 export const dynamic = "force-dynamic";
