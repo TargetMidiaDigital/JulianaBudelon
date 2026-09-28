@@ -20,8 +20,9 @@ import type { AnaliseIA, Anexo, Comentario, Talento } from "./types";
  * URL do Storage sai para terceiro. ⚠️ O conteúdo do currículo (dado pessoal) vai para o
  * OpenRouter, que roteia para o provedor do modelo escolhido.
  *
- * Grava em `talento` (resumo, analise, nota_ia, qualidade_ia, analisado_em) e preenche a
- * "Qualidade" só se ela ainda estiver em "Aguardando Análise" — a decisão humana prevalece.
+ * Grava em `talento` (resumo, analise, nota_ia, qualidade_ia, analisado_em) e a "Qualidade"
+ * do candidato (Ruim / Bom / Ótimo). Sem análise, a Qualidade fica "Aguardando Análise";
+ * a equipe pode trocar depois no dropdown, e uma nova análise grava de novo.
  */
 
 const BUCKET = "task-anexos";
@@ -228,17 +229,17 @@ export async function analisarTalento(sb: SupabaseClient, id: string, autor = "s
 
   const agora = new Date().toISOString();
   const analise: AnaliseIA = { ...saida, vagaId, vagaTitulo: vagaCtx?.titulo ?? talento.vaga, modelo: cfg.modelo, em: agora };
-  const aguardando = !talento.qualidade || talento.qualidade === "Aguardando Análise";
+  const anterior = talento.qualidade && talento.qualidade !== "Aguardando Análise" && talento.qualidade !== analise.classificacao ? ` (antes: ${talento.qualidade})` : "";
   const log: Comentario = {
     id: `c-ia-${Date.now()}`, author: autor, created_at: agora, tipo: "log",
-    message: `Análise por IA concluída: ${analise.classificacao} (${analise.nota}/100) para ${analise.vagaTitulo ?? "a vaga"}${aguardando ? " — qualidade preenchida automaticamente" : ""}.`,
+    message: `Análise por IA concluída: qualidade ${analise.classificacao}${anterior} · ${analise.nota}/100 para ${analise.vagaTitulo ?? "a vaga"}.`,
   };
   const patch: Record<string, unknown> = {
     resumo: analise.resumo, analise, nota_ia: analise.nota, qualidade_ia: analise.classificacao, analisado_em: agora, analise_erro: null,
+    qualidade: analise.classificacao,
     ultimos_comentarios: [...(talento.comentarios ?? []), log],
   };
-  if (aguardando) patch.qualidade = analise.classificacao;
   const { error } = await sb.from("talento").update(patch).eq("id", id);
   if (error) return falhar(`Análise gerada, mas falhou ao salvar: ${error.message}`);
-  return { ok: true, talento: { ...talento, analise, analiseErro: undefined, qualidade: aguardando ? analise.classificacao : talento.qualidade, comentarios: [...(talento.comentarios ?? []), log] } };
+  return { ok: true, talento: { ...talento, analise, analiseErro: undefined, qualidade: analise.classificacao, comentarios: [...(talento.comentarios ?? []), log] } };
 }

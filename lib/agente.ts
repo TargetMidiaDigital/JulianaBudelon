@@ -35,7 +35,7 @@ export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: s
   {
     key: "analisar_curriculo",
     nome: "Analisar currículo ao receber candidatura",
-    descricao: "Quando chega uma candidatura pela página de vagas, a IA lê o currículo e grava o resumo e a nota de aderência à vaga no candidato. Desligado, a análise só roda pelo botão \"Analisar com IA\" no candidato. Atenção: o conteúdo do currículo é enviado ao OpenRouter.",
+    descricao: "Quando chega uma candidatura pela página de vagas, a IA lê o currículo, grava o resumo e a nota de aderência à vaga e classifica a Qualidade do candidato em Ruim, Bom ou Ótimo (sem análise, fica \"Aguardando Análise\"). Desligado, a análise só roda pelo botão \"Analisar com IA\" no candidato. Atenção: o conteúdo do currículo é enviado ao OpenRouter.",
   },
 ];
 
@@ -55,6 +55,7 @@ export const PROMPT_RECRUTAMENTO_PADRAO = [
   "- Para vagas operacionais (cozinha, atendimento, limpeza, expedição), valorize experiência prática na função ou em função parecida (restaurante, padaria, lanchonete, supermercado, hotelaria), disponibilidade de horário e estabilidade nos empregos. Formação superior não é requisito nessas vagas e não deve puxar a nota para cima nem para baixo.",
   "- Para vagas administrativas e de análise, valorize experiência na área, ferramentas citadas e formação compatível.",
   "- Nota: 0 a 100. Ótimo = 75 a 100 (atende os requisitos obrigatórios e tem experiência direta), Bom = 50 a 74 (atende parcialmente ou tem experiência correlata), Ruim = 0 a 49 (não atende os requisitos ou não há como avaliar).",
+  "- Classifique SEMPRE a qualidade do candidato para a vaga em uma de três opções: Ruim, Bom ou Ótimo. Essa classificação é gravada no campo Qualidade do candidato no Banco de Talentos (enquanto o currículo não é analisado, o campo fica em \"Aguardando Análise\").",
   "- Se o arquivo não for um currículo, estiver ilegível ou vazio, dê nota baixa, classificação Ruim e explique isso em alertas e justificativa.",
   "- Um candidato que se inscreveu para uma vaga mas tem perfil claro para OUTRA vaga da rede: diga isso na justificativa (ex.: \"perfil forte para Atendente de Cafeteria\").",
   "- No resumo não repita idade, gênero, estado civil, religião nem aparência: a nota é sobre experiência e requisitos, nunca sobre a pessoa.",

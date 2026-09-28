@@ -188,7 +188,7 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
               <Row label="Status"><DropField value={l.status} options={STATUS_OPTS} onSelect={(v) => onPatch({ status: v })} width={220} /></Row>
               <Row label="Vaga"><DropField clearable value={l.vaga} options={vagaOpts} onSelect={escolherVaga} width={300} /></Row>
               <Row label="Unidade"><DropField clearable value={l.unidadeId} options={unidadeOpts} onSelect={escolherUnidade} width={260} /></Row>
-              <Row label="Qualidade"><DropField clearable value={l.qualidade} options={QUALIDADE_TALENTO} onSelect={(v) => onPatch({ qualidade: v })} width={200} /></Row>
+              <Row label="Qualidade"><DropField value={l.qualidade || "Aguardando Análise"} options={QUALIDADE_TALENTO} onSelect={(v) => onPatch({ qualidade: v })} width={200} /></Row>
               <Row label="WhatsApp">
                 <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
                   {wa ? (

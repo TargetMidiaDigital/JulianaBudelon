@@ -22,7 +22,7 @@ function mapCols(p: Partial<Talento>): Record<string, unknown> {
   if ("turno" in p) c.turno = p.turno || null;
   if ("origem" in p) c.origem = p.origem || null;
   if ("fone" in p) c.fone = p.fone || null;
-  if ("qualidade" in p) c.qualidade = p.qualidade || null;
+  if ("qualidade" in p) c.qualidade = p.qualidade || "Aguardando Análise"; // nunca vazio: sem análise = Aguardando Análise
   if ("criada" in p) c.criada = p.criada || null;
   // Colunas jsonb: arrays de verdade (JSON.stringify gravaria um escalar string).
   if ("comentarios" in p) c.ultimos_comentarios = p.comentarios ?? [];
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
   if (!talento?.id || !talento.nome?.trim()) return NextResponse.json({ error: "id e nome são obrigatórios." }, { status: 400 });
   const row: Record<string, unknown> = { id: talento.id, ...mapCols(talento) };
   if (!row.criada) row.criada = new Date().toISOString();
+  if (!row.qualidade) row.qualidade = "Aguardando Análise";
   const { error } = await sb.from("talento").insert(row);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ persisted: true });

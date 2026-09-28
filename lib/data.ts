@@ -135,7 +135,7 @@ export function talentoDe(r: TalentoRow): Talento {
     vaga: r.vaga ?? undefined, vagaId: r.vaga_id ?? undefined, unidadeId: r.unidade_id ?? undefined,
     turno: r.turno === "Diurno" || r.turno === "Noturno" ? r.turno : undefined,
     origem: r.origem === "linkbio" ? "linkbio" : r.origem === "manual" ? "manual" : undefined,
-    fone: r.fone ?? undefined, qualidade: r.qualidade ?? undefined, criada: r.criada ?? undefined,
+    fone: r.fone ?? undefined, qualidade: r.qualidade || "Aguardando Análise", criada: r.criada ?? undefined,
     comentarios: parseComentarios(r.ultimos_comentarios), anexos: parseAnexos(r.anexos),
     analise: parseAnalise(r.analise, { resumo: r.resumo, nota: r.nota_ia, classificacao: r.qualidade_ia, em: r.analisado_em }),
     analiseErro: r.analise_erro ?? undefined,

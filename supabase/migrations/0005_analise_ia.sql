@@ -3,7 +3,7 @@
 -- talento: resultado da análise (resumo + classificação candidato × vaga). `analise` guarda o
 -- JSON completo (resumo, experiência, pontos fortes, alertas, lacunas, justificativa, modelo,
 -- vaga analisada); `nota_ia` / `qualidade_ia` são colunas próprias para ordenar e filtrar em SQL.
--- A "qualidade" (decisão humana) só é preenchida pela IA enquanto estiver em "Aguardando Análise".
+-- A "qualidade" do candidato recebe a classificação da IA (Ruim/Bom/Ótimo); sem análise fica "Aguardando Análise".
 alter table talento
   add column if not exists resumo        text,
   add column if not exists analise       jsonb,

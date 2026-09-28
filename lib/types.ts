@@ -164,7 +164,7 @@ export type Talento = {
   turno?: Turno;
   origem?: "linkbio" | "manual";
   fone?: string; // WhatsApp (só dígitos, com DDI)
-  qualidade?: string; // Aguardando Análise / Ruim / Bom / Ótimo (decisão humana; a IA só preenche enquanto "Aguardando Análise")
+  qualidade?: string; // Aguardando Análise / Ruim / Bom / Ótimo — a IA grava ao analisar; sem análise fica "Aguardando Análise"; a equipe pode trocar
   criada?: string; // ISO
   comentarios?: Comentario[];
   anexos?: Anexo[];

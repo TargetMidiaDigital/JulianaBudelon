@@ -20,8 +20,9 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   "Analisar com IA" no candidato), o servidor lê o currículo (PDF pelo file-parser do OpenRouter;
   imagem pela visão do modelo; DOCX vira texto), junta com a vaga e pede ao modelo um resumo
   (experiência, formação, pontos fortes, alertas) e a classificação candidato × vaga (nota 0–100 +
-  Ótimo/Bom/Ruim + justificativa + lacunas), em JSON. A "Qualidade" só é preenchida automaticamente
-  enquanto estiver "Aguardando Análise" — a decisão humana prevalece. Código em
+  Ótimo/Bom/Ruim + justificativa + lacunas), em JSON. A classificação vai para a **Qualidade** do
+  candidato (sem análise, fica "Aguardando Análise"; a equipe pode trocar no dropdown e uma nova
+  análise grava de novo). Código em
   [`lib/analise-curriculo.ts`](lib/analise-curriculo.ts) e rota `/api/talentos/analisar`.
 - **Recrutamento → Agente IA** (tela própria, permissão em Configurações → Acessos) — mesmo desenho do CRM do Cachorrão HD: agente
   **RECRUTAMENTO** com abas **Prompt** (instruções editáveis; o formato JSON é fixo no código),
