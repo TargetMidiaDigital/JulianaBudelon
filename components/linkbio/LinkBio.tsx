@@ -66,7 +66,8 @@ const CSS = `
 .lb-modal{width:100%;max-width:460px;max-height:calc(100dvh - 40px);overflow-y:auto;padding:28px 26px 26px;background:#FFF6F8;color:#7A3F50;border-radius:18px;box-shadow:0 18px 48px rgba(0,0,0,.38);text-align:left;position:relative;box-sizing:border-box}
 .lb-close{position:absolute;top:14px;right:14px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(122,63,80,.08);color:#7A3F50;border:none;border-radius:50%;font-size:1.35rem;line-height:1;cursor:pointer}
 .lb-close:hover{background:rgba(122,63,80,.18)}
-.lb-mhead{margin-bottom:20px;padding-right:40px}
+.lb-mhead{margin-bottom:6px;padding-right:40px}
+.lb-modal form{margin-top:18px}
 .lb-mtitle{font-size:1.32rem;font-weight:800;line-height:1.25;margin:0 0 6px}
 .lb-msub{font-size:.92rem;font-weight:600;line-height:1.4;opacity:.72;margin:0}
 .lb-field{margin-bottom:16px}
@@ -87,6 +88,23 @@ const CSS = `
 .lb-submit:disabled{opacity:.62;cursor:not-allowed;transform:none}
 .lb-gerr{margin-top:14px;padding:12px 14px;background:rgba(198,40,40,.1);border:1px solid rgba(198,40,40,.35);border-radius:10px;font-size:.87rem;font-weight:700;color:#c62828;line-height:1.4}
 @media (max-width:480px){.lb-modal{padding:24px 20px 22px}.lb-mtitle{font-size:1.18rem}}
+/* sobre a vaga */
+.lb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lb-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(122,63,80,.08);color:#7A3F50;font-size:.78rem;font-weight:700}
+.lb-chip svg{width:13px;height:13px;fill:currentColor;opacity:.75}
+.lb-sec{margin-top:18px}
+.lb-sec h4{margin:0 0 8px;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#955C6B}
+.lb-sec p{margin:0 0 8px;font-size:.94rem;font-weight:500;line-height:1.55;color:#4E2B36}
+.lb-sec p:last-child{margin-bottom:0}
+.lb-sec ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.lb-sec li{position:relative;padding-left:22px;font-size:.92rem;font-weight:500;line-height:1.45;color:#4E2B36}
+.lb-sec li::before{content:"";position:absolute;left:0;top:.42em;width:12px;height:12px;border-radius:50%;background:#F5ABBA}
+.lb-sec.alt li::before{background:rgba(122,63,80,.22)}
+.lb-mfoot{margin-top:22px;padding-top:16px;border-top:1px solid rgba(122,63,80,.12)}
+.lb-mfoot .lb-hint{text-align:center;margin-top:10px}
+.lb-step{display:inline-flex;align-items:center;gap:6px;margin-bottom:12px;background:none;border:none;padding:0;color:#955C6B;font-family:inherit;font-size:.86rem;font-weight:700;cursor:pointer}
+.lb-step:hover{text-decoration:underline}
+.lb-mtitle small{display:block;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#955C6B;margin-bottom:4px}
 `;
 
 const Pin = () => (
@@ -244,10 +262,26 @@ function destacar(s: string): string {
   return esc.replace(/\b([A-ZÀ-Ú]{3,})\b/g, "<strong>$1</strong>");
 }
 
+/** Quebra o texto de requisitos/diferenciais (um por linha, aceita "-" ou "•" no início). */
+function linhas(txt?: string): string[] {
+  return (txt ?? "").split(/\r?\n/).map((l) => l.replace(/^\s*[-•*]\s*/, "").trim()).filter(Boolean);
+}
+function paragrafos(txt?: string): string[] {
+  return (txt ?? "").split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
+}
+
 function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
   vaga: Vaga; unidade: Unidade; onClose: () => void;
   onEnviar: (d: { nome: string; whatsapp: string; arquivo: File }) => Promise<void>;
 }) {
+  const descricao = paragrafos(vaga.descricao);
+  const requisitos = linhas(vaga.requisitos);
+  const diferenciais = linhas(vaga.diferenciais);
+  const temSobre = descricao.length + requisitos.length + diferenciais.length > 0;
+  // Etapa 1: "Sobre a vaga" (quando há texto) → Etapa 2: formulário.
+  const [etapa, setEtapa] = useState<"sobre" | "form">(temSobre ? "sobre" : "form");
+  const modalRef = useRef<HTMLDivElement>(null);
+  const irParaForm = () => { setEtapa("form"); requestAnimationFrame(() => modalRef.current?.scrollTo({ top: 0 })); };
   const [nome, setNome] = useState("");
   const [zap, setZap] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -258,11 +292,11 @@ function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
   useEffect(() => {
     const antes = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    setTimeout(() => inpNome.current?.focus(), 120);
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
     return () => { document.body.style.overflow = antes; document.removeEventListener("keydown", onKey); };
   }, [onClose]);
+  useEffect(() => { if (etapa === "form") setTimeout(() => inpNome.current?.focus(), 120); }, [etapa]);
 
   const validar = () => {
     const e: typeof erros = {};
@@ -291,14 +325,50 @@ function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
     }
   };
 
+  const Pin2 = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C7.96 2 4.5 5.18 4.5 9.25c0 4.86 6.1 11.74 6.86 12.58a.86.86 0 0 0 1.28 0c.76-.84 6.86-7.72 6.86-12.58C19.5 5.18 16.04 2 12 2Zm0 10.2a2.95 2.95 0 1 1 0-5.9 2.95 2.95 0 0 1 0 5.9Z" /></svg>;
+  const Clock = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.4V7h-2v6.4l4.3 2.6 1-1.7L13 12.4Z" /></svg>;
+
   return (
     <div className="lb-ov" role="dialog" aria-modal="true" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="lb-modal">
+      <div className="lb-modal" ref={modalRef}>
         <div className="lb-mhead">
           <button type="button" className="lb-close" aria-label="Fechar" onClick={onClose}>&times;</button>
-          <p className="lb-mtitle">Candidatura — {vaga.titulo}</p>
-          <p className="lb-msub">{[unidadeLabel(unidade), vaga.turno].filter(Boolean).join(" · ")}</p>
+          {etapa === "form" && temSobre && (
+            <button type="button" className="lb-step" onClick={() => setEtapa("sobre")}>← Sobre a vaga</button>
+          )}
+          <p className="lb-mtitle"><small>{etapa === "sobre" ? "Vaga" : "Candidatura"}</small>{vaga.titulo}</p>
+          <div className="lb-chips">
+            <span className="lb-chip"><Pin2 />{unidadeLabel(unidade)}</span>
+            {vaga.turno && <span className="lb-chip"><Clock />{vaga.turno}</span>}
+          </div>
         </div>
+
+        {etapa === "sobre" ? (
+          <>
+            {descricao.length > 0 && (
+              <div className="lb-sec">
+                <h4>Sobre a vaga</h4>
+                {descricao.map((p, i) => <p key={i}>{p}</p>)}
+              </div>
+            )}
+            {requisitos.length > 0 && (
+              <div className="lb-sec">
+                <h4>O que precisa</h4>
+                <ul>{requisitos.map((r, i) => <li key={i}>{r}</li>)}</ul>
+              </div>
+            )}
+            {diferenciais.length > 0 && (
+              <div className="lb-sec alt">
+                <h4>Diferenciais</h4>
+                <ul>{diferenciais.map((r, i) => <li key={i}>{r}</li>)}</ul>
+              </div>
+            )}
+            <div className="lb-mfoot">
+              <button type="button" className="lb-submit" onClick={irParaForm}>Quero me candidatar</button>
+              <p className="lb-hint">Leva menos de 1 minuto: nome, WhatsApp e currículo.</p>
+            </div>
+          </>
+        ) : (
         <form noValidate onSubmit={submit}>
           <div className="lb-field">
             <label htmlFor="c-nome">Nome completo</label>
@@ -322,7 +392,9 @@ function CandidaturaModal({ vaga, unidade, onClose, onEnviar }: {
           </div>
           <button type="submit" className="lb-submit" disabled={enviando}>{enviando ? "Enviando…" : "Enviar candidatura"}</button>
           {erros.geral && <p className="lb-gerr">{erros.geral}</p>}
+          <p className="lb-hint" style={{ textAlign: "center", marginTop: 10 }}>Seus dados ficam só com a equipe de recrutamento da {unidade.cidade ? "Ju Budelon" : "empresa"}.</p>
         </form>
+        )}
       </div>
     </div>
   );

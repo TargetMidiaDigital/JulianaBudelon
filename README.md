@@ -14,8 +14,8 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   com status, vaga, qualidade, WhatsApp, currículo/anexos e comentários; cadastro de novo candidato.
 - **Recrutamento → Vagas** — cadastro de unidades e de vagas (sempre vinculadas a uma unidade), com
   status Ativa/Pausada, contagem de candidatos e os textos da página pública. Cada vaga tem
-  descrição, requisitos e diferenciais (preenchidos pelo catálogo de cargos em `lib/seed.ts`);
-  é o que a IA compara com o currículo.
+  descrição, requisitos e diferenciais (preenchidos pelo catálogo de cargos em `lib/seed.ts`):
+  o candidato lê no popup "Sobre a vaga" antes do formulário, e a IA compara com o currículo.
 - **Análise de currículo por IA** — ao entrar uma candidatura pela página pública (ou pelo botão
   "Analisar com IA" no candidato), o servidor lê o currículo (PDF pelo file-parser do OpenRouter;
   imagem pela visão do modelo; DOCX vira texto), junta com a vaga e pede ao modelo um resumo
@@ -38,7 +38,7 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   Agente IA → Ferramentas → "Avisar novo currículo no grupo". Em desenvolvimento (link
   `localhost`) o aviso não sai. Código em [`lib/whatsapp.ts`](lib/whatsapp.ts).
 - **Página pública `/vagas`** (link na bio, no desenho do linkbio do Cachorrão HD) — hub com um botão
-  por unidade → `/vagas/<unidade>` com um botão por vaga → popup nome / WhatsApp / currículo →
+  por unidade → `/vagas/<unidade>` com um botão por vaga → popup "Sobre a vaga" (descrição, requisitos, diferenciais) → nome / WhatsApp / currículo →
   `/vagas/obrigado`. A candidatura entra no Banco de Talentos com status "Novo". O Pixel do Facebook é
   configurado em Vagas → Página pública: PageView em todas as páginas e Lead no `/obrigado`.
 - **Login** — e-mail + senha.

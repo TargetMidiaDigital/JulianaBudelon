@@ -104,9 +104,10 @@ export const seedUnidades: Unidade[] = [
 ];
 
 /**
- * Catálogo de cargos da Ju Budelon: título + descrição, requisitos e diferenciais padrão.
- * É o que a IA compara com o currículo (Vagas → Nova vaga preenche a partir daqui; a
- * equipe pode ajustar por unidade).
+ * Catálogo de cargos da Ju Budelon: título + descrição, requisitos e diferenciais padrão
+ * (textos enviados pela Ju em 28/09/2026; cargos sem texto ficam vazios até ela mandar).
+ * Vagas → Nova vaga preenche a partir daqui; o candidato lê na página pública e a IA
+ * compara com o currículo.
  */
 export type CargoCatalogo = { titulo: string; descricao: string; requisitos: string; diferenciais: string };
 export const CATALOGO_VAGAS: CargoCatalogo[] = [
@@ -130,21 +131,21 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
   },
   {
     titulo: "Assistente Administrativo/Financeiro",
-    descricao: "Rotinas administrativas e financeiras: contas a pagar e receber, conciliação, emissão de notas, controle de documentos e apoio à gestão.",
-    requisitos: "Experiência em rotinas administrativas ou financeiras\nExcel / Planilhas em nível intermediário\nOrganização e boa comunicação escrita",
-    diferenciais: "Cursando ou formado em Administração, Contábeis ou áreas afins\nExperiência com sistema de gestão (ERP)\nConhecimento de fluxo de caixa e conciliação bancária",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
   {
     titulo: "Estagiário Administrativo – 4h",
-    descricao: "Estágio de 4h/dia no administrativo: apoio a lançamentos, organização de documentos, planilhas, atendimento interno e rotinas de RH/financeiro.",
-    requisitos: "Cursando ensino superior (Administração, Contábeis, RH, Marketing ou afins)\nDisponibilidade de 4h diárias\nNoções de Excel / Google Planilhas",
-    diferenciais: "Boa comunicação\nInteresse em gastronomia e varejo\nPrevisão de formatura em 1 ano ou mais",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
   {
     titulo: "Analista de Marketing",
-    descricao: "Planejamento e execução do marketing da marca: redes sociais, campanhas, conteúdo, lançamentos de produtos, parcerias e análise de resultados.",
-    requisitos: "Experiência em marketing digital ou gestão de redes sociais\nProdução de conteúdo (texto e imagem/vídeo)\nLeitura de métricas (Instagram, Meta Ads)",
-    diferenciais: "Formação em Marketing, Publicidade ou Comunicação\nExperiência em food service, varejo ou marcas de consumo\nEdição de vídeo (Reels) e design (Canva/Figma)\nGestão de tráfego pago",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
   {
     titulo: "Analista de Recursos Humanos",
@@ -154,27 +155,27 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
   },
   {
     titulo: "Assistente de Recursos Humanos",
-    descricao: "Apoio ao RH: triagem de currículos, agendamento de entrevistas, documentação de admissão, controle de ponto e benefícios.",
-    requisitos: "Experiência ou estágio em RH / DP\nOrganização e discrição com dados\nExcel / Planilhas básico",
-    diferenciais: "Cursando RH, Psicologia ou Administração\nExperiência com recrutamento de vagas operacionais",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
   {
     titulo: "Atendente de Cafeteria",
-    descricao: "Demonstração, preparo e venda de produtos (doces, salgados e cafés); organização e limpeza do local de trabalho; foco na experiência do cliente e nas metas da loja.\nPeríodo integral, escala 6x1, CLT efetivo. Loja Coqueiros (R. Vinte e Três de Março, 57 – Itaguaçu, Florianópolis): disponibilidade das 12h30 às 20h30; salário R$ 2.150,00 (após 90 dias R$ 2.300,00) + Auxílio Refeição + Auxílio Mobilidade. Obs.: a unidade Coqueiros tem salário diferente das demais.",
+    descricao: "Demonstração, preparo e venda de produtos (doces, salgados e cafés); organização e limpeza do local de trabalho; foco na experiência do cliente e nas metas da loja.\nPeríodo integral, escala 6x1, CLT efetivo. Loja Coqueiros (R. Vinte e Três de Março, 57 – Itaguaçu, Florianópolis): disponibilidade das 12h30 às 20h30; salário R$ 2.150,00 (após 90 dias R$ 2.300,00) + Auxílio Refeição + Auxílio Mobilidade.",
     requisitos: "Ensino médio completo\nExperiência com atendimento ao cliente\nComunicativo(a) e proativo(a)\nDisponibilidade para período integral em escala 6x1 (Coqueiros: 12h30 às 20h30)",
     diferenciais: "Experiência em cafeteria, confeitaria ou restaurante\nCurso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da unidade",
   },
   {
     titulo: "Líder de Produção",
-    descricao: "Liderança da equipe da cozinha de produção: planejamento da produção diária, padrão de qualidade, fichas técnicas, controle de perdas, escalas e treinamento.",
-    requisitos: "Experiência liderando equipe de cozinha, confeitaria ou produção de alimentos\nDomínio de processos de produção e padronização (fichas técnicas)\nDisponibilidade de horário, inclusive início cedo",
-    diferenciais: "Formação em Gastronomia ou Confeitaria\nExperiência com produção em escala para várias lojas\nControle de CMV e perdas",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
   {
     titulo: "Supervisora de Loja",
-    descricao: "Gestão da unidade: equipe de atendimento, padrão de loja, caixa e fechamento, estoque e pedidos, experiência do cliente e metas de venda.",
-    requisitos: "Experiência como líder / supervisor(a) em loja, cafeteria ou restaurante\nGestão de equipe e escalas\nDisponibilidade para fins de semana e feriados",
-    diferenciais: "Experiência com metas e indicadores de venda\nConhecimento de PDV, estoque e fechamento de caixa\nFormação em Administração ou Gastronomia",
+    descricao: "",
+    requisitos: "",
+    diferenciais: "",
   },
 ];
 
@@ -182,8 +183,11 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
 export const CARGOS_VAGA = CATALOGO_VAGAS.map((c) => c.titulo);
 
 /** Descrição/requisitos/diferenciais padrão de um cargo do catálogo (ou undefined). */
-export const cargoDoCatalogo = (titulo: string): CargoCatalogo | undefined =>
-  CATALOGO_VAGAS.find((c) => c.titulo.localeCompare(titulo.trim(), "pt", { sensitivity: "base" }) === 0);
+export const cargoDoCatalogo = (titulo: string): CargoCatalogo | undefined => {
+  const c = CATALOGO_VAGAS.find((x) => x.titulo.localeCompare(titulo.trim(), "pt", { sensitivity: "base" }) === 0);
+  // Cargo ainda sem texto no catálogo conta como "não catalogado" para o preenchimento automático.
+  return c && (c.descricao || c.requisitos || c.diferenciais) ? c : undefined;
+};
 
 export const seedVagas: Vaga[] = [
   // Florianópolis — Centro: catálogo completo

@@ -182,7 +182,7 @@ export default function Vagas() {
                         <span style={css(`flex:none; width:9px; height:9px; border-radius:50%; background:${cor};`)} />
                         <div style={css("flex:1; min-width:0;")}>
                           <div style={css("font-size:13.5px; font-weight:700; color:#1B1B28;")}>{v.titulo}{v.turno ? <span style={css("margin-left:8px; font-size:11px; font-weight:800; color:#5B6472; background:#EDEEF2; padding:2px 8px; border-radius:6px; letter-spacing:.3px;")}>{v.turno.toUpperCase()}</span> : null}</div>
-                          <div style={css(`font-size:12px; color:${v.descricao || v.requisitos ? "#9398A6" : "#D97706"}; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{v.descricao || (v.requisitos ? v.requisitos.split("\n")[0] : "Sem descrição — a análise por IA fica sem base para esta vaga")}</div>
+                          <div style={css(`font-size:12px; color:${v.descricao || v.requisitos ? "#9398A6" : "#D97706"}; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{v.descricao || (v.requisitos ? v.requisitos.split("\n")[0] : "Sem descrição — o candidato vai direto ao formulário e a IA fica sem base")}</div>
                         </div>
                         <span title="Candidatos vinculados" style={css("flex:none; display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:700; color:#5B6472;")}>
                           <Svg size={14} sw={2} stroke="#9398A6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></Svg>{n}
@@ -331,7 +331,7 @@ function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inici
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={css("display:flex; align-items:center; gap:10px; margin-bottom:6px;")}>
-            <label style={{ ...lbl, marginBottom: 0 }}>Descrição do cargo (uso interno — base da análise por IA)</label>
+            <label style={{ ...lbl, marginBottom: 0 }}>Descrição da vaga (aparece na página pública e é a base da análise por IA)</label>
             <span style={{ flex: 1 }} />
             {catalogo && (
               <Hoverable as="button" type="button" onClick={() => usarCatalogo(true)} s={css("border:none; background:transparent; color:#2563EB; font-size:12px; font-weight:700; cursor:pointer; padding:0;")} hover="text-decoration:underline">Usar o padrão do catálogo</Hoverable>
@@ -348,7 +348,7 @@ function VagaForm({ inicial, unidades, unidadePadrao, onClose, onSave }: { inici
           <textarea value={diferenciais} onChange={(e) => setDiferenciais(e.target.value)} rows={4} placeholder={"Curso de…\nMorar perto da unidade"} style={{ ...inp, resize: "vertical", lineHeight: 1.5 }} />
         </div>
       </div>
-      <p style={css("margin:0; font-size:11.5px; color:#9398A6; line-height:1.5;")}>Na página pública o botão fica “Vaga — {titulo.trim() || "…"}{turno ? ` [${turno.toUpperCase()}]` : ""}”. Descrição, requisitos e diferenciais não aparecem para o candidato: a IA usa esses textos para resumir o currículo e dar a nota de aderência à vaga.</p>
+      <p style={css("margin:0; font-size:11.5px; color:#9398A6; line-height:1.5;")}>Na página pública o botão fica “Vaga — {titulo.trim() || "…"}{turno ? ` [${turno.toUpperCase()}]` : ""}”. Ao clicar na vaga, o candidato vê primeiro “Sobre a vaga” com a descrição, os requisitos e os diferenciais, e só depois o formulário. Os mesmos textos alimentam a IA na nota de aderência à vaga.</p>
       {erro && <div style={css("font-size:12.5px; color:#CC3338; font-weight:600;")}>{erro}</div>}
       <div style={css("display:flex; justify-content:flex-end; gap:10px;")}>
         <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:700; color:#5B6472; cursor:pointer;")} hover="background:#F4F4F7">Cancelar</Hoverable>
