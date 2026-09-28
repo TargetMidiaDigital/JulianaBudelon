@@ -112,21 +112,21 @@ export type CargoCatalogo = { titulo: string; descricao: string; requisitos: str
 export const CATALOGO_VAGAS: CargoCatalogo[] = [
   {
     titulo: "Auxiliar de Cozinha/Confeitaria",
-    descricao: "Apoio à produção de doces, bolos, salgados e pães na cozinha da unidade: pré-preparo, pesagem, montagem, finalização, organização e higienização da área.",
-    requisitos: "Experiência em cozinha, confeitaria, padaria ou produção de alimentos\nDisponibilidade para o turno da vaga, inclusive fins de semana\nNoções de higiene e manipulação de alimentos\nAgilidade e trabalho em equipe",
-    diferenciais: "Curso de manipulação de alimentos / boas práticas\nExperiência com confeitaria artesanal ou panificação\nMorar perto da unidade",
+    descricao: "Auxiliar de Produção – Confeitaria (Juliana Budelon Comércio de Doces, bairro Ipiranga, São José/SC). Preparo de massas, cremes, bolos e demais doces e salgados, do balanceamento ao acabamento final dos produtos; manter o local de trabalho limpo e organizado.\nEscala 6x1. CLT efetivo. Salário R$ 2.150,00 + Auxílio Alimentação + Auxílio Mobilidade.",
+    requisitos: "Saber trabalhar em equipe\nGostar de processos, padronização e rotina\nDisponibilidade para escala 6x1\nNoções de higiene e manipulação de alimentos",
+    diferenciais: "Experiência na área de confeitaria\nExperiência em produção de alimentos (padaria, cozinha industrial)\nMorar perto do bairro Ipiranga (São José)",
   },
   {
     titulo: "Auxiliar de Serviços Gerais (Limpeza)",
-    descricao: "Limpeza e conservação da loja, cozinha, banheiros e áreas comuns; reposição de materiais; apoio à organização do estoque.",
-    requisitos: "Experiência em limpeza (comércio, restaurante, hotelaria ou similar)\nDisponibilidade de horário, inclusive fins de semana\nOrganização e atenção a detalhes",
-    diferenciais: "Conhecimento de produtos e rotinas de higienização em cozinha\nMorar perto da unidade",
+    descricao: "Higienização e limpeza das áreas comuns, escritório e produção da fábrica (bairro Ipiranga, São José/SC), incluindo lavação de louça. Perfil: trabalho em equipe, proatividade, atitude positiva e agilidade para resolver problemas.\nEscala 6x1, manhã e tarde, de segunda a sábado. CLT efetivo, tempo integral. Salário R$ 2.150,00 + Vale Alimentação + Auxílio Mobilidade + Assiduidade.",
+    requisitos: "Experiência com serviços gerais / limpeza\nExperiência com lavação de louça\nBoa comunicação e relação interpessoal\nCordialidade e gentileza\nDisponibilidade para manhã e tarde, de segunda a sábado, escala 6x1",
+    diferenciais: "Experiência em limpeza de cozinha industrial ou fábrica de alimentos\nMorar perto do bairro Ipiranga (São José)",
   },
   {
     titulo: "Auxiliar de Expedição",
-    descricao: "Separação, conferência e embalagem dos pedidos da produção para as lojas e delivery; controle de saída; organização do estoque e da câmara fria.",
-    requisitos: "Experiência em expedição, estoque, almoxarifado ou logística\nAtenção a detalhes e conferência\nDisponibilidade para início cedo / turno da vaga",
-    diferenciais: "Experiência com alimentos perecíveis / cadeia fria\nCNH B\nNoções de planilha ou sistema de estoque",
+    descricao: "Organização, conservação e precificação dos produtos; registro de entrada e saída de mercadorias; controle dos níveis de estoque e solicitação de compra para reposição; entregas e retiradas entre filiais.\nEscala 6x1, das 07h às 15h20. CLT efetivo, tempo integral. Salário fixo R$ 2.300,00 + Auxílio Mobilidade + Vale Alimentação.",
+    requisitos: "Experiência comprovada em expedição / estoque\nCNH categoria B\nDisponibilidade para início imediato\nOrganização e gosto por processos\nFacilidade e rapidez de aprendizado",
+    diferenciais: "Experiência com alimentos perecíveis / cadeia fria\nNoções de planilha ou sistema de estoque\nMorar perto do bairro Ipiranga (São José)",
   },
   {
     titulo: "Assistente Administrativo/Financeiro",
@@ -148,9 +148,9 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
   },
   {
     titulo: "Analista de Recursos Humanos",
-    descricao: "Recrutamento e seleção, integração, treinamento, departamento pessoal (ponto, férias, admissão e demissão) e clima da equipe nas unidades.",
-    requisitos: "Experiência em RH generalista (R&S e DP)\nConhecimento de legislação trabalhista básica\nOrganização e boa comunicação",
-    diferenciais: "Formação em RH, Psicologia ou Administração\nExperiência com alta rotatividade (varejo / food service)\nFerramentas de ponto e folha",
+    descricao: "Recrutamento e seleção (divulgação, triagem, entrevistas, integração); apoio a programas de treinamento e desenvolvimento; acompanhamento de avaliações de desempenho e PDIs; rotinas de administração de pessoal (ponto, benefícios, folha); implantação e manutenção de políticas e procedimentos de RH; ações de clima, comunicação interna e cultura; relatórios e indicadores (turnover, absenteísmo, horas extras, treinamentos).\nLocal: bairro Ipiranga, São José/SC. Segunda a sexta, 08h às 18h. CLT. Salário R$ 2.300,00 (após 90 dias R$ 2.500,00) + Auxílio Alimentação + Auxílio Mobilidade.",
+    requisitos: "Ensino superior completo em Administração, Psicologia, Recursos Humanos ou áreas correlatas\nMínimo de 1 ano de atuação generalista em RH\nPacote Office intermediário a avançado (Excel essencial)\nLegislação trabalhista básica\nResidir com fácil acesso ao bairro Ipiranga (São José/SC) ou disposição para se mudar\nComunicação clara, capacidade analítica, organização, proatividade, discrição e ética",
+    diferenciais: "Experiência em RH de empresas do setor alimentar\nExperiência com indicadores de RH (turnover, absenteísmo)\nFerramentas de ponto e folha",
   },
   {
     titulo: "Assistente de Recursos Humanos",
@@ -160,9 +160,9 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
   },
   {
     titulo: "Atendente de Cafeteria",
-    descricao: "Atendimento ao cliente no balcão e mesas, preparo de cafés e bebidas, montagem de pedidos, operação de caixa e organização da loja.",
-    requisitos: "Experiência em atendimento ao público (cafeteria, restaurante, loja ou similar)\nSimpatia, agilidade e boa comunicação\nDisponibilidade para o turno da vaga, inclusive fins de semana",
-    diferenciais: "Curso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da unidade",
+    descricao: "Demonstração, preparo e venda de produtos (doces, salgados e cafés); organização e limpeza do local de trabalho; foco na experiência do cliente e nas metas da loja.\nPeríodo integral, escala 6x1, CLT efetivo. Loja Coqueiros (R. Vinte e Três de Março, 57 – Itaguaçu, Florianópolis): disponibilidade das 12h30 às 20h30; salário R$ 2.150,00 (após 90 dias R$ 2.300,00) + Auxílio Refeição + Auxílio Mobilidade. Obs.: a unidade Coqueiros tem salário diferente das demais.",
+    requisitos: "Ensino médio completo\nExperiência com atendimento ao cliente\nComunicativo(a) e proativo(a)\nDisponibilidade para período integral em escala 6x1 (Coqueiros: 12h30 às 20h30)",
+    diferenciais: "Experiência em cafeteria, confeitaria ou restaurante\nCurso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da unidade",
   },
   {
     titulo: "Líder de Produção",
