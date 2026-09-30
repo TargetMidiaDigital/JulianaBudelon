@@ -19,8 +19,8 @@ import { notificarCurriculo, origemDeRequest, textoNovoCandidato } from "@/lib/w
  * "Antigos"/"Desqualificado" volta para "Novo", senão a volta passaria despercebida.
  *
  * Defesas (é o que substitui o Bearer):
- *  - LIMITE_ENVIOS_24H: no máximo 5 envios em 24h por pessoa (40 no total para número
- *    fictício) → 429 (protege o Storage).
+ *  - No máximo 5 envios em 24h por pessoa; e, com número fictício (99999-9999…), no máximo
+ *    5 envios em 24h somando TODAS as pessoas que usarem aquele número → 429.
  *  - Revalidação no servidor: vaga/unidade inexistente ou pausada → 409; arquivo fora
  *    do tipo/tamanho → 400. Nunca lê nem lista candidatos para o visitante.
  *
@@ -40,7 +40,7 @@ const MAX_BYTES = 3 * 1024 * 1024;
 const EXT_OK = new Set(["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp"]);
 const LIMITE_ENVIOS_24H = 5;
 /** Teto de envios em 24h com número fictício (ex.: (48) 99999-9999), somando todas as pessoas. */
-const LIMITE_FICTICIO_24H = 40;
+const LIMITE_FICTICIO_24H = 5;
 
 /** Nome sem acento/caixa/símbolos, para comparar "RAIMUNDAFERREIRA…" com "Raimunda Ferreira…". */
 function normNome(s: string): string {
