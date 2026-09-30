@@ -41,7 +41,9 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   `localhost`) o aviso não sai. Código em [`lib/whatsapp.ts`](lib/whatsapp.ts).
 - **Página pública `/vagas`** (link na bio, no desenho do linkbio do Cachorrão HD) — hub com um botão
   por unidade → `/vagas/<unidade>` com um botão por vaga → popup "Sobre a vaga" (descrição, requisitos, diferenciais) → nome / WhatsApp / currículo →
-  `/vagas/obrigado`. A candidatura entra no Banco de Talentos com status "Novo". O Pixel do Facebook é
+  `/vagas/obrigado`. A candidatura entra no Banco de Talentos com status "Novo"; se o WhatsApp já
+  estiver cadastrado, é uma **recandidatura**: o cadastro é atualizado (nome, vaga, unidade,
+  novo currículo, sobe para o topo) e o histórico registra o que mudou, sem criar duplicata. O Pixel do Facebook é
   configurado em Vagas → Página pública: PageView em todas as páginas e Lead no `/obrigado`.
 - **Login** — e-mail + senha.
 - **Configurações** — Empresa (nome/logo), Pessoas (cadastro, cargo, status, senha), Grupos,

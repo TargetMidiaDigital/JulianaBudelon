@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { normalizarWhatsapp } from "@/lib/format";
-import { unidadeDe, vagaDe, type UnidadeRow, type VagaRow } from "@/lib/data";
+import { parseAnexos, parseComentarios, unidadeDe, vagaDe, type UnidadeRow, type VagaRow } from "@/lib/data";
 import { slugify, unidadeLabel, vagaLabel } from "@/lib/localdb";
 import { analisarTalento, ferramentaLigada } from "@/lib/analise-curriculo";
 import { notificarCurriculo, origemDeRequest, textoNovoCandidato } from "@/lib/whatsapp";
@@ -11,10 +11,18 @@ import { notificarCurriculo, origemDeRequest, textoNovoCandidato } from "@/lib/w
  * Cria o talento (status "novo", origem "linkbio") com o currículo no bucket privado
  * `task-anexos` (servido só à equipe pelo /api/anexo).
  *
+ * Deduplica por WhatsApp (mesmo desenho do Cachorrão HD): se o número já está no Banco de
+ * Talentos (ou, com número fictício tipo 99999-9999, se número E nome batem), ATUALIZA o
+ * cadastro dessa pessoa (nome, vaga, unidade, turno, novo currículo,
+ * sobe para o topo) em vez de criar uma segunda linha, e registra a recandidatura no
+ * histórico (comentários). O status do funil não é rebaixado — só quem estava arquivado em
+ * "Antigos"/"Desqualificado" volta para "Novo", senão a volta passaria despercebida.
+ *
  * Defesas (é o que substitui o Bearer):
- *  - LIMITE_POR_TELEFONE: no máximo 3 candidaturas em 24h por número → 429.
+ *  - LIMITE_ENVIOS_24H: no máximo 5 envios em 24h por pessoa (40 no total para número
+ *    fictício) → 429 (protege o Storage).
  *  - Revalidação no servidor: vaga/unidade inexistente ou pausada → 409; arquivo fora
- *    do tipo/tamanho → 400. Só CRIA — nunca lê nem lista candidatos.
+ *    do tipo/tamanho → 400. Nunca lê nem lista candidatos para o visitante.
  *
  *  POST multipart { nome, whatsapp, vagaId, file } → { ok }
  *
@@ -30,7 +38,31 @@ export const maxDuration = 60;
 const BUCKET = "task-anexos";
 const MAX_BYTES = 3 * 1024 * 1024;
 const EXT_OK = new Set(["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp"]);
-const LIMITE_POR_TELEFONE = 3;
+const LIMITE_ENVIOS_24H = 5;
+/** Teto de envios em 24h com número fictício (ex.: (48) 99999-9999), somando todas as pessoas. */
+const LIMITE_FICTICIO_24H = 40;
+
+/** Nome sem acento/caixa/símbolos, para comparar "RAIMUNDAFERREIRA…" com "Raimunda Ferreira…". */
+function normNome(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
+}
+/** Mesmo nome (com ou sem espaços) ou mesmo primeiro + último nome. */
+function mesmaPessoa(a: string, b: string): boolean {
+  const x = normNome(a), y = normNome(b);
+  if (!x || !y) return false;
+  if (x === y || x.replace(/ /g, "") === y.replace(/ /g, "")) return true;
+  const ax = x.split(" "), by = y.split(" ");
+  return ax.length > 1 && by.length > 1 && ax[0] === by[0] && ax[ax.length - 1] === by[by.length - 1];
+}
+/**
+ * Número "coringa": depois do DDD, todos os dígitos iguais (99999-9999, 00000-0000) ou a
+ * sequência 12345-6789. Quem lança currículo de terceiros usa isso, então várias PESSOAS
+ * DIFERENTES compartilham o mesmo telefone — ele não identifica ninguém.
+ */
+function numeroFicticio(fone: string): boolean {
+  const d = fone.replace(/\D/g, "").replace(/^55/, "").slice(2);
+  return /^(\d)\1+$/.test(d) || d === "123456789" || d === "12345678";
+}
 
 function safeName(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -66,32 +98,76 @@ export async function POST(req: Request) {
   const unidade = unidadeDe(ur as UnidadeRow);
   if (!unidade.ativa) return NextResponse.json({ error: "Esta unidade não está recebendo candidaturas." }, { status: 409 });
 
-  // Anti-abuso: o mesmo número não cria mais que N candidaturas em 24h.
   const fone = normalizarWhatsapp(whatsapp);
-  const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const { count } = await sb.from("talento").select("id", { count: "exact", head: true }).eq("fone", fone).gte("criada", desde);
-  if ((count ?? 0) >= LIMITE_POR_TELEFONE) return NextResponse.json({ error: "Você já enviou candidaturas recentemente. Tente novamente amanhã." }, { status: 429 });
-
   const agora = new Date().toISOString();
-  const id = `tal-${slugify(nome).slice(0, 40)}-${Date.now().toString(36)}`;
+
+  // Já está no Banco de Talentos? → recandidatura: atualiza a linha da pessoa.
+  //  - WhatsApp de verdade: o número identifica a pessoa (mesmo com o nome digitado diferente).
+  //  - Número fictício (99999-9999…): só é a mesma pessoa se o NOME bater — senão cada
+  //    currículo lançado com o telefone coringa apagaria o anterior.
+  const ficticio = numeroFicticio(fone);
+  const { data: ex } = await sb.from("talento").select("*").eq("fone", fone).order("criada", { ascending: true }).limit(200);
+  const mesmos = (ex ?? []) as Record<string, unknown>[];
+  const existente = (ficticio ? mesmos.find((r) => mesmaPessoa(String(r.nome ?? ""), nome)) : mesmos[0]) ?? null;
+  const anexosAntes = existente ? parseAnexos(existente.anexos) : [];
+  const comentariosAntes = existente ? parseComentarios(existente.ultimos_comentarios) : [];
+
+  // Anti-abuso (protege o Storage): conta os currículos recebidos nas últimas 24h —
+  // da própria pessoa (número real) ou de todo mundo que usou o número coringa.
+  const desde = Date.now() - 24 * 3600_000;
+  const recentes = (linhas: Record<string, unknown>[]) => linhas.flatMap((r) => parseAnexos(r.anexos)).filter((a) => a.criadoEm && new Date(a.criadoEm).getTime() >= desde).length;
+  const estourou = ficticio ? recentes(mesmos) >= LIMITE_FICTICIO_24H : recentes(existente ? [existente] : []) >= LIMITE_ENVIOS_24H;
+  if (estourou) return NextResponse.json({ error: "Você já enviou candidaturas recentemente. Tente novamente amanhã." }, { status: 429 });
+
+  const id = existente ? String(existente.id) : `tal-${slugify(nome).slice(0, 40)}-${Date.now().toString(36)}`;
   const path = `talentos/${id}/${Date.now()}-${safeName(file.name)}`;
   const buf = Buffer.from(await file.arrayBuffer());
   const up = await sb.storage.from(BUCKET).upload(path, buf, { contentType: file.type || "application/octet-stream", upsert: false });
   if (up.error) return NextResponse.json({ error: "Não conseguimos guardar o currículo. Tente de novo." }, { status: 500 });
+  const anexoNovo = { id: `a-${Date.now()}`, nome: file.name, url: `/api/anexo/${path}`, mime: file.type || undefined, tamanho: file.size, criadoEm: agora };
 
-  const row = {
-    id, nome, status: "novo", vaga: vaga.titulo, vaga_id: vaga.id, unidade_id: unidade.id, turno: vaga.turno || null,
-    fone, qualidade: "Aguardando Análise", origem: "linkbio", criada: agora,
-    ultimos_comentarios: [{ id: `c-${Date.now()}`, message: `Candidatura enviada pela página de vagas — ${vagaLabel(vaga)} · ${unidadeLabel(unidade)}.`, author: "sistema", created_at: agora, tipo: "log" }],
-    anexos: [{ id: `a-${Date.now()}`, nome: file.name, url: `/api/anexo/${path}`, mime: file.type || undefined, tamanho: file.size, criadoEm: agora }],
-  };
-  const { error } = await sb.from("talento").insert(row);
-  if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
+  if (existente) {
+    // O que mudou em relação ao cadastro anterior — vai para o histórico (comentários).
+    const mudancas: string[] = [];
+    const nomeAntes = String(existente.nome ?? "");
+    const vagaAntes = String(existente.vaga ?? "");
+    if (nomeAntes && nomeAntes !== nome) mudancas.push(`nome: "${nomeAntes}" → "${nome}"`);
+    if (vagaAntes !== vaga.titulo) mudancas.push(`vaga: ${vagaAntes || "—"} → ${vaga.titulo}`);
+    if (String(existente.unidade_id ?? "") !== unidade.id) mudancas.push(`unidade → ${unidadeLabel(unidade)}`);
+    if (String(existente.turno ?? "") !== String(vaga.turno || "")) mudancas.push(`turno → ${vaga.turno || "sem turno"}`);
+    // Não rebaixa o funil: quem está em "Reunião agendada" continua lá. Só o arquivo volta para "Novo".
+    const statusAntes = String(existente.status ?? "novo");
+    const volta = statusAntes === "antigos" || statusAntes === "desqualificado";
+    if (volta) mudancas.push(`status: ${statusAntes} → novo`);
+    const log = {
+      id: `c-${Date.now()}`, author: "sistema", created_at: agora, tipo: "log" as const,
+      message: `Recandidatura pela página de vagas — ${vagaLabel(vaga)} · ${unidadeLabel(unidade)}. Novo currículo anexado (${file.name}).${mudancas.length ? ` Dados atualizados: ${mudancas.join("; ")}.` : " Dados sem alteração."}`,
+    };
+    const { error } = await sb.from("talento").update({
+      nome, vaga: vaga.titulo, vaga_id: vaga.id, unidade_id: unidade.id, turno: vaga.turno || null,
+      status: volta ? "novo" : statusAntes,
+      // Recadastro conta como candidatura nova: sobe para o topo e volta a aguardar a análise do novo currículo.
+      criada: agora, qualidade: "Aguardando Análise", analise_erro: null,
+      ultimos_comentarios: [...comentariosAntes, log],
+      anexos: [...anexosAntes, anexoNovo],
+    }).eq("id", id);
+    if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
+  } else {
+    const row = {
+      id, nome, status: "novo", vaga: vaga.titulo, vaga_id: vaga.id, unidade_id: unidade.id, turno: vaga.turno || null,
+      fone, qualidade: "Aguardando Análise", origem: "linkbio", criada: agora,
+      ultimos_comentarios: [{ id: `c-${Date.now()}`, message: `Candidatura enviada pela página de vagas — ${vagaLabel(vaga)} · ${unidadeLabel(unidade)}.`, author: "sistema", created_at: agora, tipo: "log" }],
+      anexos: [anexoNovo],
+    };
+    const { error } = await sb.from("talento").insert(row);
+    if (error) return NextResponse.json({ error: "Não conseguimos registrar a candidatura. Tente de novo." }, { status: 500 });
+  }
+  const novo = !existente;
   after(async () => {
     // Aviso nos grupos de WhatsApp escolhidos em Agente IA → Ferramentas. Best-effort: nunca lança.
     try {
       if (await ferramentaLigada(sb, "notificar_curriculo")) {
-        await notificarCurriculo(sb, textoNovoCandidato({ id, nome, fone, vaga: vaga.titulo, unidade: unidadeLabel(unidade), turno: vaga.turno || null, temCurriculo: true }, origemDeRequest(req)));
+        await notificarCurriculo(sb, textoNovoCandidato({ id, nome, fone, vaga: vaga.titulo, unidade: unidadeLabel(unidade), turno: vaga.turno || null, temCurriculo: true, novo }, origemDeRequest(req)));
       }
     } catch (e) { console.error("[candidatura] aviso no grupo falhou:", e instanceof Error ? e.message : e); }
     try {

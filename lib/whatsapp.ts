@@ -74,6 +74,8 @@ export interface CandidatoNotify {
   turno?: string | null;
   /** Veio currículo anexado nesta candidatura? */
   temCurriculo: boolean;
+  /** Gente nova (true) ou recandidatura de quem já estava no Banco de Talentos (false)? */
+  novo?: boolean;
 }
 
 /**
@@ -92,7 +94,8 @@ export function textoNovoCandidato(c: CandidatoNotify, origem: string): string {
     `Currículo: ${c.temCurriculo ? "anexado" : "não enviado"}`,
   ].filter(Boolean);
   const link = origem ? ["", `Ver candidato: ${origem}/?talento=${encodeURIComponent(c.id)}`] : [];
-  return ["🧁 Novo candidato no Banco de Talentos", "", ...linhas, ...link].join("\n");
+  const cabecalho = c.novo === false ? "🔁 Recandidatura no Banco de Talentos" : "🧁 Novo candidato no Banco de Talentos";
+  return [cabecalho, "", ...linhas, ...link].join("\n");
 }
 
 /**
