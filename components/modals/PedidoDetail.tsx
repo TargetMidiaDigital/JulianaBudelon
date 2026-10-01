@@ -171,11 +171,12 @@ const Pill = ({ st }: { st: { label: string; bg: string; fg: string } }) => (
 /**
  * Ordem → setores → tarefas, em árvore (mesmo desenho das subtarefas do onboarding da Target):
  * a ordem é a raiz, cada setor (Produção / Expedição / Recebimento) é um nó com x/y e status
- * agregado, e cada produto/unidade é uma folha. Setores recolhem; folha abre a tarefa.
+ * agregado, e cada produto/unidade é uma folha. Setores começam recolhidos; folha abre a tarefa.
  */
 function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: string; titulo: string; tarefas: Task[] }[] }) {
   const { team, setTaskDetailOpen } = useApp();
-  const [fechado, setFechado] = useState<Record<string, boolean>>({});
+  // Setores começam recolhidos: ao abrir a ordem vê-se só o resumo de cada etapa.
+  const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const todas = setores.flatMap((x) => x.tarefas);
   const visiveis = setores.filter((x) => x.tarefas.length);
   const si = pedidoStatusInfo(pedido.status);
@@ -191,12 +192,12 @@ function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: stri
       </div>
       {visiveis.map((g, gi) => {
         const ultimoG = gi === visiveis.length - 1;
-        const aberto = !fechado[g.key];
+        const aberto = !!abertos[g.key];
         const ok = g.tarefas.filter(feitaT).length;
         return (
           <div key={g.key}>
             {/* nó do setor */}
-            <Hoverable onClick={() => setFechado((f) => ({ ...f, [g.key]: !f[g.key] }))} s={css(`${linha} padding-left:14px; cursor:pointer;`)} hover="background:#FAFAFB">
+            <Hoverable onClick={() => setAbertos((f) => ({ ...f, [g.key]: !f[g.key] }))} s={css(`${linha} padding-left:14px; cursor:pointer;`)} hover="background:#FAFAFB">
               <TreeGuides guides={[!ultimoG]} sangra={7} />
               <Svg size={13} sw={2.4} stroke="#7A8090" style={css(`flex:none; transform:rotate(${aberto ? 0 : -90}deg); transition:transform .15s ease;`)}><path d="m6 9 6 6 6-6" /></Svg>
               <span style={css("flex:1; min-width:0; font-size:14px; font-weight:800; color:#1B1B28;")}>{g.titulo}</span>
