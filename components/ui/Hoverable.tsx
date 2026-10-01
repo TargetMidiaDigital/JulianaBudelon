@@ -27,9 +27,16 @@ export default function Hoverable({
 }: HoverableProps) {
   const Tag = (as ?? "div") as ElementType;
   const [h, setH] = useState(false);
+  // Ao sair do hover, o React só APAGA a longhand do hover (ex.: borderColor); o navegador
+  // então cai em currentColor (texto escuro), não na cor do `border` base — a borda "ficava
+  // presa" escura. Repete a cor do shorthand base no estado normal para a borda voltar.
+  const base = merge(s);
+  const hov = merge(hover);
+  const reset: CSSProperties = {};
+  if (!h && hov.borderColor && base.border && !base.borderColor) reset.borderColor = String(base.border).trim().split(/\s+/).pop();
   return (
     <Tag
-      style={merge(s, h && hover)}
+      style={h ? { ...base, ...hov } : { ...base, ...reset }}
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       {...rest}
