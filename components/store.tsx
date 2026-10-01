@@ -625,8 +625,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const tarefas = [...prod, ...exped];
       if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção e ${exped.length} de expedição`));
       patchDb((d) => ({ pedidos: [novo, ...d.pedidos], tasks: [...tarefas, ...d.tasks] }));
-      void persist("/api/pedidos", "POST", { pedido: novo });
-      for (const t of tarefas) void persist("/api/tarefas", "POST", { task: t });
+      // A ordem precisa existir ANTES das tarefas (FK tarefas.pedido_id): grava a ordem, espera,
+      // e só então as tarefas. Uma tarefa que falhar é tentada mais uma vez antes de desistir.
+      void (async () => {
+        const r = await persist("/api/pedidos", "POST", { pedido: novo });
+        if (!r.ok) return; // o persist já agendou o reload: a ordem some da tela
+        await Promise.all(tarefas.map(async (t) => {
+          const r1 = await persist("/api/tarefas", "POST", { task: t });
+          if (!r1.ok) { await new Promise((res) => setTimeout(res, 600)); await persist("/api/tarefas", "POST", { task: t }); }
+        }));
+      })();
       return novo;
     },
     updatePedido: (id, patch) => {
