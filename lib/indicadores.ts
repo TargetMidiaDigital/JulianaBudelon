@@ -1,7 +1,7 @@
 import type { Pedido, PedidoStatus, Produto, Task, TaskStatus } from "./types";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE } from "./estoque";
 import { itemQtd, totalPorLocal } from "./pedido";
-import { ehExpedicao } from "./tarefas";
+import { ehExpedicao, ehUnidade } from "./tarefas";
 
 /**
  * Indicadores operacionais (Operacional → Indicadores): tudo calculado no navegador a partir
@@ -72,6 +72,7 @@ export function filtrarTarefas(tasks: Task[], pedidosFiltrados: Pedido[], produt
   return tasks.filter((t) => {
     if (!t.pedidoId || !ids.has(t.pedidoId)) return false;
     if (ehExpedicao(t)) return !localLabel || t.titulo.startsWith(`Expedição - ${localLabel} -`);
+    if (ehUnidade(t)) return !localLabel || t.titulo.startsWith(`Recebimento - ${localLabel} -`);
     // produção: "Nome do produto: N"
     return !nomesCategoria || nomesCategoria.has(t.titulo.replace(/:\s*\d+\s*$/, ""));
   });
@@ -151,16 +152,17 @@ export function serieTemporal(ps: Pedido[], produtos: Produto[], f: Filtros, ago
 }
 
 /** Tarefas por status, separadas em produção × expedição. */
-export type StatusSetor = { setor: "Produção" | "Expedição"; total: number; concluidas: number } & Record<TaskStatus, number>;
+export type StatusSetor = { setor: "Produção" | "Expedição" | "Unidades"; total: number; concluidas: number } & Record<TaskStatus, number>;
 export function statusPorSetor(ts: Task[]): StatusSetor[] {
   const zero = (): Record<TaskStatus, number> => ({ verificar: 0, "em andamento": 0, atrasada: 0, concluida: 0, validada: 0 });
   const prod = { setor: "Produção" as const, total: 0, concluidas: 0, ...zero() };
   const exp = { setor: "Expedição" as const, total: 0, concluidas: 0, ...zero() };
+  const uni = { setor: "Unidades" as const, total: 0, concluidas: 0, ...zero() };
   for (const t of ts) {
-    const alvo = ehExpedicao(t) ? exp : prod;
+    const alvo = ehExpedicao(t) ? exp : ehUnidade(t) ? uni : prod;
     alvo[t.status] += 1; alvo.total += 1; if (feita(t.status)) alvo.concluidas += 1;
   }
-  return [prod, exp];
+  return [prod, exp, uni];
 }
 
 /** Matriz produto × unidade (top N produtos), para o mapa de calor. */

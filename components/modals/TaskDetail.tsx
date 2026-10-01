@@ -19,7 +19,7 @@ import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
 import { corDaCategoria } from "@/lib/estoque";
-import { ehExpedicao } from "@/lib/tarefas";
+import { semEtapaProducao } from "@/lib/tarefas";
 import QtdCell from "../ui/QtdCell";
 
 export default function TaskDetail() {
@@ -33,10 +33,10 @@ function TaskDetailBody({ t }: { t: Task }) {
   const { team, pedidos, produtos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
   const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
   const produto = t.produtoId ? produtos.find((p) => p.id === t.produtoId) : undefined;
-  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, ehExpedicao(t)); // sem "Atrasada"; Expedição sem "Em produção"
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, semEtapaProducao(t)); // sem "Atrasada"; Expedição sem "Em produção"
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
   // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
-  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: ehExpedicao(t) ? "concluida" : "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
+  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: semEtapaProducao(t) ? "concluida" : "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
   const proximo = PROXIMO[t.status];
   const podeAvancar = !!proximo && (proximo !== "validada" || canSeeAll);
   const close = () => setTaskDetailOpen(null);
@@ -135,7 +135,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                   <span style={css("display:inline-flex; align-items:center; gap:8px; padding:4px 9px 4px 4px;")}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10.5} /><span style={css("font-size:13.5px; font-weight:600;")}>{g.nome}</span></span>
                 )}
               </Row>
-              {!ehExpedicao(t) && (
+              {!semEtapaProducao(t) && (
                 <Row label="Produto">
                   <Menu trigger={(tg) => (
                     <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:600; color:${produto ? "#1B1B28" : "#9398A6"}; cursor:pointer; padding:5px 9px; border-radius:7px;`)}>
@@ -157,7 +157,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                   </Menu>
                 </Row>
               )}
-              {!ehExpedicao(t) && (
+              {!semEtapaProducao(t) && (
                 <Row label="Quantidade">
                   <span style={css("display:inline-flex; align-items:center; gap:10px;")}>
                     <QtdCell size="lg" value={t.quantidade ?? 0} onSave={(n) => updateTask(t.id, { quantidade: n })} />

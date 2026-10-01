@@ -6,7 +6,7 @@ import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
 import { aplicarEstoqueProducao } from "@/lib/tarefas-server";
 import { parseQuantidade } from "@/lib/estoque";
-import { pageDaTarefa } from "@/lib/tarefas";
+import { pageDaTarefa, semEtapaProducao } from "@/lib/tarefas";
 import { requireSession, nivelNaTela } from "@/lib/auth-admin";
 
 /**
@@ -15,7 +15,7 @@ import { requireSession, nivelNaTela } from "@/lib/auth-admin";
  *  - PATCH  { id, patch }   → atualiza (só os campos enviados)
  *  - DELETE { id }          → exclui (subtarefas caem em cascata)
  * Autorização: nível "editar" na tela da tarefa — Produção ("listaview") ou Expedição
- * ("expedicao"), pela `categoria`. Cargos sem acesso total (Operacional) só mexem nas
+ * ("expedicao") ou Unidades ("unidades"), pela `categoria`. Cargos sem acesso total (Operacional) só mexem nas
  * PRÓPRIAS tarefas e não trocam o responsável.
  */
 export const dynamic = "force-dynamic";
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
   const sess = await editorDaTarefa(req, sb, task);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  const recusaStatus = validarStatusManual(task.status, sess.cargo) ?? (task.categoria === "expedicao" && task.status === "em andamento" ? 'Expedição não usa o status "Em produção".' : null);
+  const recusaStatus = validarStatusManual(task.status, sess.cargo) ?? (semEtapaProducao(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
   if (!isCargoFull(sess.cargo) && task.gestor && task.gestor !== sess.userId) {
     return NextResponse.json({ error: "Sem permissão para atribuir a outra pessoa." }, { status: 403 });
@@ -101,7 +101,7 @@ export async function PATCH(req: Request) {
 
   const cols = mapPatch(patch ?? {});
   if ("status" in cols) {
-    const recusa = validarStatusManual(cols.status as string, sess.cargo) ?? (atual.categoria === "expedicao" && cols.status === "em andamento" ? 'Expedição não usa o status "Em produção".' : null);
+    const recusa = validarStatusManual(cols.status as string, sess.cargo) ?? (semEtapaProducao(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
   if (Object.keys(cols).length === 0) return NextResponse.json({ persisted: true });

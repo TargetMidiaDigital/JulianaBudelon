@@ -6,7 +6,7 @@ import { BRAND, BRAND_SOFT } from "@/lib/theme";
 import type { ScreenPage } from "@/lib/types";
 import { css } from "@/lib/css";
 import { pedidoAtivo } from "@/lib/pedido";
-import { ehExpedicao } from "@/lib/tarefas";
+import { ehExpedicao, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Svg } from "./ui/Svg";
 import Hoverable from "./ui/Hoverable";
@@ -94,14 +94,16 @@ export default function Sidebar() {
   const pendente = (t: { status: string }) => t.status === "verificar" || t.status === "em andamento" || t.status === "atrasada";
   const meu = (t: { gestor?: string }) => t.gestor === currentUser.id;
   const minhas = tasks.filter((t) => !t.parentId && pendente(t) && meu(t));
-  const minhasPendentes = minhas.filter((t) => !ehExpedicao(t)).length;
+  const minhasPendentes = minhas.filter(ehProducao).length;
   const minhasExpedicao = minhas.filter(ehExpedicao).length;
+  const minhasUnidades = minhas.filter(ehUnidade).length;
   // Candidatos em andamento (fora do arquivo: desqualificado/contratado/antigos).
   const talentosAtivos = talentos.filter((t) => !["desqualificado", "contratado", "antigos"].includes(t.status)).length;
 
   const kidCount: Record<string, number> = {
     listaview: minhasPendentes,
     expedicao: minhasExpedicao,
+    unidades: minhasUnidades,
     pedidos: pedidos.filter(pedidoAtivo).length,
     estoque: produtos.length,
     "recrutamento-talentos": talentosAtivos,

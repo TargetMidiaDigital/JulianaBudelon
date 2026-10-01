@@ -27,7 +27,7 @@ import Menu, { MenuItem } from "../ui/Menu";
  */
 
 // ── paleta (validada) ──
-const COR_PRODUCAO = "#A4466A", COR_EXPEDICAO = "#0E8FB0";
+const COR_PRODUCAO = "#A4466A", COR_EXPEDICAO = "#0E8FB0", COR_UNIDADES = "#C98500"; // trio validado (todos os pares)
 // Pizza de status das ordens — ordem circular validada (amarelo → verde → laranja → azul).
 const COR_STATUS_ORDEM: Record<PedidoStatus, string> = { aberta: "#C98500", concluida: "#2FB56F", "em andamento": "#F76808", validada: "#2563EB" };
 const ORDEM_PIZZA: PedidoStatus[] = ["aberta", "concluida", "em andamento", "validada"];
@@ -74,7 +74,7 @@ export default function Indicadores() {
   const maxMatriz = Math.max(1, ...d.matriz.flatMap((m) => Object.values(m.valores)));
   const corCelula = (v: number) => (v <= 0 ? "#fff" : RAMPA[Math.min(RAMPA.length - 1, Math.floor((v / maxMatriz) * (RAMPA.length - 1) + 0.0001))]);
   const inkCelula = (v: number) => (v / maxMatriz >= 0.5 ? "#fff" : "#1B1B28");
-  const statusSetor = TASK_STATUS.map((s) => ({ status: s.label, Produção: d.setores[0][s.key], Expedição: d.setores[1][s.key] }));
+  const statusSetor = TASK_STATUS.map((s) => ({ status: s.label, Produção: d.setores[0][s.key], Expedição: d.setores[1][s.key], Unidades: d.setores[2][s.key] }));
 
   return (
     <div style={css("height:100%; display:flex; flex-direction:column; min-height:0;")}>
@@ -127,6 +127,7 @@ export default function Indicadores() {
           <Tile rotulo="Unidades pedidas" valor={fmt(r.unidades)} sub={`${fmt(r.produtosDistintos)} ${r.produtosDistintos === 1 ? "produto distinto" : "produtos distintos"}`} destaque />
           <Tile rotulo="Produção" valor={`${fmt(d.setores[0].concluidas)}/${fmt(d.setores[0].total)}`} sub={`${pct(d.setores[0].concluidas, d.setores[0].total)} das tarefas concluídas · ${fmt(d.setores[0].atrasada)} atrasadas`} cor={COR_PRODUCAO} />
           <Tile rotulo="Expedição" valor={`${fmt(d.setores[1].concluidas)}/${fmt(d.setores[1].total)}`} sub={`${pct(d.setores[1].concluidas, d.setores[1].total)} das tarefas concluídas · ${fmt(d.setores[1].atrasada)} atrasadas`} cor={COR_EXPEDICAO} />
+          <Tile rotulo="Unidades" valor={`${fmt(d.setores[2].concluidas)}/${fmt(d.setores[2].total)}`} sub={`${pct(d.setores[2].concluidas, d.setores[2].total)} das tarefas concluídas · ${fmt(d.setores[2].atrasada)} atrasadas`} cor={COR_UNIDADES} />
         </div>
 
         {vazio ? (
@@ -209,17 +210,18 @@ export default function Indicadores() {
             </Card>
 
             {/* 5. Barras agrupadas: tarefas por status, produção × expedição (par validado) */}
-            <Card titulo="Tarefas por status" sub="Produção e expedição das ordens do recorte"
-              tabela={{ cols: ["Status", "Produção", "Expedição"], rows: statusSetor.map((s) => [s.status, fmt(s.Produção), fmt(s.Expedição)]) }}>
-              <ResponsiveContainer width="100%" height={280}>
+            <Card titulo="Tarefas por status" sub="Produção, expedição e conferência nas unidades"
+              tabela={{ cols: ["Status", "Produção", "Expedição", "Unidades"], rows: statusSetor.map((s) => [s.status, fmt(s.Produção), fmt(s.Expedição), fmt(s.Unidades)]) }}>
+              <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={statusSetor} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }} barCategoryGap={8} barGap={2}>
                   <CartesianGrid stroke={GRADE} horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: EIXO }} tickLine={false} axisLine={false} allowDecimals={false} />
                   <YAxis type="category" dataKey="status" width={92} tick={{ fontSize: 12, fill: "#3A3F4C" }} tickLine={false} axisLine={false} />
                   <Tooltip cursor={{ fill: "#F4F4F7" }} content={<Tip />} />
                   <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, fontWeight: 600, color: "#3A3F4C", paddingTop: 6 }} />
-                  <Bar dataKey="Produção" fill={COR_PRODUCAO} barSize={12} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
-                  <Bar dataKey="Expedição" fill={COR_EXPEDICAO} barSize={12} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
+                  <Bar dataKey="Produção" fill={COR_PRODUCAO} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
+                  <Bar dataKey="Expedição" fill={COR_EXPEDICAO} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
+                  <Bar dataKey="Unidades" fill={COR_UNIDADES} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>

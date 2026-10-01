@@ -26,7 +26,7 @@ import CommentsPopover from "../ui/CommentsPopover";
 import DescricaoPopover from "../ui/DescricaoPopover";
 import EditableTitle from "../ui/EditableTitle";
 import FiltroTarefas from "../FiltroTarefas";
-import { tarefasDaPage } from "@/lib/tarefas";
+import { pageSemProducao, tarefasDaPage } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 
 type SortKey = "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
@@ -52,6 +52,7 @@ export const GROUP_OPTS: { key: ListGroupBy; label: string }[] = [
 const TIPO_COR: Record<string, string> = {
   Produção: "#955C6B",
   Expedição: "#0891B2",
+  Recebimento: "#C98500",
 };
 const tipoCor = (t: string) => TIPO_COR[t] ?? "#7A8090";
 
@@ -62,7 +63,7 @@ export default function ListaView({
   /** Liga a seleção múltipla + barra de edição em lote. */
   selectable?: boolean;
   /** Qual lista: Produção ("listaview") ou Expedição ("expedicao") — mesma tabela, separada pela categoria. */
-  page?: "listaview" | "expedicao";
+  page?: "listaview" | "expedicao" | "unidades";
 } = {}) {
   const {
     tasks: todasTasks,
@@ -85,7 +86,7 @@ export default function ListaView({
   const scope = "operacional";
   const editavel = canEditPage(page);
   const tasks = tarefasDaPage(todasTasks, page);
-  const titulo = page === "expedicao" ? "Expedição" : "Produção";
+  const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Unidades" : "Produção";
   const abrir = setTaskDetailOpen;
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -158,7 +159,7 @@ export default function ListaView({
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
   const ts = showValidadas ? tsBase : tsBase.filter((t) => t.status !== "validada");
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
-  const expedicao = page === "expedicao";
+  const expedicao = pageSemProducao(page); // Expedição e Unidades: sem "Em produção"
   const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, expedicao); // sem "Atrasada" (só o sistema marca); Expedição sem "Em produção"
   const statusCols: TaskStatus[] = showValidadas ? [...statusDaLista(expedicao), "validada"] : statusDaLista(expedicao);
 

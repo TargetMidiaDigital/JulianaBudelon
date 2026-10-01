@@ -14,7 +14,7 @@ import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/ac
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
-import { CATEGORIA_EXPEDICAO, ehExpedicao } from "@/lib/tarefas";
+import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehProducao } from "@/lib/tarefas";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
@@ -407,7 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initialScreen = ((): ScreenPage => {
     if (typeof window === "undefined") return "listaview";
     const page = new URLSearchParams(window.location.search).get("page");
-    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
+    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "unidades", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
     return (valid as string[]).includes(page ?? "") ? (page as ScreenPage) : "listaview";
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);
@@ -629,11 +629,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addPedido: (p) => {
       const agora = new Date().toISOString();
       const novo: Pedido = { ...p, id: `ped-${Date.now()}`, status: "aberta", criadoPor: currentUser.id, criada: agora, atualizada: agora, historico: [logComentario(currentUser, "criou a ordem de serviço")] };
-      // Uma tarefa de PRODUÇÃO por produto e uma de EXPEDIÇÃO por unidade (ambas vencem na entrega).
+      // Ciclo completo: PRODUÇÃO por produto, EXPEDIÇÃO por unidade (separar) e UNIDADES por unidade
+      // (a loja confere o que recebeu). Todas vencem na entrega.
       const prod = tarefasDaOrdem(novo, produtos, currentUser);
-      const exped = tarefasExpedicaoDaOrdem(novo, produtos, currentUser);
-      const tarefas = [...prod, ...exped];
-      if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção e ${exped.length} de expedição`));
+      const exped = tarefasPorUnidadeDaOrdem(novo, produtos, currentUser, "expedicao");
+      const receb = tarefasPorUnidadeDaOrdem(novo, produtos, currentUser, "unidade");
+      const tarefas = [...prod, ...exped, ...receb];
+      if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção, ${exped.length} de expedição e ${receb.length} de recebimento nas unidades`));
       patchDb((d) => ({ pedidos: [novo, ...d.pedidos], tasks: [...tarefas, ...d.tasks] }));
       // A ordem precisa existir ANTES das tarefas (FK tarefas.pedido_id): grava a ordem, espera,
       // e só então as tarefas. Uma tarefa que falhar é tentada mais uma vez antes de desistir.
@@ -894,7 +896,7 @@ function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): 
  */
 function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, demo: boolean): Db {
   const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
-  if (ehExpedicao(t) || !t.produtoId || !t.quantidade || feita(de) === feita(para)) return d;
+  if (!ehProducao(t) || !t.produtoId || !t.quantidade || feita(de) === feita(para)) return d;
   const prod = d.produtos.find((p) => p.id === t.produtoId);
   if (!prod) return d;
   const q = t.quantidade, atual = qtdEm(prod.quantidades, "fabrica"), novo = Math.max(0, atual + (feita(para) ? q : -q));
@@ -921,10 +923,13 @@ function sincronizarPedidoLocal(d: Db, pedidoId: string | undefined, demo: boole
 }
 
 /**
- * Tarefas de EXPEDIÇÃO de uma ordem: uma por unidade que recebe algo
- * ("Expedição - Centro - dd/mm/aaaa"), com "produto: quantidade" na descrição.
+ * Tarefas por UNIDADE de uma ordem (uma por loja que recebe algo), com "produto: quantidade"
+ * na descrição:
+ *  - "expedicao": a expedição separa e envia  → "Expedição - Centro - dd/mm/aaaa";
+ *  - "unidade":   a loja confere o recebimento → "Recebimento - Centro - dd/mm/aaaa".
  */
-function tarefasExpedicaoDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): Task[] {
+function tarefasPorUnidadeDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember, setor: "expedicao" | "unidade"): Task[] {
+  const exp = setor === "expedicao";
   const now = fmtNowBR();
   const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
   const totais = totalPorLocal(pedido.itens);
@@ -934,9 +939,10 @@ function tarefasExpedicaoDaOrdem(pedido: Pedido, produtos: Produto[], user: Team
       .map((id) => ({ nome: produtos.find((x) => x.id === id)?.nome ?? "Produto removido", cat: produtos.find((x) => x.id === id)?.categoria ?? "", qtd: itemQtd(pedido.itens, id, l.id) }))
       .filter((x) => x.qtd > 0)
       .sort((a, b) => (ordemCat(a.cat) - ordemCat(b.cat)) || a.nome.localeCompare(b.nome, "pt"));
-    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p><strong>${l.label}</strong> — ${totais[l.id]} un. no total:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
+    const intro = exp ? "" : `<p>Confira o que chegou da expedição. Faltou ou sobrou algum produto? Registre nos comentários antes de concluir.</p>`;
+    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p>${intro}<p><strong>${l.label}</strong> — ${totais[l.id]} un. ${exp ? "a separar" : "a receber"}:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
     return {
-      id: `t-${base}-e${i}`, titulo: `Expedição - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Expedição", categoria: CATEGORIA_EXPEDICAO, pedidoId: pedido.id,
+      id: `t-${base}-${exp ? "e" : "u"}${i}`, titulo: `${exp ? "Expedição" : "Recebimento"} - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: exp ? "Expedição" : "Recebimento", categoria: exp ? CATEGORIA_EXPEDICAO : CATEGORIA_UNIDADE, pedidoId: pedido.id,
       criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
       comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
     };
@@ -977,7 +983,7 @@ export const STATUS_ORDER: TaskStatus[] = ["verificar", "em andamento", "atrasad
 /** Status que uma pessoa pode escolher: "Atrasada" é só do sistema (vencimento); "Validada" só Head/Admin. */
 /** Status que uma pessoa pode escolher: "Atrasada" é só do sistema (vencimento); "Validada" só Head/Admin.
  *  Expedição não tem "Em produção": vai direto de A verificar para Concluída. */
-export const statusEscolhiveis = (canSeeAll: boolean, expedicao = false): TaskStatus[] =>
+export const statusEscolhiveis = (canSeeAll: boolean, expedicao = false /* Expedição ou Unidades */): TaskStatus[] =>
   (["verificar", "em andamento", "concluida", "validada"] as TaskStatus[]).filter((s) => (canSeeAll || s !== "validada") && (!expedicao || s !== "em andamento"));
 /** Colunas/grupos de status de uma lista (Produção ou Expedição). */
 export const statusDaLista = (expedicao: boolean): TaskStatus[] => (expedicao ? STATUS_ORDER.filter((s) => s !== "em andamento") : STATUS_ORDER);

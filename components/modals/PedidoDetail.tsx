@@ -4,7 +4,7 @@ import { useState } from "react";
 import { css } from "@/lib/css";
 import { PEDIDO_STATUS, pedidoStatusInfo, produtosNoPedido } from "@/lib/pedido";
 import type { Pedido, Task } from "@/lib/types";
-import { ehExpedicao } from "@/lib/tarefas";
+import { ehExpedicao, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
@@ -34,8 +34,9 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
   // Tarefas geradas por esta ordem: produção (uma por produto) e expedição (uma por unidade).
   // O status da ordem segue as duas listas.
   const tarefas = tasks.filter((t) => t.pedidoId === p.id);
-  const producao = tarefas.filter((t) => !ehExpedicao(t));
+  const producao = tarefas.filter(ehProducao);
   const expedicao = tarefas.filter(ehExpedicao);
+  const recebimento = tarefas.filter(ehUnidade);
   const editavel = canEditPage("pedidos");
   useFecharComEsc(true, onClose);
   const si = pedidoStatusInfo(p.status);
@@ -109,7 +110,8 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
               <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4; display:flex; flex-direction:column; gap:16px;")}>
                 <BlocoTarefas titulo="Tarefas de produção" tarefas={producao} />
                 <BlocoTarefas titulo="Tarefas de expedição" tarefas={expedicao} />
-                <p style={css("margin:-6px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>O status da ordem acompanha as tarefas: alguma iniciada (produção ou expedição) → Em andamento; todas concluídas nos dois setores → Concluída.</p>
+                <BlocoTarefas titulo="Recebimento nas unidades" tarefas={recebimento} />
+                <p style={css("margin:-6px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por unidade → cada unidade confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
               </div>
             )}
 

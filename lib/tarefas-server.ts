@@ -43,7 +43,7 @@ export async function aplicarEstoqueProducao(
   novoStatus: TaskStatus,
 ): Promise<void> {
   try {
-    if (t.categoria === "expedicao" || !t.produto_id || !t.quantidade || t.quantidade <= 0) return;
+    if (t.categoria === "expedicao" || t.categoria === "unidade" || !t.produto_id || !t.quantidade || t.quantidade <= 0) return;
     const antes = feita(t.status ?? ""), depois = feita(novoStatus);
     if (antes === depois) return;
     const { data: prod } = await sb.from("produto").select("nome, estoque, historico").eq("id", t.produto_id).maybeSingle();

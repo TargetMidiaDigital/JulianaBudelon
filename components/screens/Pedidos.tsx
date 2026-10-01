@@ -7,7 +7,7 @@ import { ACCENT, BRAND } from "@/lib/theme";
 import { LOCAIS_ESTOQUE } from "@/lib/estoque";
 import { PEDIDO_STATUS, PEDIDO_STATUS_ORDER, pedidoStatusInfo, produtosNoPedido, totalPedido, totalPorLocal } from "@/lib/pedido";
 import type { Pedido, PedidoStatus } from "@/lib/types";
-import { ehExpedicao } from "@/lib/tarefas";
+import { ehExpedicao, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { gestorOf, useApp } from "../store";
 import { Avatar } from "../ui/bits";
 import RespHover from "../ui/RespHover";
@@ -29,10 +29,10 @@ const GROUP_OPTS: { key: GroupBy; label: string }[] = [
 const stop = (e: React.MouseEvent) => e.stopPropagation();
 
 // Colunas: Ordem (travada) · Status · Itens · um local por coluna (unidades a receber) · Entrega · Criado por · Criada · ações
-const COL_W = { titulo: 260, status: 150, itens: 130, tarefas: 96, exped: 96, local: 80, entrega: 130, autor: 70, criada: 130, acoes: 40 };
-const GRID = `${COL_W.titulo}px ${COL_W.status}px ${COL_W.itens}px ${COL_W.tarefas}px ${COL_W.exped}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.entrega}px ${COL_W.autor}px ${COL_W.criada}px ${COL_W.acoes}px`;
-const NCOLS = 9 + LOCAIS_ESTOQUE.length;
-const GRID_MIN = COL_W.titulo + COL_W.status + COL_W.itens + COL_W.tarefas + COL_W.exped + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.entrega + COL_W.autor + COL_W.criada + COL_W.acoes + 14 * (NCOLS - 1) + 36;
+const COL_W = { titulo: 260, status: 150, itens: 130, tarefas: 96, exped: 96, receb: 96, local: 80, entrega: 130, autor: 70, criada: 130, acoes: 40 };
+const GRID = `${COL_W.titulo}px ${COL_W.status}px ${COL_W.itens}px ${COL_W.tarefas}px ${COL_W.exped}px ${COL_W.receb}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.entrega}px ${COL_W.autor}px ${COL_W.criada}px ${COL_W.acoes}px`;
+const NCOLS = 10 + LOCAIS_ESTOQUE.length;
+const GRID_MIN = COL_W.titulo + COL_W.status + COL_W.itens + COL_W.tarefas + COL_W.exped + COL_W.receb + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.entrega + COL_W.autor + COL_W.criada + COL_W.acoes + 14 * (NCOLS - 1) + 36;
 const fixa = (fundo: string, z: number) => `position:sticky; left:0; z-index:${z}; background:${fundo}; padding-left:18px; margin-left:-18px;`;
 
 const dataHora = (iso?: string) =>
@@ -83,6 +83,7 @@ export default function Pedidos() {
     { id: "itens", label: "Itens", key: "itens" },
     { id: "tarefas", label: "Produção", center: true }, // tarefas de produção concluídas / total
     { id: "exped", label: "Expedição", center: true }, // tarefas de expedição concluídas / total
+    { id: "receb", label: "Unidades", center: true }, // conferências das lojas concluídas / total
     ...LOCAIS_ESTOQUE.map((l) => ({ id: l.id, label: l.label, center: true })),
     { id: "entrega", label: "Entrega", key: "entrega" },
     { id: "autor", label: "Por", center: true },
@@ -96,8 +97,9 @@ export default function Pedidos() {
     const totais = totalPorLocal(p.itens);
     const daOrdem = tasks.filter((t) => t.pedidoId === p.id);
     const feita = (t: { status: string }) => t.status === "concluida" || t.status === "validada";
-    const tf = daOrdem.filter((t) => !ehExpedicao(t)), feitas = tf.filter(feita).length;
+    const tf = daOrdem.filter(ehProducao), feitas = tf.filter(feita).length;
     const te = daOrdem.filter(ehExpedicao), feitasE = te.filter(feita).length;
+    const tu = daOrdem.filter(ehUnidade), feitasU = tu.filter(feita).length;
     const progresso = (lista: typeof tf, ok: number, rotulo: string) => (
       <span title={lista.length ? `${ok} de ${lista.length} tarefas de ${rotulo} concluídas` : `Sem tarefas de ${rotulo}`} style={css(`text-align:center; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums; color:${!lista.length ? "#D5D8DF" : ok === lista.length ? "#1B7F4D" : "#5B6472"};`)}>{lista.length ? `${ok}/${lista.length}` : "—"}</span>
     );
@@ -135,6 +137,7 @@ export default function Pedidos() {
         <span style={css("font-size:12.5px; color:#5B6472; font-weight:600; white-space:nowrap;")}>{produtosNoPedido(p.itens)} prod. · <strong style={css("color:#1B1B28;")}>{totalPedido(p.itens)} un.</strong></span>
         {progresso(tf, feitas, "produção")}
         {progresso(te, feitasE, "expedição")}
+        {progresso(tu, feitasU, "recebimento nas unidades")}
         {LOCAIS_ESTOQUE.map((l) => (
           <span key={l.id} style={css(`text-align:center; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; color:${totais[l.id] ? "#1B1B28" : "#D5D8DF"};`)}>{totais[l.id]}</span>
         ))}
@@ -273,7 +276,7 @@ export default function Pedidos() {
           danger
           titulo="Excluir ordem de serviço"
           confirmLabel="Excluir"
-          mensagem={(() => { const d = tasks.filter((t) => t.pedidoId === confirmDel.id); const np = d.filter((t) => !ehExpedicao(t)).length, ne = d.filter(ehExpedicao).length; return (<>Tem certeza que deseja excluir <strong style={css("color:#1B1B28;")}>{confirmDel.titulo}</strong>?{d.length > 0 && <> As <strong style={css("color:#1B1B28;")}>{np} {np === 1 ? "tarefa" : "tarefas"} de produção e {ne} de expedição</strong> geradas por ela também serão excluídas.</>} Essa ação não pode ser desfeita.</>); })()}
+          mensagem={(() => { const d = tasks.filter((t) => t.pedidoId === confirmDel.id); const np = d.filter(ehProducao).length, ne = d.filter(ehExpedicao).length, nu = d.filter(ehUnidade).length; return (<>Tem certeza que deseja excluir <strong style={css("color:#1B1B28;")}>{confirmDel.titulo}</strong>?{d.length > 0 && <> As <strong style={css("color:#1B1B28;")}>{np} {np === 1 ? "tarefa" : "tarefas"} de produção, {ne} de expedição e {nu} das unidades</strong> geradas por ela também serão excluídas.</>} Essa ação não pode ser desfeita.</>); })()}
           onConfirm={() => { removePedido(confirmDel.id); setConfirmDel(null); }}
           onClose={() => setConfirmDel(null)}
         />

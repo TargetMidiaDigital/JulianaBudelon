@@ -12,6 +12,7 @@ const TITLES: Record<ScreenPage, string> = {
   indicadores: "Indicadores",
   listaview: "Produção",
   expedicao: "Expedição",
+  unidades: "Unidades",
   pedidos: "Ordem de Serviço",
   estoque: "Estoque",
   "recrutamento-talentos": "Banco de Talentos",
