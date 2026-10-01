@@ -12,9 +12,11 @@ import {
 } from "react";
 import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/acesso";
 import { clienteDe } from "@/lib/selectors";
+import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
+import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
+import { CATEGORIA_EXPEDICAO } from "@/lib/tarefas";
 import { statusInfo, prioInfo } from "@/lib/theme";
-import { fmtNowBR } from "@/lib/format";
-import { hojeSP, addDias, proximaApos, isoParaBR } from "@/lib/recorrencia";
+import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
 import { DB_KEY, loadDb, saveDb, seedDb, slugify, type Db } from "@/lib/localdb";
 import { apiJson, authHeaders, getSupabaseBrowser } from "@/lib/supabase-browser";
@@ -26,8 +28,9 @@ import type {
   GrupoInterno,
   LinkBioConfig,
   NivelAcesso,
+  Pedido,
   Prioridade,
-  RecConfig,
+  Produto,
   ScreenPage,
   Talento,
   Task,
@@ -106,8 +109,6 @@ type Store = {
   updateTask: (id: string, patch: Partial<Task>) => void;
   addTask: (t: Task) => void;
   removeTask: (id: string) => void;
-  criarRecorrencia: (t: Task) => Promise<{ ok: boolean; error?: string }>;
-  setRecorrencia: (id: string, rec: RecConfig | null) => Promise<{ ok: boolean; error?: string }>;
   clients: Client[];
   clientesInativos: Client[];
   talentos: Talento[];
@@ -116,6 +117,17 @@ type Store = {
   removeTalento: (id: string) => void;
   /** Análise do currículo por IA (servidor). Resolve com a mensagem de erro, ou null se deu certo. */
   analisarTalento: (id: string) => Promise<string | null>;
+  // Operacional → Estoque
+  produtos: Produto[];
+  addProduto: (p: Pick<Produto, "nome" | "categoria" | "quantidades">) => Produto;
+  /** Grava as mudanças e registra no histórico do produto quem mudou o quê. */
+  updateProduto: (id: string, patch: Partial<Pick<Produto, "nome" | "categoria" | "quantidades">>) => void;
+  removeProduto: (id: string) => void;
+  // Operacional → Ordem de Serviço
+  pedidos: Pedido[];
+  addPedido: (p: Pick<Pedido, "titulo" | "entrega" | "itens">) => Pedido;
+  updatePedido: (id: string, patch: Partial<Pick<Pedido, "titulo" | "status" | "entrega" | "itens">>) => void;
+  removePedido: (id: string) => void;
   // Recrutamento → Vagas (unidades + vagas + página pública)
   unidades: Unidade[];
   addUnidade: (u: Omit<Unidade, "id" | "slug" | "criada">) => Unidade;
@@ -164,6 +176,9 @@ type Store = {
   // modais
   taskDetailOpen: string | null;
   setTaskDetailOpen: (id: string | null) => void;
+  /** Ordem de serviço aberta no drawer (deep-link ?pedido=<id>, botão "Copiar link"). */
+  pedidoDetailOpen: string | null;
+  setPedidoDetailOpen: (id: string | null) => void;
   /** Candidato a abrir no Banco de Talentos (deep-link ?talento=<id> vindo do aviso no WhatsApp). */
   talentoDetailOpen: string | null;
   setTalentoDetailOpen: (id: string | null) => void;
@@ -171,8 +186,6 @@ type Store = {
   setTaskFormOpen: (v: boolean) => void;
   taskFormPrefill: { cliente?: string | null; gestor?: string | null } | null;
   setTaskFormPrefill: (p: { cliente?: string | null; gestor?: string | null } | null) => void;
-  recModalScope: string | null;
-  setRecModalScope: (s: string | null) => void;
   talentoFormOpen: boolean;
   setTalentoFormOpen: (v: boolean) => void;
 };
@@ -189,7 +202,7 @@ const FALLBACK_USER: TeamMember = { id: "", nome: "—", cargo: "", ini: "—", 
 
 /** Db vazio (com Supabase o conteúdo vem do bootstrap; até lá, nada). */
 function dbVazio(): Db {
-  return { ...seedDb(), team: [], senhas: {}, clients: [], tasks: [], talentos: [], unidades: [], vagas: [], gruposInternos: [], acessos: {}, escopoProprio: {} };
+  return { ...seedDb(), team: [], senhas: {}, clients: [], tasks: [], talentos: [], produtos: [], pedidos: [], unidades: [], vagas: [], gruposInternos: [], acessos: {}, escopoProprio: {} };
 }
 
 /** Cookie com o access token — só para a mídia do /api/anexo (tags <img> e links não
@@ -200,33 +213,6 @@ function setMediaCookie(token: string | null) {
   document.cookie = token
     ? `jb-at=${token}; path=/; max-age=3600; SameSite=Lax${secure}`
     : `jb-at=; path=/; max-age=0; SameSite=Lax${secure}`;
-}
-
-/**
- * Modo demo: gera as ocorrências vencidas das tarefas recorrentes (o que o cron faz no
- * servidor quando há Supabase).
- */
-function gerarRecorrentesLocal(tasks: Task[]): Task[] {
-  const hoje = hojeSP();
-  const out: Task[] = [];
-  let i = 0;
-  for (const t of tasks) {
-    const r = t.rec;
-    if (!r || !r.ativa || !r.proxima || r.proxima > hoje) { out.push(t); continue; }
-    const regra = { frequencia: r.freq, dia_semana: r.diaSemana ?? null, dia_mes: r.diaMes ?? null };
-    const occ = r.proxima;
-    let prox = proximaApos(occ, regra);
-    while (prox <= hoje) prox = proximaApos(prox, regra);
-    const venc = isoParaBR(addDias(occ, Math.max(0, r.prazoDias || 0)));
-    if (r.modo === "reagendar") {
-      out.push({ ...t, status: "verificar", venc, vencHora: "23:59", rec: { ...r, proxima: prox } });
-    } else {
-      const log: Comentario = { id: `c-${Date.now()}-${i}`, message: "🔁 Criada automaticamente pela recorrência.", author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
-      out.push({ ...t, rec: undefined });
-      out.push({ ...t, id: `t-${Date.now()}-${i++}`, status: "verificar", criada: isoParaBR(occ), criadaHora: "09:00", venc, vencHora: "23:59", comentarios: [log], atualizada: undefined, atualizadaHora: undefined, rec: { ...r, proxima: prox } });
-    }
-  }
-  return out;
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -244,7 +230,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!demo) return;
     const d = loadDb();
-    d.tasks = gerarRecorrentesLocal(d.tasks);
+    d.tasks = marcarAtrasadasLocal(d.tasks); // o que o servidor faz no bootstrap
     setDb(d);
     setHydrated(true);
     try { setSessionId(localStorage.getItem(SESSION_KEY)); } catch { /* ignore */ }
@@ -321,16 +307,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [demo]);
 
-  // Hidratação inicial (uma vez, após autenticar) + recorrências vencidas do dia.
+  // Hidratação inicial (uma vez, após autenticar).
   useEffect(() => {
     if (demo || !authReady || hydrated || !authEmail) return;
-    void (async () => {
-      await reload();
-      try {
-        const r = await apiJson<{ geradas?: number; reagendadas?: number }>("/api/automacoes/gerar-recorrentes-lote", "POST", {});
-        if ((r.geradas ?? 0) + (r.reagendadas ?? 0) > 0) void reload();
-      } catch { /* o cron do servidor cobre */ }
-    })();
+    void reload();
   }, [demo, authReady, authEmail, hydrated, reload]);
 
   // Realtime: assina a tabela-sinal `realtime_ping` e re-busca o bootstrap (debounce).
@@ -393,7 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return uploadAvatar(dataUrlParaFile(valor), dir, chave);
   }, [demo]);
 
-  const { team, tasks, clients: allClients, talentos, unidades, vagas, linkbio, gruposInternos, workspace, acessos, escopoProprio } = db;
+  const { team, tasks, clients: allClients, talentos, produtos, pedidos, unidades, vagas, linkbio, gruposInternos, workspace, acessos, escopoProprio } = db;
   const currentUser: TeamMember = (sessionId && team.find((t) => t.id === sessionId)) || FALLBACK_USER;
   const authed = !!sessionId && currentUser.id !== "";
   const hasSession = demo ? !!sessionId : !!authEmail;
@@ -426,7 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initialScreen = ((): ScreenPage => {
     if (typeof window === "undefined") return "listaview";
     const page = new URLSearchParams(window.location.search).get("page");
-    const valid: ScreenPage[] = ["listaview", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
+    const valid: ScreenPage[] = ["listaview", "pedidos", "expedicao", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
     return (valid as string[]).includes(page ?? "") ? (page as ScreenPage) : "listaview";
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);
@@ -437,7 +417,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     landedRef.current = true;
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
-      if (sp.get("tarefa") || sp.get("talento") || sp.get("page")) return;
+      if (sp.get("tarefa") || sp.get("talento") || sp.get("pedido") || sp.get("page")) return;
     }
     setScreen(landingPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -451,7 +431,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [globalCliente, setGlobalCliente] = useState("");
   const [globalStatus, setGlobalStatus] = useState("");
   const [globalPrio, setGlobalPrio] = useState("");
-  const [listView, setListView] = useState<"list" | "board">("list");
+  const [listView, setListView] = useState<"list" | "board">("board"); // Produção abre no Quadro
   const [listGroupBy, setListGroupByState] = useState<ListGroupBy>("status");
   const gestorKey = (userId: string) => `jb.globalGestor.${userId}`;
   const setGlobalGestor = (g: string) => {
@@ -470,9 +450,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── modais ─────────────────────────────────────────────────────────────────
   const [taskDetailOpen, setTaskDetailOpen] = useState<string | null>(null);
   const [talentoDetailOpen, setTalentoDetailOpen] = useState<string | null>(null);
+  const [pedidoDetailOpen, setPedidoDetailOpen] = useState<string | null>(null);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [taskFormPrefill, setTaskFormPrefill] = useState<{ cliente?: string | null; gestor?: string | null } | null>(null);
-  const [recModalScope, setRecModalScope] = useState<string | null>(null);
   const [talentoFormOpen, setTalentoFormOpen] = useState(false);
 
   // Clientes (legado do demo): ativos/pausados nas seleções; inativos só p/ resolver nomes.
@@ -576,7 +556,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const fp: Partial<Task> = logs.length
         ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs], atualizada: nowBR.date, atualizadaHora: nowBR.hora }
         : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
-      patchDb((d) => ({ tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) }));
+      patchDb((d) => sincronizarPedidoLocal({ ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) }, old.pedidoId, demo));
       void persist("/api/tarefas", "PATCH", { id, patch: fp });
     },
     addTask: (t) => { patchDb((d) => ({ tasks: [t, ...d.tasks] })); void persist("/api/tarefas", "POST", { task: t }); },
@@ -589,21 +569,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           cresceu = false;
           for (const t of d.tasks) if (t.parentId && mortos.has(t.parentId) && !mortos.has(t.id)) { mortos.add(t.id); cresceu = true; }
         }
-        return { tasks: d.tasks.filter((t) => !mortos.has(t.id)) };
+        return sincronizarPedidoLocal({ ...d, tasks: d.tasks.filter((t) => !mortos.has(t.id)) }, d.tasks.find((t) => t.id === id)?.pedidoId, demo);
       });
       void persist("/api/tarefas", "DELETE", { id });
-    },
-    criarRecorrencia: async (t) => {
-      const r = await persist("/api/tarefas", "POST", { task: t });
-      if (r.ok) patchDb((d) => ({ tasks: [t, ...d.tasks] }));
-      return r;
-    },
-    setRecorrencia: async (id, rec) => {
-      const regra = rec ? { frequencia: rec.freq, dia_semana: rec.diaSemana ?? null, dia_mes: rec.diaMes ?? null } : null;
-      // Recalcula a próxima ocorrência (a partir de hoje) ao ligar/editar a regra.
-      const recFinal = rec && regra ? { ...rec, proxima: rec.proxima ?? proximaApos(hojeSP(), regra) } : rec;
-      patchDb((d) => ({ tasks: d.tasks.map((t) => (t.id !== id ? t : recFinal ? { ...t, rec: recFinal } : { ...t, rec: undefined })) }));
-      return persist("/api/tarefas", "PATCH", { id, patch: { rec: recFinal } });
     },
     clients,
     clientesInativos,
@@ -630,6 +598,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return e instanceof Error ? e.message : "Falha na análise.";
       }
     },
+    produtos,
+    addProduto: (p) => {
+      const agora = new Date().toISOString();
+      const novo: Produto = { ...p, id: `p-${Date.now()}`, criada: agora, atualizada: agora, historico: [logComentario(currentUser, `cadastrou o produto em ${p.categoria}${resumoQuantidades(p.quantidades)}`)] };
+      patchDb((d) => ({ produtos: [...d.produtos, novo] }));
+      void persist("/api/estoque", "POST", { produto: novo });
+      return novo;
+    },
+    updateProduto: (id, patch) => {
+      const old = produtos.find((x) => x.id === id);
+      if (!old) return;
+      const logs = buildProdutoLogs(old, patch, currentUser);
+      const fp: Partial<Produto> = logs.length ? { ...patch, historico: [...(old.historico ?? []), ...logs] } : patch;
+      patchDb((d) => ({ produtos: d.produtos.map((x) => (x.id === id ? { ...x, ...fp, atualizada: new Date().toISOString() } : x)) }));
+      void persist("/api/estoque", "PATCH", { id, patch: fp });
+    },
+    removeProduto: (id) => { patchDb((d) => ({ produtos: d.produtos.filter((x) => x.id !== id) })); void persist("/api/estoque", "DELETE", { id }); },
+    pedidos,
+    addPedido: (p) => {
+      const agora = new Date().toISOString();
+      const novo: Pedido = { ...p, id: `ped-${Date.now()}`, status: "aberta", criadoPor: currentUser.id, criada: agora, atualizada: agora, historico: [logComentario(currentUser, "criou a ordem de serviço")] };
+      // Uma tarefa de PRODUÇÃO por produto e uma de EXPEDIÇÃO por unidade (ambas vencem na entrega).
+      const prod = tarefasDaOrdem(novo, produtos, currentUser);
+      const exped = tarefasExpedicaoDaOrdem(novo, produtos, currentUser);
+      const tarefas = [...prod, ...exped];
+      if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção e ${exped.length} de expedição`));
+      patchDb((d) => ({ pedidos: [novo, ...d.pedidos], tasks: [...tarefas, ...d.tasks] }));
+      void persist("/api/pedidos", "POST", { pedido: novo });
+      for (const t of tarefas) void persist("/api/tarefas", "POST", { task: t });
+      return novo;
+    },
+    updatePedido: (id, patch) => {
+      const old = pedidos.find((x) => x.id === id);
+      if (!old) return;
+      const logs = buildPedidoLogs(old, patch, currentUser, produtos);
+      const fp: Partial<Pedido> = logs.length ? { ...patch, historico: [...(old.historico ?? []), ...logs] } : patch;
+      patchDb((d) => ({ pedidos: d.pedidos.map((x) => (x.id === id ? { ...x, ...fp, atualizada: new Date().toISOString() } : x)) }));
+      void persist("/api/pedidos", "PATCH", { id, patch: fp });
+    },
+    // Excluir a ordem leva junto as tarefas de produção que ela gerou (no banco, FK on delete cascade).
+    removePedido: (id) => { patchDb((d) => ({ pedidos: d.pedidos.filter((x) => x.id !== id), tasks: d.tasks.filter((t) => t.pedidoId !== id) })); void persist("/api/pedidos", "DELETE", { id }); },
     unidades,
     addUnidade: (u) => {
       // Slug único a partir de "cidade nome"; colisão ganha sufixo numérico.
@@ -707,7 +716,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     restaurarDados: () => {
       if (!demo) { void reload(); return; }
-      const d = seedDb(); d.tasks = gerarRecorrentesLocal(d.tasks); setDb(d);
+      setDb(seedDb());
     },
 
     screen,
@@ -742,14 +751,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     taskDetailOpen,
     setTaskDetailOpen,
+    pedidoDetailOpen,
+    setPedidoDetailOpen,
     talentoDetailOpen,
     setTalentoDetailOpen,
     taskFormOpen,
     setTaskFormOpen,
     taskFormPrefill,
     setTaskFormPrefill,
-    recModalScope,
-    setRecModalScope,
     talentoFormOpen,
     setTalentoFormOpen,
   };
@@ -797,6 +806,121 @@ function buildTalentoLogs(old: Talento, patch: Partial<Talento>, user: TeamMembe
   return parts.map((msg) => logComentario(user, msg));
 }
 
+/** "· Fábrica 8 · Centro 2" só dos locais com quantidade; vazio se tudo zero. */
+function resumoQuantidades(q: Record<string, number>): string {
+  const partes = LOCAIS_ESTOQUE.filter((l) => qtdEm(q, l.id) > 0).map((l) => `${l.label} ${qtdEm(q, l.id)}`);
+  return partes.length ? ` (${partes.join(" · ")})` : "";
+}
+
+// Log de atividade do PRODUTO (nome / categoria / quantidade por local).
+function buildProdutoLogs(old: Produto, patch: Partial<Produto>, user: TeamMember): Comentario[] {
+  const parts: string[] = [];
+  if (patch.nome != null && patch.nome !== old.nome) parts.push(`renomeou o produto para "${patch.nome}"`);
+  if (patch.categoria != null && patch.categoria !== old.categoria) parts.push(`alterou a categoria de ${old.categoria || "—"} para ${patch.categoria}`);
+  if (patch.quantidades) {
+    for (const l of LOCAIS_ESTOQUE) {
+      const de = qtdEm(old.quantidades, l.id), para = qtdEm(patch.quantidades, l.id);
+      if (de !== para) parts.push(`atualizou a quantidade de ${de} para ${para} na unidade ${l.label}`);
+    }
+  }
+  return parts.map((msg) => logComentario(user, msg));
+}
+
+/** Modo demo: vencidas em "A verificar"/"Em produção" viram "Atrasada" com log de sistema. */
+function marcarAtrasadasLocal(tasks: Task[]): Task[] {
+  const agora = Date.now();
+  return tasks.map((t) => {
+    if (t.status !== "verificar" && t.status !== "em andamento") return t;
+    const d = parseBR(t.venc);
+    if (!d) return t;
+    const m = /^(\d{1,2}):(\d{2})/.exec(t.vencHora ?? "");
+    const venc = d.getTime() + (m ? (Number(m[1]) * 60 + Number(m[2])) * 60000 : 24 * 3600000 - 60000);
+    if (venc >= agora) return t;
+    const log: Comentario = { id: crypto.randomUUID(), message: `⏰ Sistema marcou como "Atrasada": venceu em ${t.venc}${t.vencHora ? ` ${t.vencHora}` : ""}.`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
+    return { ...t, status: "atrasada", comentarios: [...(t.comentarios ?? []), log] };
+  });
+}
+
+/**
+ * Tarefas de produção de uma ordem: uma por produto ("Banoffinha: 10"), com o detalhe por
+ * unidade na descrição, vencendo na data de entrega e sob responsabilidade de quem criou.
+ */
+function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): Task[] {
+  const now = fmtNowBR();
+  const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
+  const ids = Object.keys(pedido.itens)
+    .map((id) => ({ id, p: produtos.find((x) => x.id === id) }))
+    .sort((a, b) => (ordemCat(a.p?.categoria ?? "") - ordemCat(b.p?.categoria ?? "")) || (a.p?.nome ?? "").localeCompare(b.p?.nome ?? "", "pt"));
+  const base = Date.now();
+  return ids.map(({ id, p }, i) => {
+    const nome = p?.nome ?? "Produto removido";
+    const total = totalProdutoNoPedido(pedido.itens, id);
+    const porUnidade = LOCAIS_ESTOQUE.filter((l) => itemQtd(pedido.itens, id, l.id) > 0).map((l) => `<li>${l.label}: <strong>${itemQtd(pedido.itens, id, l.id)}</strong></li>`).join("");
+    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p><strong>${nome}</strong> — ${total} un. no total:</p><ul>${porUnidade}</ul>`;
+    return {
+      id: `t-${base}-${i}`, titulo: `${nome}: ${total}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional", pedidoId: pedido.id,
+      criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
+      comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
+    };
+  });
+}
+
+/**
+ * Espelho local do que o servidor faz em /api/tarefas: a ordem acompanha as tarefas que gerou
+ * (alguma começou → em produção; todas concluídas → concluída). No modo demo é a única
+ * sincronização; com Supabase a UI só antecipa o que o servidor vai gravar.
+ */
+function sincronizarPedidoLocal(d: Db, pedidoId: string | undefined, demo: boolean): Partial<Db> {
+  if (!pedidoId) return { tasks: d.tasks };
+  const pedido = d.pedidos.find((p) => p.id === pedidoId);
+  if (!pedido) return { tasks: d.tasks };
+  const novo = statusDerivadoDoPedido(pedido.status, d.tasks.filter((t) => t.pedidoId === pedidoId).map((t) => t.status));
+  if (!novo) return { tasks: d.tasks };
+  const log: Comentario = { id: crypto.randomUUID(), message: `Sistema mudou o status para "${pedidoStatusInfo(novo).label}" (pelas tarefas de produção)`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
+  // Com Supabase o log de verdade é o do servidor; aqui só o status muda, para não duplicar.
+  const atualizado: Pedido = { ...pedido, status: novo, atualizada: new Date().toISOString(), historico: demo ? [...(pedido.historico ?? []), log] : pedido.historico };
+  return { tasks: d.tasks, pedidos: d.pedidos.map((p) => (p.id === pedidoId ? atualizado : p)) };
+}
+
+/**
+ * Tarefas de EXPEDIÇÃO de uma ordem: uma por unidade que recebe algo
+ * ("Expedição - Centro - dd/mm/aaaa"), com "produto: quantidade" na descrição.
+ */
+function tarefasExpedicaoDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): Task[] {
+  const now = fmtNowBR();
+  const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
+  const totais = totalPorLocal(pedido.itens);
+  const base = Date.now();
+  return LOCAIS_ESTOQUE.filter((l) => totais[l.id] > 0).map((l, i) => {
+    const linhas = Object.keys(pedido.itens)
+      .map((id) => ({ nome: produtos.find((x) => x.id === id)?.nome ?? "Produto removido", cat: produtos.find((x) => x.id === id)?.categoria ?? "", qtd: itemQtd(pedido.itens, id, l.id) }))
+      .filter((x) => x.qtd > 0)
+      .sort((a, b) => (ordemCat(a.cat) - ordemCat(b.cat)) || a.nome.localeCompare(b.nome, "pt"));
+    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p><strong>${l.label}</strong> — ${totais[l.id]} un. no total:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
+    return {
+      id: `t-${base}-e${i}`, titulo: `Expedição - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Expedição", categoria: CATEGORIA_EXPEDICAO, pedidoId: pedido.id,
+      criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
+      comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
+    };
+  });
+}
+
+// Log de atividade da ORDEM DE SERVIÇO (título / status / entrega / itens por produto × unidade).
+function buildPedidoLogs(old: Pedido, patch: Partial<Pedido>, user: TeamMember, produtos: Produto[]): Comentario[] {
+  const parts: string[] = [];
+  if (patch.titulo != null && patch.titulo !== old.titulo) parts.push(`renomeou a ordem para "${patch.titulo}"`);
+  if (patch.status != null && patch.status !== old.status) parts.push(`mudou o status para "${pedidoStatusInfo(patch.status).label}"`);
+  if ("entrega" in patch && (patch.entrega ?? "") !== (old.entrega ?? "")) parts.push(patch.entrega ? `alterou a entrega para ${patch.entrega}` : "removeu a data de entrega");
+  if (patch.itens) {
+    const ids = new Set([...Object.keys(old.itens), ...Object.keys(patch.itens)]);
+    for (const pid of ids) for (const l of LOCAIS_ESTOQUE) {
+      const de = itemQtd(old.itens, pid, l.id), para = itemQtd(patch.itens, pid, l.id);
+      if (de !== para) parts.push(`alterou ${nomeProduto(produtos, pid)} na unidade ${l.label} de ${de} para ${para}`);
+    }
+  }
+  return parts.map((msg) => logComentario(user, msg));
+}
+
 export function filterByGestor<T extends { gestor: string }>(items: T[], g: string): T[] {
   return g === "todos" ? items : items.filter((i) => i.gestor === g);
 }
@@ -810,6 +934,8 @@ export function responsaveisDoScope(team: TeamMember[], scope?: string) {
   return team.filter((t) => t.ativo !== false && cargos.includes(t.cargo));
 }
 
-// "validada" é omitida de propósito (oculta no front); statusInfo ainda a define.
+// Ordem dos grupos/colunas. "validada" é omitida de propósito (oculta no front); statusInfo ainda a define.
 export const STATUS_ORDER: TaskStatus[] = ["verificar", "em andamento", "atrasada", "concluida"];
+/** Status que uma pessoa pode escolher: "Atrasada" é só do sistema (vencimento); "Validada" só Head/Admin. */
+export const statusEscolhiveis = (canSeeAll: boolean): TaskStatus[] => (canSeeAll ? ["verificar", "em andamento", "concluida", "validada"] : ["verificar", "em andamento", "concluida"]);
 export const PRIO_ORDER: Prioridade[] = ["urgente", "alta", "normal", "baixa"];

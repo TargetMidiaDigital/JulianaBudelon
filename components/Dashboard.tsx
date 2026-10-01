@@ -8,15 +8,17 @@ import { AppProvider, useApp } from "./store";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import ListaView from "./screens/ListaView";
+import Pedidos from "./screens/Pedidos";
+import Estoque from "./screens/Estoque";
 import BancoTalentos from "./screens/BancoTalentos";
 import Vagas from "./screens/Vagas";
 import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
 import TaskDetail from "./modals/TaskDetail";
 import TaskForm from "./modals/TaskForm";
-import RecorrenciasModal from "./modals/RecorrenciasModal";
 import TalentoForm from "./modals/TalentoForm";
 import Login from "./Login";
+import { pageDaTarefa } from "@/lib/tarefas";
 
 function Screens() {
   const { screen: rawScreen, canAccessPage, landingPage } = useApp();
@@ -24,7 +26,10 @@ function Screens() {
   const screen = canAccessPage(rawScreen) ? rawScreen : landingPage;
   return (
     <div className="m-screens" style={css("flex:1; overflow-y:auto;")}>
-      {screen === "listaview" && <ListaView selectable />}
+      {screen === "listaview" && <ListaView selectable page="listaview" />}
+      {screen === "expedicao" && <ListaView selectable page="expedicao" />}
+      {screen === "pedidos" && <Pedidos />}
+      {screen === "estoque" && <Estoque />}
       {screen === "recrutamento-talentos" && <BancoTalentos />}
       {screen === "recrutamento-vagas" && <Vagas />}
       {screen === "recrutamento-agente" && <AgenteIA />}
@@ -53,7 +58,6 @@ function Shell() {
       {/* modais/drawers (position:fixed) ficam fora do container arredondado */}
       <TaskDetail />
       <TaskForm />
-      <RecorrenciasModal />
       <TalentoForm />
     </div>
   );
@@ -74,28 +78,33 @@ function SemAcessoTarefa({ onClose }: { onClose: () => void }) {
 }
 
 function Gate() {
-  const { authed, hasSession, authReady, hydrated, bootstrapError, reload, tasks, talentos, canAccessPage, goto, setTaskDetailOpen, setTalentoDetailOpen } = useApp();
+  const { authed, hasSession, authReady, hydrated, bootstrapError, reload, tasks, talentos, pedidos, canAccessPage, goto, setTaskDetailOpen, setTalentoDetailOpen, setPedidoDetailOpen } = useApp();
   // Deep-links compartilhados (lidos uma vez no mount): ?tarefa=<id> e ?talento=<id>
   // (este vem do aviso de candidatura no grupo de WhatsApp).
   const [linkId] = useState(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tarefa")));
   const [linkTalento] = useState(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("talento")));
+  const [linkPedido] = useState(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pedido")));
   const [denied, setDenied] = useState(false);
   const handledRef = useRef(false);
 
   useEffect(() => {
-    if (!authReady || !authed || !hydrated || (!linkId && !linkTalento) || handledRef.current) return;
+    if (!authReady || !authed || !hydrated || (!linkId && !linkTalento && !linkPedido) || handledRef.current) return;
     handledRef.current = true;
     if (linkId) {
       const t = tasks.find((x) => x.id === linkId);
-      if (t && canAccessPage("listaview")) { goto("listaview"); setTaskDetailOpen(linkId); }
+      if (t && canAccessPage(pageDaTarefa(t))) { goto(pageDaTarefa(t)); setTaskDetailOpen(linkId); }
       else setDenied(true);
     } else if (linkTalento) {
       const c = talentos.find((x) => x.id === linkTalento);
       if (c && canAccessPage("recrutamento-talentos")) { goto("recrutamento-talentos"); setTalentoDetailOpen(linkTalento); }
       else setDenied(true);
+    } else if (linkPedido) {
+      const p = pedidos.find((x) => x.id === linkPedido);
+      if (p && canAccessPage("pedidos")) { goto("pedidos"); setPedidoDetailOpen(linkPedido); }
+      else setDenied(true);
     }
     if (typeof window !== "undefined") window.history.replaceState(null, "", window.location.pathname);
-  }, [authReady, authed, hydrated, linkId, linkTalento, tasks, talentos, canAccessPage, goto, setTaskDetailOpen, setTalentoDetailOpen]);
+  }, [authReady, authed, hydrated, linkId, linkTalento, linkPedido, tasks, talentos, pedidos, canAccessPage, goto, setTaskDetailOpen, setTalentoDetailOpen, setPedidoDetailOpen]);
 
   if (!authReady) return <Carregando />;
   if (!hasSession) return <Login />;

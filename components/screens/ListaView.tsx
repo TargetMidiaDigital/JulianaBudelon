@@ -9,6 +9,7 @@ import type { ListGroupBy } from "../store";
 import {
   PRIO_ORDER,
   STATUS_ORDER,
+  statusEscolhiveis,
   filterByGestor,
   gestorOf,
   responsaveisDoScope,
@@ -24,6 +25,7 @@ import CommentsPopover from "../ui/CommentsPopover";
 import DescricaoPopover from "../ui/DescricaoPopover";
 import EditableTitle from "../ui/EditableTitle";
 import FiltroTarefas from "../FiltroTarefas";
+import { tarefasDaPage } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 
 type SortKey = "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
@@ -47,24 +49,22 @@ export const GROUP_OPTS: { key: ListGroupBy; label: string }[] = [
 
 // Colors for the "Tipo de tarefa" grouping.
 const TIPO_COR: Record<string, string> = {
-  Otimização: "#955C6B",
-  Criativo: "#DB2777",
-  Financeiro: "#1B7F4D",
-  Configuração: "#2563EB",
-  Relatório: "#C2410C",
-  Reunião: "#0891B2",
-  Interno: "#7C3AED",
+  Produção: "#955C6B",
+  Expedição: "#0891B2",
 };
 const tipoCor = (t: string) => TIPO_COR[t] ?? "#7A8090";
 
 export default function ListaView({
   selectable = false,
+  page = "listaview",
 }: {
   /** Liga a seleção múltipla + barra de edição em lote. */
   selectable?: boolean;
+  /** Qual lista: Produção ("listaview") ou Expedição ("expedicao") — mesma tabela, separada pela categoria. */
+  page?: "listaview" | "expedicao";
 } = {}) {
   const {
-    tasks,
+    tasks: todasTasks,
     team,
     globalGestor,
     globalStatus,
@@ -77,13 +77,14 @@ export default function ListaView({
     removeTask,
     setTaskDetailOpen,
     setTaskFormOpen,
-    setRecModalScope,
     podeTrocarResp,
     canSeeAll,
     canEditPage,
   } = useApp();
   const scope = "operacional";
-  const editavel = canEditPage("listaview");
+  const editavel = canEditPage(page);
+  const tasks = tarefasDaPage(todasTasks, page);
+  const titulo = page === "expedicao" ? "Expedição" : "Produção";
   const abrir = setTaskDetailOpen;
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -156,7 +157,7 @@ export default function ListaView({
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
   const ts = showValidadas ? tsBase : tsBase.filter((t) => t.status !== "validada");
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
-  const statusOpts: TaskStatus[] = canSeeAll ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
   const statusCols: TaskStatus[] = showValidadas ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
 
   // Data (dd/mm/yyyy) + hora (hh:mm) → timestamp comparável (ordena considerando a hora).
@@ -251,11 +252,6 @@ export default function ListaView({
               : <Svg size={14} sw={2.2}><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Svg>}
           </Hoverable>
           <div style={{ flex: 1, minWidth: 0 }}><EditableTitle fill value={t.titulo} onSave={(v) => updateTask(t.id, { titulo: v })} textStyle="font-weight:600; font-size:13.5px;" /></div>
-          {t.rec && (
-            <span title={t.rec.ativa ? "Tarefa recorrente" : "Recorrência pausada"} style={css(`flex:none; display:inline-flex; color:${t.rec.ativa ? "#2563EB" : "#B6BAC4"};`)}>
-              <Svg size={13} sw={2.2}><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></Svg>
-            </span>
-          )}
         </div>
         <div onClick={stop} style={css("display:flex; justify-content:center;")}>
           {podeTrocarResp() ? (
@@ -342,7 +338,7 @@ export default function ListaView({
     <div style={css("height:100%; display:flex; flex-direction:column;")}>
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 18px;")}>
         <div style={{ flex: 1 }}>
-          <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Tarefas</h1>
+          <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>{titulo}</h1>
           <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{ts.length} tarefas{listGroupBy === "none" ? "" : ` · agrupadas por ${GROUP_OPTS.find((o) => o.key === listGroupBy)?.label.toLowerCase()}`}</p>
         </div>
       </div>
@@ -359,18 +355,8 @@ export default function ListaView({
             Nova tarefa
           </Hoverable>
         )}
-        <Hoverable
-          as="button"
-          onClick={() => setRecModalScope(scope)}
-          title="Tarefas recorrentes"
-          s={css("display:flex; align-items:center; gap:7px; border:1px solid #E2E3E9; cursor:pointer; background:#fff; color:#5B6472; font-weight:700; font-size:13px; padding:9px 14px; border-radius:10px;")}
-          hover="background:#F4F4F7"
-        >
-          <Svg size={15} sw={2.2}><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></Svg>
-          Recorrências
-        </Hoverable>
         <div style={css("display:flex; gap:3px; background:#EDEEF2; border-radius:10px; padding:3px;")}>
-          {(["list", "board"] as const).map((v) => {
+          {(["board", "list"] as const).map((v) => {
             const active = listView === v;
             return (
               <button

@@ -9,7 +9,10 @@ import Relogio from "./ui/Relogio";
 import { useApp } from "./store";
 
 const TITLES: Record<ScreenPage, string> = {
-  listaview: "Tarefas",
+  listaview: "Produção",
+  expedicao: "Expedição",
+  pedidos: "Ordem de Serviço",
+  estoque: "Estoque",
   "recrutamento-talentos": "Banco de Talentos",
   "recrutamento-vagas": "Vagas",
   "recrutamento-agente": "Agente IA",

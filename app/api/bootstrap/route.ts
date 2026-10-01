@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { requireSession } from "@/lib/auth-admin";
 import { getData, scopeData } from "@/lib/data";
+import { marcarAtrasadas } from "@/lib/tarefas-server";
 
 /**
  * Carrega os dados do app — AUTENTICADO e RECORTADO por cargo. O navegador chama
@@ -16,6 +17,7 @@ export async function GET(req: Request) {
   const sess = await requireSession(req, sb);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
   try {
+    await marcarAtrasadas(sb); // vencidas viram "Atrasada" (status só do sistema)
     const full = await getData(sb);
     const data = scopeData(full, sess.cargo, sess.userId);
     const { data: ping } = await sb.from("realtime_ping").select("at").order("at", { ascending: false }).limit(1).maybeSingle();

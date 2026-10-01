@@ -13,7 +13,7 @@ export const statusInfo: Record<
 > = {
   atrasada: { label: "Atrasada", bg: "#FDECEC", fg: "#CC3338", dot: "#E5484D" },
   "em andamento": {
-    label: "Em andamento",
+    label: "Em produção", // chave "em andamento" fica (banco e tarefas gravadas); só o rótulo mudou
     bg: "#FFF1E8",
     fg: "#C25712",
     dot: "#F76808",

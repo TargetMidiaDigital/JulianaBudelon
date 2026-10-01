@@ -5,6 +5,8 @@ import { spacesTree } from "@/lib/seed";
 import { BRAND, BRAND_SOFT } from "@/lib/theme";
 import type { ScreenPage } from "@/lib/types";
 import { css } from "@/lib/css";
+import { pedidoAtivo } from "@/lib/pedido";
+import { ehExpedicao } from "@/lib/tarefas";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Svg } from "./ui/Svg";
 import Hoverable from "./ui/Hoverable";
@@ -63,6 +65,8 @@ export default function Sidebar() {
     sidebarOpen,
     toggleSidebar,
     tasks,
+    produtos,
+    pedidos,
     talentos,
     vagas,
     expanded,
@@ -85,16 +89,21 @@ export default function Sidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
-  // Pendente de ação: "A Verificar", "Em Andamento" e "Atrasada" (exclui Concluída e
+  // Pendente de ação: "A verificar", "Em produção" e "Atrasada" (exclui Concluída e
   // Validada). Os contadores de TAREFA são "o que está na minha mão".
   const pendente = (t: { status: string }) => t.status === "verificar" || t.status === "em andamento" || t.status === "atrasada";
   const meu = (t: { gestor?: string }) => t.gestor === currentUser.id;
-  const minhasPendentes = tasks.filter((t) => !t.parentId && pendente(t) && meu(t)).length;
+  const minhas = tasks.filter((t) => !t.parentId && pendente(t) && meu(t));
+  const minhasPendentes = minhas.filter((t) => !ehExpedicao(t)).length;
+  const minhasExpedicao = minhas.filter(ehExpedicao).length;
   // Candidatos em andamento (fora do arquivo: desqualificado/contratado/antigos).
   const talentosAtivos = talentos.filter((t) => !["desqualificado", "contratado", "antigos"].includes(t.status)).length;
 
   const kidCount: Record<string, number> = {
     listaview: minhasPendentes,
+    expedicao: minhasExpedicao,
+    pedidos: pedidos.filter(pedidoAtivo).length,
+    estoque: produtos.length,
     "recrutamento-talentos": talentosAtivos,
     "recrutamento-vagas": vagas.filter((v) => v.ativa).length,
   };

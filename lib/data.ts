@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnaliseIA, Anexo, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Prioridade, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
+import type { AnaliseIA, Anexo, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, PedidoStatus, Prioridade, Produto, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import { DEFAULT_ESCOPO, isCargoFull } from "./acesso";
 import { seedLinkBio } from "./seed";
+import { parseQuantidades } from "./estoque";
+import { PEDIDO_STATUS_ORDER, entregaParaBR, parseItens } from "./pedido";
 
 /**
  * Leitura do banco (servidor) → o mesmo formato que o store usa no navegador (`AppData`,
@@ -11,6 +13,8 @@ export type AppData = {
   team: TeamMember[];
   tasks: Task[];
   talentos: Talento[];
+  produtos: Produto[];
+  pedidos: Pedido[];
   unidades: Unidade[];
   vagas: Vaga[];
   linkbio: LinkBioConfig;
@@ -78,8 +82,7 @@ export function teamDe(r: UsuarioRow): TeamMember {
 
 export type TarefaRow = {
   id: string; nome: string; status: string; urgencia: string; responsavel: string | null; tipo: string | null; categoria: string | null;
-  parent_id: string | null; descricao: string | null; ultimos_comentarios: unknown; criada_em: string | null; vence_em: string | null; atualizada_em: string | null;
-  rec_ativa: boolean | null; rec_freq: string | null; rec_dia_semana: number | null; rec_dia_mes: number | null; rec_prazo_dias: number | null; rec_modo: string | null; rec_proxima: string | null;
+  parent_id: string | null; pedido_id?: string | null; descricao: string | null; ultimos_comentarios: unknown; criada_em: string | null; vence_em: string | null; atualizada_em: string | null;
 };
 export function taskDe(t: TarefaRow): Task {
   const cr = fmtBR(t.criada_em);
@@ -88,21 +91,12 @@ export function taskDe(t: TarefaRow): Task {
   return {
     id: t.id, titulo: t.nome, gestor: t.responsavel ?? "",
     status: t.status as TaskStatus, prio: t.urgencia as Prioridade,
-    tipo: t.tipo ?? undefined, categoria: t.categoria ?? "operacional", parentId: t.parent_id ?? undefined,
+    tipo: t.tipo ?? undefined, categoria: t.categoria ?? "operacional", parentId: t.parent_id ?? undefined, pedidoId: t.pedido_id ?? undefined,
     criada: cr.date ?? "", criadaHora: cr.hora,
     atualizada: at.date, atualizadaHora: at.hora,
     venc: vn.date ?? "", vencHora: vn.hora && vn.hora !== "00:00" ? vn.hora : undefined,
     desc: t.descricao ?? undefined,
     comentarios: parseComentarios(t.ultimos_comentarios),
-    rec: t.rec_freq
-      ? {
-          ativa: !!t.rec_ativa,
-          freq: (t.rec_freq === "diaria" || t.rec_freq === "mensal" ? t.rec_freq : "semanal") as "diaria" | "semanal" | "mensal",
-          diaSemana: t.rec_dia_semana ?? undefined, diaMes: t.rec_dia_mes ?? undefined,
-          prazoDias: t.rec_prazo_dias ?? 0, modo: (t.rec_modo === "reagendar" ? "reagendar" : "novo") as "novo" | "reagendar",
-          proxima: t.rec_proxima ?? undefined,
-        }
-      : undefined,
   };
 }
 
@@ -142,6 +136,20 @@ export function talentoDe(r: TalentoRow): Talento {
   };
 }
 
+export type ProdutoRow = { id: string; nome: string; categoria: string | null; estoque: unknown; historico?: unknown; criada: string | null; updated_at: string | null };
+export function produtoDe(r: ProdutoRow): Produto {
+  return { id: r.id, nome: r.nome, categoria: r.categoria ?? "", quantidades: parseQuantidades(r.estoque), historico: parseComentarios(r.historico), criada: r.criada ?? undefined, atualizada: r.updated_at ?? undefined };
+}
+
+export type PedidoRow = { id: string; titulo: string; status: string | null; criado_por: string | null; entrega: string | null; itens: unknown; historico: unknown; criada: string | null; updated_at: string | null };
+export function pedidoDe(r: PedidoRow): Pedido {
+  const st = (PEDIDO_STATUS_ORDER as string[]).includes(r.status ?? "") ? (r.status as PedidoStatus) : "aberta";
+  return {
+    id: r.id, titulo: r.titulo, status: st, criadoPor: r.criado_por ?? "", entrega: entregaParaBR(r.entrega),
+    itens: parseItens(r.itens), historico: parseComentarios(r.historico), criada: r.criada ?? undefined, atualizada: r.updated_at ?? undefined,
+  };
+}
+
 export type UnidadeRow = { id: string; slug: string; cidade: string | null; nome: string; ativa: boolean | null; criada: string | null };
 export function unidadeDe(r: UnidadeRow): Unidade {
   return { id: r.id, slug: r.slug, cidade: r.cidade ?? "", nome: r.nome, ativa: r.ativa !== false, criada: r.criada ?? undefined };
@@ -175,7 +183,7 @@ export function linkbioDe(raw: unknown): LinkBioConfig {
 // ───────────────────────── carga completa ─────────────────────────
 
 export async function getData(sb: SupabaseClient): Promise<AppData> {
-  const [us, tk, tl, un, vg, gr, ws, ca, cp] = await Promise.all([
+  const [us, tk, tl, un, vg, gr, ws, ca, cp, pr, pd] = await Promise.all([
     sb.from("usuarios").select("*").order("nome", { ascending: true }),
     sb.from("tarefas").select("*").order("criada_em", { ascending: false }).limit(5000),
     sb.from("talento").select("*").order("criada", { ascending: false }).limit(5000),
@@ -185,8 +193,12 @@ export async function getData(sb: SupabaseClient): Promise<AppData> {
     sb.from("workspace").select("nome, logo, vagas_pagina").eq("id", 1).maybeSingle(),
     sb.from("cargo_acesso").select("cargo, page, permitido, pode_editar"),
     sb.from("cargo_permissao").select("cargo, escopo_proprio"),
+    sb.from("produto").select("*").order("nome", { ascending: true }).limit(5000),
+    sb.from("pedido").select("*").order("criada", { ascending: false }).limit(5000),
   ]);
-  const erro = [us, tk, tl, un, vg, gr, ws, ca, cp].find((r) => r.error)?.error;
+  // Tabela `produto` ainda não criada (migration 0010 pendente) → estoque vazio, sem derrubar o app.
+  const semTabela = (r: { error: { code?: string } | null }) => !!r.error && (r.error.code === "42P01" || r.error.code === "PGRST205");
+  const erro = [us, tk, tl, un, vg, gr, ws, ca, cp, ...[pr, pd].filter((r) => !semTabela(r))].find((r) => r.error)?.error;
   if (erro) throw new Error(erro.message);
 
   const acessos: Record<string, Record<string, NivelAcesso>> = {};
@@ -201,6 +213,8 @@ export async function getData(sb: SupabaseClient): Promise<AppData> {
     team: ((us.data ?? []) as UsuarioRow[]).map(teamDe),
     tasks: ((tk.data ?? []) as TarefaRow[]).map(taskDe),
     talentos: ((tl.data ?? []) as TalentoRow[]).map(talentoDe),
+    produtos: ((pr.data ?? []) as ProdutoRow[]).map(produtoDe),
+    pedidos: ((pd.data ?? []) as PedidoRow[]).map(pedidoDe),
     unidades: ((un.data ?? []) as UnidadeRow[]).map(unidadeDe),
     vagas: ((vg.data ?? []) as VagaRow[]).map(vagaDe),
     linkbio: linkbioDe(w?.vagas_pagina),

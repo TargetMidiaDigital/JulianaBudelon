@@ -1,4 +1,4 @@
-import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
+import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, Produto, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import {
   seedTeam, seedSenhas, seedClients, seedTasks, seedTalentos, seedGrupos, seedWorkspace, seedAcessos, seedEscopoProprio,
   seedUnidades, seedVagas, seedLinkBio, cargoDoCatalogo,
@@ -18,6 +18,8 @@ export type Db = {
   clients: Client[];
   tasks: Task[];
   talentos: Talento[];
+  produtos: Produto[];
+  pedidos: Pedido[];
   unidades: Unidade[];
   vagas: Vaga[];
   linkbio: LinkBioConfig;
@@ -34,7 +36,7 @@ export const SEED_VERSION = 3;
 export function seedDb(): Db {
   return {
     seedVersion: SEED_VERSION,
-    team: seedTeam, senhas: seedSenhas, clients: seedClients, tasks: seedTasks, talentos: seedTalentos,
+    team: seedTeam, senhas: seedSenhas, clients: seedClients, tasks: seedTasks, talentos: seedTalentos, produtos: [], pedidos: [],
     unidades: seedUnidades, vagas: seedVagas, linkbio: seedLinkBio,
     gruposInternos: seedGrupos, workspace: seedWorkspace, acessos: seedAcessos, escopoProprio: seedEscopoProprio,
   };

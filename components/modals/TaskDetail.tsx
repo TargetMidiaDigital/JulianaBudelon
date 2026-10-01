@@ -4,7 +4,7 @@ import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { prioInfo, statusInfo } from "@/lib/theme";
-import type { Task, TaskStatus, RecConfig } from "@/lib/types";
+import type { Task, TaskStatus } from "@/lib/types";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -16,7 +16,8 @@ import CampoExpansivel from "../ui/CampoExpansivel";
 import CommentBody from "../ui/CommentBody";
 import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
-import { PRIO_ORDER, STATUS_ORDER, gestorOf, responsaveisDoScope, useApp } from "../store";
+import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
+import { pedidoStatusInfo } from "@/lib/pedido";
 
 export default function TaskDetail() {
   const { tasks, taskDetailOpen } = useApp();
@@ -26,8 +27,14 @@ export default function TaskDetail() {
 }
 
 function TaskDetailBody({ t }: { t: Task }) {
-  const { team, setTaskDetailOpen, updateTask, setRecorrencia, currentUser, podeTrocarResp, canSeeAll } = useApp();
-  const statusOpts: TaskStatus[] = canSeeAll ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
+  const { team, pedidos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
+  const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
+  // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
+  // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
+  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
+  const proximo = PROXIMO[t.status];
+  const podeAvancar = !!proximo && (proximo !== "validada" || canSeeAll);
   const close = () => setTaskDetailOpen(null);
   useFecharComEsc(true, close);
   const g = gestorOf(team, t.gestor);
@@ -99,6 +106,12 @@ function TaskDetailBody({ t }: { t: Task }) {
                 )} width={190} z={64}>
                   {(c) => statusOpts.map((s) => (<MenuItem key={s} checked={t.status === s} onClick={() => { updateTask(t.id, { status: s }); c(); }}><span style={css(`width:9px; height:9px; border-radius:50%; background:${statusInfo[s].dot};`)} /><span style={{ flex: 1 }}>{statusInfo[s].label}</span></MenuItem>))}
                 </Menu>
+                {podeAvancar && proximo && (
+                  <Hoverable as="button" onClick={() => updateTask(t.id, { status: proximo })} title={`Avançar para "${statusInfo[proximo].label}"`} s={css(`display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 10px 0 8px; margin-left:4px; border:1px solid ${statusInfo[proximo].dot}55; background:#fff; color:${statusInfo[proximo].fg}; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700;`)} hover={`background:${statusInfo[proximo].bg}`}>
+                    <Svg size={13} sw={2.6}><path d="m9 6 6 6-6 6" /></Svg>
+                    {statusInfo[proximo].label}
+                  </Hoverable>
+                )}
               </Row>
               <Row label="Prioridade">
                 <Menu trigger={(tg) => (
@@ -121,13 +134,20 @@ function TaskDetailBody({ t }: { t: Task }) {
               <Row label="Tipo">
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />
               </Row>
+              {pedido && (
+                <Row label="Ordem de serviço">
+                  <span style={css("display:inline-flex; align-items:center; gap:8px; min-width:0;")}>
+                    <span style={css("font-size:13.5px; font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{pedido.titulo}</span>
+                    <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${pedidoStatusInfo(pedido.status).bg}; color:${pedidoStatusInfo(pedido.status).fg};`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${pedidoStatusInfo(pedido.status).dot};`)} />{pedidoStatusInfo(pedido.status).label}</span>
+                  </span>
+                </Row>
+              )}
               <Row label="Última atualização"><span style={css("font-size:13.5px; font-weight:600; color:#5B6472;")}>{t.atualizada ? `${t.atualizada}${t.atualizadaHora ? ` ${t.atualizadaHora}` : ""}` : "—"}</span></Row>
               <Row label="Data de vencimento">
                 <DatePicker date={t.venc} time={t.vencHora} align="left" z={66} onSave={(d, h) => updateTask(t.id, { venc: d, vencHora: h })} trigger={(toggle) => (
                   <Hoverable onClick={toggle} s={css("display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:700; color:#5B6472; cursor:pointer; padding:5px 9px; border-radius:7px;")} hover="background:#F2F3F6"><Svg size={14}><rect x="3" y="4.5" width="18" height="16" rx="2.2" /><path d="M3 9h18M8 3v3M16 3v3" /></Svg>{t.venc} {t.vencHora || DEFAULT_DUE_TIME}</Hoverable>
                 )} />
               </Row>
-              <Row label="Repetir"><RecRow t={t} onSalvar={(rec) => setRecorrencia(t.id, rec)} /></Row>
             </div>
             {/* `min-height` (e não `min-height:0`) é o que garante a Descrição legível. */}
             <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4; flex:1; min-height:300px; display:flex; flex-direction:column;")}>
@@ -197,87 +217,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div style={css("display:flex; align-items:center; gap:14px; padding:9px 0;")}>
       <span style={css("width:120px; flex:none; font-size:13px; color:#7A8090; font-weight:600;")}>{label}</span>
       {children}
-    </div>
-  );
-}
-
-const REC_SEMANA = ["todo domingo", "toda segunda", "toda terça", "toda quarta", "toda quinta", "toda sexta", "todo sábado"];
-const REC_AB = ["D", "S", "T", "Q", "Q", "S", "S"];
-const REC_FREQ_LABEL: Record<"diaria" | "semanal" | "mensal", string> = { diaria: "Diária", semanal: "Semanal", mensal: "Mensal" };
-function recResumo(r: RecConfig): string {
-  if (r.freq === "diaria") return "todo dia";
-  if (r.freq === "semanal") return REC_SEMANA[r.diaSemana ?? 0];
-  return `todo dia ${r.diaMes ?? 1} do mês`;
-}
-const RepeatIcon = () => <Svg size={13} sw={2.2}><path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></Svg>;
-const miniBtn = "display:inline-flex; align-items:center; gap:5px; border:1px solid #E2E3E9; background:#fff; cursor:pointer; font-size:12px; font-weight:700; color:#5B6472; padding:5px 9px; border-radius:7px;";
-
-/** Editor de recorrência dentro do detalhe da tarefa (torna qualquer tarefa recorrente). */
-function RecRow({ t, onSalvar }: { t: Task; onSalvar: (rec: RecConfig | null) => void }) {
-  const r = t.rec;
-  const [editando, setEditando] = useState(false);
-  const [freq, setFreq] = useState<"diaria" | "semanal" | "mensal">(r?.freq ?? "semanal");
-  const [diaSemana, setDiaSemana] = useState(r?.diaSemana ?? 1);
-  const [diaMes, setDiaMes] = useState(r?.diaMes ?? 1);
-  const [prazo, setPrazo] = useState(r?.prazoDias ?? 0);
-  const [modo, setModo] = useState<"novo" | "reagendar">(r?.modo ?? "novo");
-
-  const abrir = () => {
-    setFreq(r?.freq ?? "semanal"); setDiaSemana(r?.diaSemana ?? 1); setDiaMes(r?.diaMes ?? 1); setPrazo(r?.prazoDias ?? 0); setModo(r?.modo ?? "novo");
-    setEditando(true);
-  };
-  const salvar = () => {
-    onSalvar({ ativa: true, freq, prazoDias: prazo, modo, diaSemana: freq === "semanal" ? diaSemana : undefined, diaMes: freq === "mensal" ? diaMes : undefined });
-    setEditando(false);
-  };
-
-  if (!editando) {
-    if (!r) return <Hoverable as="button" onClick={abrir} s={css(miniBtn)} hover="background:#F2F3F6"><RepeatIcon />Configurar</Hoverable>;
-    return (
-      <div style={css("display:flex; align-items:center; gap:7px; flex-wrap:wrap;")}>
-        <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:13.5px; font-weight:700; color:${r.ativa ? "#1B1B28" : "#9398A6"};`)}><RepeatIcon />{recResumo(r)}{r.ativa ? "" : " (pausada)"}</span>
-        <Hoverable as="button" onClick={abrir} s={css(miniBtn)} hover="background:#F2F3F6">Editar</Hoverable>
-        <Hoverable as="button" onClick={() => onSalvar({ ...r, ativa: !r.ativa })} s={css(miniBtn)} hover="background:#F2F3F6">{r.ativa ? "Pausar" : "Retomar"}</Hoverable>
-        <Hoverable as="button" onClick={() => onSalvar(null)} s={css(miniBtn + "color:#C0455A;")} hover="background:#FDECEC">Remover</Hoverable>
-      </div>
-    );
-  }
-
-  return (
-    <div style={css("border:1px solid #ECEDF1; background:#FAFBFC; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:11px; width:100%;")}>
-      <div style={css("display:flex; gap:7px;")}>
-        {(["diaria", "semanal", "mensal"] as const).map((f) => (
-          <Hoverable key={f} as="button" onClick={() => setFreq(f)} s={css(`flex:1; padding:8px; border:1px solid ${freq === f ? "#1B1B28" : "#E2E3E9"}; background:${freq === f ? "#1B1B28" : "#fff"}; color:${freq === f ? "#fff" : "#5B6472"}; font-weight:700; font-size:12.5px; border-radius:8px; cursor:pointer;`)} hover={freq === f ? undefined : "background:#F2F3F6"}>{REC_FREQ_LABEL[f]}</Hoverable>
-        ))}
-      </div>
-      {freq === "semanal" && (
-        <div style={css("display:flex; gap:5px;")}>
-          {[0, 1, 2, 3, 4, 5, 6].map((d) => (
-            <Hoverable key={d} as="button" onClick={() => setDiaSemana(d)} title={REC_SEMANA[d]} s={css(`width:32px; height:32px; border-radius:8px; border:1px solid ${diaSemana === d ? "#1B1B28" : "#E2E3E9"}; background:${diaSemana === d ? "#1B1B28" : "#fff"}; color:${diaSemana === d ? "#fff" : "#5B6472"}; font-weight:700; font-size:12px; cursor:pointer;`)} hover={diaSemana === d ? undefined : "background:#F2F3F6"}>{REC_AB[d]}</Hoverable>
-          ))}
-        </div>
-      )}
-      {freq === "mensal" && (
-        <div style={css("display:flex; align-items:center; gap:8px; font-size:13px; color:#1B1B28;")}>
-          <span>Dia</span>
-          <input type="number" min={1} max={31} value={diaMes} onChange={(e) => setDiaMes(Math.max(1, Math.min(31, Number(e.target.value) || 1)))} style={css("width:70px; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:8px; font-size:13px; padding:7px 9px; outline:none; text-align:center;")} />
-          <span style={css("color:#9398A6; font-size:11.5px;")}>(clampa ao último dia do mês)</span>
-        </div>
-      )}
-      <div style={css("display:flex; align-items:center; gap:8px; font-size:13px; color:#1B1B28;")}>
-        <span>Vence</span>
-        <input type="number" min={0} max={365} value={prazo} onChange={(e) => setPrazo(Math.max(0, Math.min(365, Number(e.target.value) || 0)))} style={css("width:60px; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:8px; font-size:13px; padding:7px 9px; outline:none; text-align:center;")} />
-        <span>dia(s) após criada</span>
-      </div>
-      <div style={css("display:flex; gap:7px;")}>
-        {([["novo", "Com histórico"], ["reagendar", "Sem histórico"]] as const).map(([m, tit]) => (
-          <Hoverable key={m} as="button" onClick={() => setModo(m)} s={css(`flex:1; padding:8px 10px; border:1px solid ${modo === m ? "#1B1B28" : "#E2E3E9"}; background:${modo === m ? "#FDF1F4" : "#fff"}; color:${modo === m ? "#1B1B28" : "#5B6472"}; font-weight:700; font-size:12px; border-radius:8px; cursor:pointer;`)} hover={modo === m ? undefined : "background:#F7F8FA"}>{tit}</Hoverable>
-        ))}
-      </div>
-      <div style={css("display:flex; gap:8px; margin-top:2px;")}>
-        <Hoverable as="button" onClick={salvar} s={css("border:none; cursor:pointer; background:#1B1B28; color:#fff; font-weight:700; font-size:12.5px; padding:8px 16px; border-radius:8px;")} hover="filter:brightness(1.15)">Salvar</Hoverable>
-        <Hoverable as="button" onClick={() => setEditando(false)} s={css("border:1px solid #E2E3E9; cursor:pointer; background:#fff; color:#5B6472; font-weight:700; font-size:12.5px; padding:8px 16px; border-radius:8px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
-      </div>
     </div>
   );
 }

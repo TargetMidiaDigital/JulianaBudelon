@@ -33,17 +33,6 @@ export type Comentario = {
   tipo?: "log"; // entrada de log automática (mudança de status/responsável/etc.)
 };
 
-/** Configuração de recorrência de uma tarefa. */
-export type RecConfig = {
-  ativa: boolean;
-  freq: "diaria" | "semanal" | "mensal";
-  diaSemana?: number; // 0..6 (domingo..sábado), p/ semanal
-  diaMes?: number; // 1..31, p/ mensal
-  prazoDias: number; // vencimento = ocorrência + prazoDias
-  modo: "novo" | "reagendar"; // novo = cria nova tarefa (com histórico); reagendar = mesma tarefa (sem)
-  proxima?: string; // YYYY-MM-DD — próxima ocorrência
-};
-
 export type Task = {
   id: string;
   titulo: string;
@@ -54,6 +43,7 @@ export type Task = {
   tipo?: string; // tipo de tarefa (ex: Otimização, Criativo, Financeiro…)
   categoria?: string; // espaço/categoria (ex: "operacional")
   parentId?: string; // tarefa-pai (subtarefa)
+  pedidoId?: string; // ordem de serviço que gerou a tarefa (Operacional → Ordem de Serviço)
   criada: string; // dd/mm/yyyy
   criadaHora?: string; // hh:mm
   atualizada?: string; // dd/mm/yyyy — data da última atualização
@@ -62,7 +52,6 @@ export type Task = {
   vencHora?: string; // hh:mm
   desc?: string; // descrição (HTML rico)
   comentarios?: Comentario[];
-  rec?: RecConfig; // recorrência; ausente = tarefa comum
 };
 
 export type ClientStatus = "ativo" | "pausado" | "inativo";
@@ -172,13 +161,42 @@ export type Talento = {
   analiseErro?: string; // última falha da análise (ex.: formato não suportado)
 };
 
+/** Produto do estoque (Operacional → Estoque). */
+export type Produto = {
+  id: string;
+  nome: string;
+  categoria: string; // uma das CATEGORIAS_ESTOQUE (lib/estoque.ts)
+  /** Quantidade por local (id de LOCAIS_ESTOQUE → inteiro ≥ 0). Local ausente = 0. */
+  quantidades: Record<string, number>;
+  /** Log de alterações (tipo "log"): quem mudou o quê, quando. Autor "sistema" = automação. */
+  historico?: Comentario[];
+  criada?: string; // ISO
+  atualizada?: string; // ISO — última alteração (nome, categoria ou quantidade)
+};
+
+export type PedidoStatus = "aberta" | "em andamento" | "concluida" | "validada";
+
+/** Ordem de serviço (Operacional → Ordem de Serviço): o que produzir para cada unidade. */
+export type Pedido = {
+  id: string;
+  titulo: string;
+  status: PedidoStatus;
+  criadoPor: string; // id do usuário
+  criada?: string; // ISO
+  atualizada?: string; // ISO
+  entrega?: string; // dd/mm/yyyy — data desejada de entrega/produção
+  /** { produtoId: { localId: quantidade } } — só produtos/locais com quantidade > 0. */
+  itens: Record<string, Record<string, number>>;
+  historico?: Comentario[]; // log de alterações (quem, o quê, quando)
+};
+
 export type Sector = {
   id: string;
   label: string;
   children: { label: string; page: ScreenPage }[];
 };
 
-export type ScreenPage = "listaview" | "recrutamento-talentos" | "recrutamento-vagas" | "recrutamento-agente" | "config";
+export type ScreenPage = "listaview" | "pedidos" | "expedicao" | "estoque" | "recrutamento-talentos" | "recrutamento-vagas" | "recrutamento-agente" | "config";
 
 /** Nível de acesso de um cargo a uma tela do menu. */
 export type NivelAcesso = "nenhum" | "ver" | "editar";

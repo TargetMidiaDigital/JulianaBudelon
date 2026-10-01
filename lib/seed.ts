@@ -1,6 +1,5 @@
 import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Sector, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import { diasAPartirDeHoje, formatBR, TODAY } from "./format";
-import { hojeSP, addDias, primeiraOcorrencia, proximaApos } from "./recorrencia";
 
 /**
  * DADOS DE EXEMPLO (fase sem backend). Tudo aqui é fictício e serve para validar
@@ -13,7 +12,10 @@ export const spacesTree: Sector[] = [
     id: "operacional",
     label: "Operacional",
     children: [
-      { label: "Tarefas", page: "listaview" },
+      { label: "Ordem de Serviço", page: "pedidos" },
+      { label: "Produção", page: "listaview" }, // as tarefas de produção (id "listaview" é herdado da Target)
+      { label: "Expedição", page: "expedicao" }, // tarefas por unidade (categoria "expedicao")
+      { label: "Estoque", page: "estoque" },
     ],
   },
   {
@@ -86,17 +88,6 @@ export const seedTasks: Task[] = [
   { id: "t13", titulo: "Revisar segmentação por região", gestor: "carlos", status: "validada", prio: "baixa", tipo: "Otimização", categoria: "operacional", criada: diasAPartirDeHoje(-12), criadaHora: "15:20", venc: diasAPartirDeHoje(-6), vencHora: "18:00",
     comentarios: [{ id: "c6", message: "Marina Lopes mudou o status para \"Validada\"", author: "marina", created_at: iso(5, "10:00"), tipo: "log" }] },
 ];
-
-/** Tarefa recorrente de exemplo: relatório semanal toda segunda-feira. */
-{
-  const regra = { frequencia: "semanal", dia_semana: 1, dia_mes: null };
-  const primeira = primeiraOcorrencia(hojeSP(), regra);
-  seedTasks.push({
-    id: "t14", titulo: "Relatório semanal de resultados", gestor: "ana", status: "verificar", prio: "normal", tipo: "Relatório", categoria: "operacional",
-    criada: formatBR(TODAY), criadaHora: "09:00", venc: addDias(primeira, 1).split("-").reverse().join("/"), vencHora: "23:59",
-    rec: { ativa: true, freq: "semanal", diaSemana: 1, prazoDias: 1, modo: "novo", proxima: proximaApos(primeira, regra) },
-  });
-}
 
 export const seedUnidades: Unidade[] = [
   { id: "u-centro", slug: "florianopolis-centro", cidade: "Florianópolis", nome: "Centro", ativa: true, criada: iso(60) },

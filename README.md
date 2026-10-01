@@ -5,11 +5,43 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
 
 ## Telas
 
-- **Operacional → Tarefas** — lista agrupável (status / responsável / prioridade / vencimento / tipo)
+- **Operacional → Produção** (as tarefas; id interno `listaview`) — status **A verificar → Em
+  produção → Concluída → Validada** (esta só Administrador/Head) e **Atrasada**, que só o sistema
+  marca: a cada `/api/bootstrap`, tarefas vencidas em A verificar/Em produção viram Atrasada com
+  log ([`lib/tarefas-server.ts`](lib/tarefas-server.ts)); o servidor recusa esses dois status
+  vindos de quem não pode. Lista agrupável (status / responsável / prioridade / vencimento / tipo)
   e quadro kanban; edição inline de título, cliente, responsável, prioridade, status e vencimento;
   seleção múltipla com ações em lote; descrição rica e comentários com imagem/vídeo/anexo;
-  recorrências (diária / semanal / mensal); link compartilhável `?tarefa=<id>` (e `?talento=<id>`
+  link compartilhável `?tarefa=<id>` (e `?talento=<id>`
   abre um candidato no Banco de Talentos).
+- **Operacional → Ordem de Serviço** — lista de ordens (mesmo desenho de Tarefas, sem quadro):
+  título, status (Aberta / Em andamento / Concluída / Validada — esta sai da visão padrão), itens, total a receber por
+  unidade, entrega, quem criou. "Nova ordem" abre a matriz **produto × unidade** (produtos do
+  Estoque, por categoria) para preencher quanto cada loja precisa; a data de entrega é
+  obrigatória. **Ao criar a ordem, nasce uma tarefa de produção por produto** em Tarefas
+  ("Banoffinha: 10", tipo Produção, detalhe por unidade na descrição, vencendo na data de
+  entrega, responsável = quem criou; `tarefas.pedido_id`, migration 0015) **e uma tarefa de
+  expedição por unidade**. **A ordem acompanha as tarefas dos dois setores**: alguma iniciada →
+  Em andamento; todas concluídas → Concluída (migration 0018; no servidor, em
+  [`lib/pedido-server.ts`](lib/pedido-server.ts), com log "Sistema mudou o status…"). O drawer
+  da ordem lista as tarefas com progresso, a matriz editável e o histórico (painel recolhível);
+  o drawer da tarefa mostra a ordem de origem. Link compartilhável `?pedido=<id>`; excluir a
+  ordem apaga as tarefas dela (FK cascade, migration 0017). Tabela `pedido`
+  (migration 0014; `itens` = `{ produtoId: { local: qtd } }`), rota `/api/pedidos`, dimensões em
+  [`lib/pedido.ts`](lib/pedido.ts).
+- **Operacional → Expedição** — mesma lista de Produção (id `expedicao`), mas com as tarefas de
+  `categoria = "expedicao"`: uma por **unidade** que recebe a ordem ("Expedição - Centro - dd/mm/aaaa",
+  produtos e quantidades na descrição). Separação em [`lib/tarefas.ts`](lib/tarefas.ts); a rota
+  `/api/tarefas` exige "editar" na tela da tarefa (Produção ou Expedição).
+- **Operacional → Estoque** — lista de produtos agrupada por categoria (as seções da planilha de
+  reposição: Frutas, Caseirinhos, Brownies, Copinhos, Bolos Gelados, Bolos de Potes, Congelados,
+  Tortas Acrílico Fatia, Encomendas — em [`lib/estoque.ts`](lib/estoque.ts)); cadastro de produto
+  com a quantidade por local — Fábrica, Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani
+  (`LOCAIS_ESTOQUE`) — e o total; edição inline de nome/categoria/quantidades, busca, filtro por
+  categoria e exclusão. Clicar no produto abre o drawer (mesmo desenho da tarefa) com as
+  quantidades por unidade e o **histórico**: "Fulano atualizou a quantidade de 8 para 10 na
+  unidade Fábrica" (autor `sistema` reservado para automações). Tabela `produto` (migrations
+  0010–0013; quantidades no jsonb `estoque`, log no jsonb `historico`), rota `/api/estoque`.
 - **Recrutamento → Banco de Talentos** — quadro por etapa e lista ordenável; detalhe do candidato
   com status, vaga, qualidade, WhatsApp, currículo/anexos e comentários; cadastro de novo candidato.
 - **Recrutamento → Vagas** — cadastro de unidades e de vagas (sempre vinculadas a uma unidade), com
@@ -59,8 +91,7 @@ O app roda em dois modos, decididos pelas variáveis de ambiente (`.env.local`, 
   `/api/bootstrap` (recortados por cargo no servidor) e toda escrita passa pelas rotas
   `app/api/*` com o Bearer da sessão. Os anexos ficam no Storage (`task-anexos`, privado,
   servido por `/api/anexo`; `avatars`, público). A tabela-sinal `realtime_ping` avisa o
-  navegador quando algo muda e ele refaz o bootstrap. As tarefas recorrentes são geradas
-  pelo cron do Vercel ([`vercel.json`](vercel.json), `CRON_SECRET`) e também ao abrir o app.
+  navegador quando algo muda e ele refaz o bootstrap.
 - **Modo demo** (sem as variáveis): tudo no navegador com **dados de exemplo**
   ([`lib/seed.ts`](lib/seed.ts)) persistidos no `localStorage`; senha de todos `123456`
   (ju@, marina@, carlos@, ana@, pedro@ `jubudelon.com.br`). Em **Configurações → Empresa**

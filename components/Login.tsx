@@ -93,7 +93,7 @@ export default function Login() {
               <div style={css("font-size:26px; font-weight:800; letter-spacing:-0.5px; line-height:1.2;")}>Bem-vindo ao painel da Ju Budelon</div>
               <div style={css("font-size:13.5px; color:#F3D9DF; line-height:1.6;")}>Tarefas da operação, banco de talentos e vagas das unidades, num só lugar. Entre com o e-mail e a senha cadastrados pela administração.</div>
               <div style={css("margin-top:10px; display:flex; flex-direction:column; gap:8px;")}>
-                {["Operacional → Tarefas", "Recrutamento → Banco de Talentos", "Recrutamento → Vagas e página pública"].map((t) => (
+                {["Operacional → Ordem de Serviço, Produção e Estoque", "Recrutamento → Banco de Talentos", "Recrutamento → Vagas e página pública"].map((t) => (
                   <div key={t} style={css("display:flex; align-items:center; gap:10px; font-size:13px; font-weight:700; color:#fff;")}>
                     <span style={css("width:8px; height:8px; border-radius:50%; background:#F5ABBA; flex:none;")} />{t}
                   </div>
