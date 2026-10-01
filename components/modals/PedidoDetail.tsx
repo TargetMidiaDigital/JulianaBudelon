@@ -165,7 +165,7 @@ function statusDoGrupo(ts: Task[]): { label: string; bg: string; fg: string; dot
 }
 
 const Pill = ({ st }: { st: { label: string; bg: string; fg: string } }) => (
-  <span style={css(`flex:none; font-size:12px; font-weight:700; padding:3px 10px; border-radius:7px; background:${st.bg}; color:${st.fg};`)}>{st.label}</span>
+  <span style={css(`flex:none; width:118px; box-sizing:border-box; text-align:center; font-size:12px; font-weight:700; padding:3px 6px; border-radius:7px; background:${st.bg}; color:${st.fg};`)}>{st.label}</span>
 );
 
 /**
@@ -180,14 +180,18 @@ function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: stri
   const todas = setores.flatMap((x) => x.tarefas);
   const visiveis = setores.filter((x) => x.tarefas.length);
   const si = pedidoStatusInfo(pedido.status);
+  // Colunas fixas à direita (x/y · responsável · status) para tudo ficar alinhado em todos os níveis.
+  const qtdCol = "flex:none; width:52px; text-align:right; font-size:13px; font-weight:700; color:#7A8090; font-variant-numeric:tabular-nums;";
+  const avatarCol = "flex:none; width:24px;";
   const linha = "display:flex; align-items:center; gap:10px; padding:7px 12px; min-height:40px; box-sizing:border-box;";
   return (
     <div style={css("border:1px solid #ECEDF1; border-radius:12px; padding:6px 0; background:#fff;")}>
       {/* raiz: a ordem */}
-      <div style={css(`${linha} margin:0 6px; border-radius:10px; background:#EEF0FB;`)}>
+      <div style={css(`${linha} margin:0 6px; padding-left:6px; padding-right:6px; border-radius:10px; background:#EEF0FB;`)}>
         <span style={css(`width:9px; height:9px; flex:none; border-radius:50%; background:${si.dot};`)} />
         <span style={css("flex:1; min-width:0; font-size:15px; font-weight:800; color:#3B3FB6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{pedido.titulo}</span>
-        <span style={css("font-size:13px; font-weight:700; color:#7A8090;")}>{todas.filter(feitaT).length}/{todas.length}</span>
+        <span style={css(qtdCol)}>{todas.filter(feitaT).length}/{todas.length}</span>
+        <span style={css(avatarCol)} />
         <Pill st={si} />
       </div>
       {visiveis.map((g, gi) => {
@@ -201,7 +205,8 @@ function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: stri
               <TreeGuides guides={[!ultimoG]} sangra={7} />
               <Svg size={13} sw={2.4} stroke="#7A8090" style={css(`flex:none; transform:rotate(${aberto ? 0 : -90}deg); transition:transform .15s ease;`)}><path d="m6 9 6 6 6-6" /></Svg>
               <span style={css("flex:1; min-width:0; font-size:14px; font-weight:800; color:#1B1B28;")}>{g.titulo}</span>
-              <span style={css("font-size:12.5px; font-weight:700; color:#7A8090;")}>{ok}/{g.tarefas.length}</span>
+              <span style={css(qtdCol)}>{ok}/{g.tarefas.length}</span>
+              <span style={css(avatarCol)} />
               <Pill st={statusDoGrupo(g.tarefas)} />
             </Hoverable>
             {/* folhas: produtos / unidades */}
@@ -214,7 +219,8 @@ function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: stri
                   <TreeGuides guides={[!ultimoG, ti < g.tarefas.length - 1]} sangra={7} />
                   <span style={css(`width:8px; height:8px; flex:none; border-radius:50%; background:${st.dot};`)} />
                   <span style={css(`flex:1; min-width:0; font-size:13.5px; font-weight:600; color:${feito ? "#9398A6" : "#1B1B28"}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{t.titulo}</span>
-                  <Avatar ini={gg.ini} cor={gg.cor} src={gg.foto} size={22} fontSize={9.5} />
+                  <span style={css(qtdCol)} />
+                  <span style={css(avatarCol + " display:flex; justify-content:center;")}><Avatar ini={gg.ini} cor={gg.cor} src={gg.foto} size={22} fontSize={9.5} /></span>
                   <Pill st={st} />
                 </Hoverable>
               );
