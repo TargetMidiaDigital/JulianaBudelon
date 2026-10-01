@@ -26,7 +26,7 @@ const horaBR = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(
 
 export default function TaskForm() {
   const { taskFormOpen, setTaskFormOpen, team, produtos, addTask, taskFormPrefill, setTaskFormPrefill, currentUser, screen, ownScopeOnly, canSeeAll } = useApp();
-  const statusOpts = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
+  const statusOpts = statusEscolhiveis(canSeeAll, screen === "expedicao"); // sem "Atrasada"; Expedição sem "Em produção"
   const [titulo, setTitulo] = useState("");
   const [resp, setResp] = useState<string | null>(currentUser.id || null);
   const [prio, setPrio] = useState<Prioridade | null>(null);

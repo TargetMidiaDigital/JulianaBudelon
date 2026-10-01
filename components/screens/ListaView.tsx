@@ -10,6 +10,7 @@ import {
   PRIO_ORDER,
   STATUS_ORDER,
   statusEscolhiveis,
+  statusDaLista,
   filterByGestor,
   gestorOf,
   responsaveisDoScope,
@@ -157,8 +158,9 @@ export default function ListaView({
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
   const ts = showValidadas ? tsBase : tsBase.filter((t) => t.status !== "validada");
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
-  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
-  const statusCols: TaskStatus[] = showValidadas ? [...STATUS_ORDER, "validada"] : STATUS_ORDER;
+  const expedicao = page === "expedicao";
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, expedicao); // sem "Atrasada" (só o sistema marca); Expedição sem "Em produção"
+  const statusCols: TaskStatus[] = showValidadas ? [...statusDaLista(expedicao), "validada"] : statusDaLista(expedicao);
 
   // Data (dd/mm/yyyy) + hora (hh:mm) → timestamp comparável (ordena considerando a hora).
   const dtMs = (d?: string, h?: string): number => {

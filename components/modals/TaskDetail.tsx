@@ -33,10 +33,10 @@ function TaskDetailBody({ t }: { t: Task }) {
   const { team, pedidos, produtos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
   const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
   const produto = t.produtoId ? produtos.find((p) => p.id === t.produtoId) : undefined;
-  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, ehExpedicao(t)); // sem "Atrasada"; Expedição sem "Em produção"
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
   // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
-  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
+  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: ehExpedicao(t) ? "concluida" : "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
   const proximo = PROXIMO[t.status];
   const podeAvancar = !!proximo && (proximo !== "validada" || canSeeAll);
   const close = () => setTaskDetailOpen(null);

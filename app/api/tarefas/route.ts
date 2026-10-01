@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
   const sess = await editorDaTarefa(req, sb, task);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  const recusaStatus = validarStatusManual(task.status, sess.cargo);
+  const recusaStatus = validarStatusManual(task.status, sess.cargo) ?? (task.categoria === "expedicao" && task.status === "em andamento" ? 'Expedição não usa o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
   if (!isCargoFull(sess.cargo) && task.gestor && task.gestor !== sess.userId) {
     return NextResponse.json({ error: "Sem permissão para atribuir a outra pessoa." }, { status: 403 });
@@ -101,7 +101,7 @@ export async function PATCH(req: Request) {
 
   const cols = mapPatch(patch ?? {});
   if ("status" in cols) {
-    const recusa = validarStatusManual(cols.status as string, sess.cargo);
+    const recusa = validarStatusManual(cols.status as string, sess.cargo) ?? (atual.categoria === "expedicao" && cols.status === "em andamento" ? 'Expedição não usa o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
   if (Object.keys(cols).length === 0) return NextResponse.json({ persisted: true });

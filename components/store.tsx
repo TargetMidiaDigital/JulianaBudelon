@@ -975,5 +975,10 @@ export function responsaveisDoScope(team: TeamMember[], scope?: string) {
 // Ordem dos grupos/colunas. "validada" é omitida de propósito (oculta no front); statusInfo ainda a define.
 export const STATUS_ORDER: TaskStatus[] = ["verificar", "em andamento", "atrasada", "concluida"];
 /** Status que uma pessoa pode escolher: "Atrasada" é só do sistema (vencimento); "Validada" só Head/Admin. */
-export const statusEscolhiveis = (canSeeAll: boolean): TaskStatus[] => (canSeeAll ? ["verificar", "em andamento", "concluida", "validada"] : ["verificar", "em andamento", "concluida"]);
+/** Status que uma pessoa pode escolher: "Atrasada" é só do sistema (vencimento); "Validada" só Head/Admin.
+ *  Expedição não tem "Em produção": vai direto de A verificar para Concluída. */
+export const statusEscolhiveis = (canSeeAll: boolean, expedicao = false): TaskStatus[] =>
+  (["verificar", "em andamento", "concluida", "validada"] as TaskStatus[]).filter((s) => (canSeeAll || s !== "validada") && (!expedicao || s !== "em andamento"));
+/** Colunas/grupos de status de uma lista (Produção ou Expedição). */
+export const statusDaLista = (expedicao: boolean): TaskStatus[] => (expedicao ? STATUS_ORDER.filter((s) => s !== "em andamento") : STATUS_ORDER);
 export const PRIO_ORDER: Prioridade[] = ["urgente", "alta", "normal", "baixa"];
