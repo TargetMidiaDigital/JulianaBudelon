@@ -16,6 +16,7 @@ import LogLine from "../ui/LogLine";
 import MatrizPedido from "../ui/MatrizPedido";
 import { gestorOf, useApp } from "../store";
 import { statusInfo } from "@/lib/theme";
+import TreeGuides from "../ui/TreeGuides";
 
 const dataHora = (iso?: string) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "—";
@@ -107,11 +108,13 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
             </div>
 
             {tarefas.length > 0 && (
-              <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4; display:flex; flex-direction:column; gap:16px;")}>
-                <BlocoTarefas titulo="Tarefas de produção" tarefas={producao} />
-                <BlocoTarefas titulo="Tarefas de expedição" tarefas={expedicao} />
-                <BlocoTarefas titulo="Recebimento nas unidades" tarefas={recebimento} />
-                <p style={css("margin:-6px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por unidade → cada unidade confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
+              <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4; display:flex; flex-direction:column; gap:10px;")}>
+                <ArvoreOrdem pedido={p} setores={[
+                  { key: "producao", titulo: "Produção", tarefas: producao },
+                  { key: "expedicao", titulo: "Expedição", tarefas: expedicao },
+                  { key: "unidades", titulo: "Recebimento nas unidades", tarefas: recebimento },
+                ]} />
+                <p style={css("margin:0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por unidade → cada unidade confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
               </div>
             )}
 
@@ -151,35 +154,73 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
   );
 }
 
-/** Lista de tarefas de um setor (produção ou expedição) com barra de progresso; clique abre a tarefa. */
-function BlocoTarefas({ titulo, tarefas }: { titulo: string; tarefas: Task[] }) {
+const feitaT = (t: Task) => t.status === "concluida" || t.status === "validada";
+
+/** Status agregado de um grupo de tarefas (setor): mesmo critério da ordem. */
+function statusDoGrupo(ts: Task[]): { label: string; bg: string; fg: string; dot: string } {
+  if (ts.length && ts.every(feitaT)) return statusInfo.concluida;
+  if (ts.some((t) => t.status === "atrasada")) return statusInfo.atrasada;
+  if (ts.some((t) => t.status !== "verificar")) return { ...statusInfo["em andamento"], label: "Em andamento" };
+  return statusInfo.verificar;
+}
+
+const Pill = ({ st }: { st: { label: string; bg: string; fg: string } }) => (
+  <span style={css(`flex:none; font-size:12px; font-weight:700; padding:3px 10px; border-radius:7px; background:${st.bg}; color:${st.fg};`)}>{st.label}</span>
+);
+
+/**
+ * Ordem → setores → tarefas, em árvore (mesmo desenho das subtarefas do onboarding da Target):
+ * a ordem é a raiz, cada setor (Produção / Expedição / Recebimento) é um nó com x/y e status
+ * agregado, e cada produto/unidade é uma folha. Setores recolhem; folha abre a tarefa.
+ */
+function ArvoreOrdem({ pedido, setores }: { pedido: Pedido; setores: { key: string; titulo: string; tarefas: Task[] }[] }) {
   const { team, setTaskDetailOpen } = useApp();
-  const feitas = tarefas.filter((t) => t.status === "concluida" || t.status === "validada").length;
+  const [fechado, setFechado] = useState<Record<string, boolean>>({});
+  const todas = setores.flatMap((x) => x.tarefas);
+  const visiveis = setores.filter((x) => x.tarefas.length);
+  const si = pedidoStatusInfo(pedido.status);
+  const linha = "display:flex; align-items:center; gap:10px; padding:7px 12px; min-height:40px; box-sizing:border-box;";
   return (
-    <div>
-      <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:10px;")}>
-        <Svg size={15} stroke="#5B6472"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></Svg>
-        <span style={css("font-size:14px; font-weight:800;")}>{titulo}</span>
-        <span style={css("font-size:12.5px; font-weight:700; color:#7A8090;")}>{tarefas.length ? `${feitas}/${tarefas.length} concluídas` : "nenhuma"}</span>
-        <span style={{ flex: 1 }} />
-        <span style={css("width:140px; height:6px; border-radius:999px; background:#EDEEF2; overflow:hidden;")}><span style={css(`display:block; height:100%; width:${tarefas.length ? Math.round((feitas / tarefas.length) * 100) : 0}%; background:#2FB56F; border-radius:999px;`)} /></span>
+    <div style={css("border:1px solid #ECEDF1; border-radius:12px; padding:6px 0; background:#fff;")}>
+      {/* raiz: a ordem */}
+      <div style={css(`${linha} margin:0 6px; border-radius:10px; background:#EEF0FB;`)}>
+        <span style={css(`width:9px; height:9px; flex:none; border-radius:50%; background:${si.dot};`)} />
+        <span style={css("flex:1; min-width:0; font-size:15px; font-weight:800; color:#3B3FB6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{pedido.titulo}</span>
+        <span style={css("font-size:13px; font-weight:700; color:#7A8090;")}>{todas.filter(feitaT).length}/{todas.length}</span>
+        <Pill st={si} />
       </div>
-      {tarefas.length > 0 && (
-        <div style={css("display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px;")}>
-          {tarefas.map((t) => {
-            const st = statusInfo[t.status];
-            const g = gestorOf(team, t.gestor);
-            return (
-              <Hoverable key={t.id} onClick={() => setTaskDetailOpen(t.id)} s={css("display:flex; align-items:center; gap:9px; padding:8px 11px; border:1px solid #ECEDF1; border-radius:10px; background:#fff; cursor:pointer; min-width:0;")} hover="background:#FAFAFB; border-color:#D7DAE0">
-                <span style={css(`width:8px; height:8px; flex:none; border-radius:50%; background:${st.dot};`)} />
-                <span style={css("flex:1; min-width:0; font-size:13px; font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{t.titulo}</span>
-                <span style={css(`flex:none; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:${st.bg}; color:${st.fg};`)}>{st.label}</span>
-                <Avatar ini={g.ini} cor={g.cor} src={g.foto} size={22} fontSize={9.5} />
-              </Hoverable>
-            );
-          })}
-        </div>
-      )}
+      {visiveis.map((g, gi) => {
+        const ultimoG = gi === visiveis.length - 1;
+        const aberto = !fechado[g.key];
+        const ok = g.tarefas.filter(feitaT).length;
+        return (
+          <div key={g.key}>
+            {/* nó do setor */}
+            <Hoverable onClick={() => setFechado((f) => ({ ...f, [g.key]: !f[g.key] }))} s={css(`${linha} padding-left:14px; cursor:pointer;`)} hover="background:#FAFAFB">
+              <TreeGuides guides={[!ultimoG]} sangra={7} />
+              <Svg size={13} sw={2.4} stroke="#7A8090" style={css(`flex:none; transform:rotate(${aberto ? 0 : -90}deg); transition:transform .15s ease;`)}><path d="m6 9 6 6 6-6" /></Svg>
+              <span style={css("flex:1; min-width:0; font-size:14px; font-weight:800; color:#1B1B28;")}>{g.titulo}</span>
+              <span style={css("font-size:12.5px; font-weight:700; color:#7A8090;")}>{ok}/{g.tarefas.length}</span>
+              <Pill st={statusDoGrupo(g.tarefas)} />
+            </Hoverable>
+            {/* folhas: produtos / unidades */}
+            {aberto && g.tarefas.map((t, ti) => {
+              const st = statusInfo[t.status];
+              const gg = gestorOf(team, t.gestor);
+              const feito = feitaT(t);
+              return (
+                <Hoverable key={t.id} onClick={() => setTaskDetailOpen(t.id)} s={css(`${linha} padding-left:14px; cursor:pointer;`)} hover="background:#FAFAFB">
+                  <TreeGuides guides={[!ultimoG, ti < g.tarefas.length - 1]} sangra={7} />
+                  <span style={css(`width:8px; height:8px; flex:none; border-radius:50%; background:${st.dot};`)} />
+                  <span style={css(`flex:1; min-width:0; font-size:13.5px; font-weight:600; color:${feito ? "#9398A6" : "#1B1B28"}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;`)}>{t.titulo}</span>
+                  <Avatar ini={gg.ini} cor={gg.cor} src={gg.foto} size={22} fontSize={9.5} />
+                  <Pill st={st} />
+                </Hoverable>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
