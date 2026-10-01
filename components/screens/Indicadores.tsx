@@ -124,7 +124,6 @@ export default function Indicadores() {
         <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:14px;")}>
           <Tile rotulo="Ordens de serviço" valor={fmt(r.total)} sub={`${fmt(r.porStatus.aberta)} abertas · ${fmt(r.porStatus["em andamento"])} em andamento`} />
           <Tile rotulo="Concluídas" valor={fmt(feitas)} sub={`${pct(feitas, r.total)} das ordens · ${fmt(r.porStatus.validada)} validadas`} cor="#1B7F4D" />
-          <Tile rotulo="No prazo" valor={r.ordensComEntrega ? pct(r.ordensNoPrazo, r.ordensComEntrega) : "—"} sub={r.ordensComEntrega ? `${fmt(r.ordensNoPrazo)} de ${fmt(r.ordensComEntrega)} concluídas até a entrega` : "sem ordens concluídas"} />
           <Tile rotulo="Unidades pedidas" valor={fmt(r.unidades)} sub={`${fmt(r.produtosDistintos)} ${r.produtosDistintos === 1 ? "produto distinto" : "produtos distintos"}`} destaque />
           <Tile rotulo="Produção" valor={`${fmt(d.setores[0].concluidas)}/${fmt(d.setores[0].total)}`} sub={`${pct(d.setores[0].concluidas, d.setores[0].total)} das tarefas concluídas · ${fmt(d.setores[0].atrasada)} atrasadas`} cor={COR_PRODUCAO} />
           <Tile rotulo="Expedição" valor={`${fmt(d.setores[1].concluidas)}/${fmt(d.setores[1].total)}`} sub={`${pct(d.setores[1].concluidas, d.setores[1].total)} das tarefas concluídas · ${fmt(d.setores[1].atrasada)} atrasadas`} cor={COR_EXPEDICAO} />

@@ -79,24 +79,16 @@ export function filtrarTarefas(tasks: Task[], pedidosFiltrados: Pedido[], produt
 
 // ───────────────────────── agregados ─────────────────────────
 
-export type ResumoOrdens = { total: number; porStatus: Record<PedidoStatus, number>; unidades: number; produtosDistintos: number; ordensNoPrazo: number; ordensComEntrega: number };
+export type ResumoOrdens = { total: number; porStatus: Record<PedidoStatus, number>; unidades: number; produtosDistintos: number };
 export function resumoOrdens(ps: Pedido[], produtos: Produto[], f: Filtros): ResumoOrdens {
   const porStatus: Record<PedidoStatus, number> = { aberta: 0, "em andamento": 0, concluida: 0, validada: 0 };
-  let unidades = 0; const distintos = new Set<string>(); let noPrazo = 0, comEntrega = 0;
+  let unidades = 0; const distintos = new Set<string>();
   for (const p of ps) {
     porStatus[p.status] += 1;
     for (const [id, q] of itensFiltrados(p, produtos, f)) { unidades += q; distintos.add(id); }
-    if (p.entrega && feitaOrdem(p)) {
-      comEntrega += 1;
-      // concluída até a data de entrega? usa a última atualização como momento da conclusão
-      const [d, m, y] = p.entrega.split("/").map(Number);
-      const limite = new Date(y, m - 1, d, 23, 59, 59).getTime();
-      if (ms(p.atualizada) <= limite) noPrazo += 1;
-    }
   }
-  return { total: ps.length, porStatus, unidades, produtosDistintos: distintos.size, ordensNoPrazo: noPrazo, ordensComEntrega: comEntrega };
+  return { total: ps.length, porStatus, unidades, produtosDistintos: distintos.size };
 }
-const feitaOrdem = (p: Pedido) => p.status === "concluida" || p.status === "validada";
 
 /** Top produtos por quantidade pedida (desc). */
 export function rankingProdutos(ps: Pedido[], produtos: Produto[], f: Filtros, limite = 5): { id: string; nome: string; categoria: string; qtd: number; ordens: number }[] {
