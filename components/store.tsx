@@ -14,7 +14,7 @@ import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/ac
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
-import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehProducao } from "@/lib/tarefas";
+import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
@@ -564,7 +564,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
       patchDb((d) => {
         const comTarefa = { ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) };
-        const comEstoque = patch.status ? aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo) : comTarefa;
+        const comEstoque = patch.status ? aplicarRecebimentoLocal(aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo), { ...old, ...fp }, old.status, patch.status) : comTarefa;
         return sincronizarPedidoLocal(comEstoque, old.pedidoId, demo);
       });
       void persist("/api/tarefas", "PATCH", { id, patch: fp });
@@ -905,6 +905,25 @@ function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, d
   return { ...d, produtos: d.produtos.map((p) => (p.id === prod.id ? atualizado : p)) };
 }
 
+/** Espelho local de aplicarEstoqueRecebimento: concluir o recebimento move Fábrica → unidade. */
+function aplicarRecebimentoLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
+  const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
+  if (!ehUnidade(t) || !t.local || t.local === "fabrica" || !t.pedidoId || feita(de) === feita(para)) return d;
+  const ped = d.pedidos.find((p) => p.id === t.pedidoId);
+  if (!ped) return d;
+  const local = t.local, ida = feita(para);
+  return {
+    ...d,
+    produtos: d.produtos.map((p) => {
+      const q = itemQtd(ped.itens, p.id, local);
+      if (q <= 0) return p;
+      const fab = qtdEm(p.quantidades, "fabrica"), uni = qtdEm(p.quantidades, local);
+      const quantidades = ida ? { ...p.quantidades, fabrica: Math.max(0, fab - q), [local]: uni + q } : { ...p.quantidades, fabrica: fab + q, [local]: Math.max(0, uni - q) };
+      return { ...p, quantidades, atualizada: new Date().toISOString() };
+    }),
+  };
+}
+
 /**
  * Espelho local do que o servidor faz em /api/tarefas: a ordem acompanha as tarefas que gerou
  * (alguma começou → em produção; todas concluídas → concluída). No modo demo é a única
@@ -942,7 +961,7 @@ function tarefasPorUnidadeDaOrdem(pedido: Pedido, produtos: Produto[], user: Tea
     const intro = exp ? "" : `<p>Confira o que chegou da expedição. Faltou ou sobrou algum produto? Registre nos comentários antes de concluir.</p>`;
     const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p>${intro}<p><strong>${l.label}</strong> — ${totais[l.id]} un. ${exp ? "a separar" : "a receber"}:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
     return {
-      id: `t-${base}-${exp ? "e" : "u"}${i}`, titulo: `${exp ? "Expedição" : "Recebimento"} - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: exp ? "Expedição" : "Recebimento", categoria: exp ? CATEGORIA_EXPEDICAO : CATEGORIA_UNIDADE, pedidoId: pedido.id,
+      id: `t-${base}-${exp ? "e" : "u"}${i}`, titulo: `${exp ? "Expedição" : "Recebimento"} - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: exp ? "Expedição" : "Recebimento", categoria: exp ? CATEGORIA_EXPEDICAO : CATEGORIA_UNIDADE, pedidoId: pedido.id, local: l.id,
       criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
       comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
     };

@@ -46,6 +46,7 @@ export type Task = {
   pedidoId?: string; // ordem de serviço que gerou a tarefa (Operacional → Ordem de Serviço)
   produtoId?: string; // produção: produto fabricado (Estoque)
   quantidade?: number; // produção: unidades; ao concluir, soma no estoque da Fábrica
+  local?: string; // expedição/recebimento: unidade (id de LOCAIS_ESTOQUE)
   criada: string; // dd/mm/yyyy
   criadaHora?: string; // hh:mm
   atualizada?: string; // dd/mm/yyyy — data da última atualização
