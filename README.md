@@ -14,6 +14,14 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   seleção múltipla com ações em lote; descrição rica e comentários com imagem/vídeo/anexo;
   link compartilhável `?tarefa=<id>` (e `?talento=<id>`
   abre um candidato no Banco de Talentos).
+- **Operacional → Indicadores** — painel com filtros (período, unidade, categoria, status) que
+  valem para todos os cartões: KPIs (ordens, concluídas, no prazo, unidades pedidas, progresso de
+  produção e expedição), evolução no tempo (linha/área), ordens por status (rosca), top 5
+  produtos, unidades recebidas por loja, tarefas por status (produção × expedição), pedidos por
+  categoria, mapa de calor produto × unidade e tarefas por responsável. Clicar numa fatia/barra
+  filtra; todo gráfico tem vista em tabela. Cálculo no navegador em
+  [`lib/indicadores.ts`](lib/indicadores.ts); gráficos com Recharts; cores validadas com o
+  validador do skill de dataviz (par produção/expedição, status e rampa sequencial).
 - **Operacional → Ordem de Serviço** — lista de ordens (mesmo desenho de Tarefas, sem quadro):
   título, status (Aberta / Em andamento / Concluída / Validada — esta sai da visão padrão), itens, total a receber por
   unidade, entrega, quem criou. "Nova ordem" abre a matriz **produto × unidade** (produtos do

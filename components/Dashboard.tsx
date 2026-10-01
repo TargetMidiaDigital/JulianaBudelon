@@ -8,6 +8,7 @@ import { AppProvider, useApp } from "./store";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import ListaView from "./screens/ListaView";
+import Indicadores from "./screens/Indicadores";
 import Pedidos from "./screens/Pedidos";
 import Estoque from "./screens/Estoque";
 import BancoTalentos from "./screens/BancoTalentos";
@@ -26,6 +27,7 @@ function Screens() {
   const screen = canAccessPage(rawScreen) ? rawScreen : landingPage;
   return (
     <div className="m-screens" style={css("flex:1; overflow-y:auto;")}>
+      {screen === "indicadores" && <Indicadores />}
       {screen === "listaview" && <ListaView selectable page="listaview" />}
       {screen === "expedicao" && <ListaView selectable page="expedicao" />}
       {screen === "pedidos" && <Pedidos />}

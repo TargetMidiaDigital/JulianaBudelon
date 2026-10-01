@@ -12,6 +12,7 @@ export const spacesTree: Sector[] = [
     id: "operacional",
     label: "Operacional",
     children: [
+      { label: "Indicadores", page: "indicadores" },
       { label: "Ordem de Serviço", page: "pedidos" },
       { label: "Produção", page: "listaview" }, // as tarefas de produção (id "listaview" é herdado da Target)
       { label: "Expedição", page: "expedicao" }, // tarefas por unidade (categoria "expedicao")

@@ -406,7 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initialScreen = ((): ScreenPage => {
     if (typeof window === "undefined") return "listaview";
     const page = new URLSearchParams(window.location.search).get("page");
-    const valid: ScreenPage[] = ["listaview", "pedidos", "expedicao", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
+    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
     return (valid as string[]).includes(page ?? "") ? (page as ScreenPage) : "listaview";
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);

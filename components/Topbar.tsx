@@ -9,6 +9,7 @@ import Relogio from "./ui/Relogio";
 import { useApp } from "./store";
 
 const TITLES: Record<ScreenPage, string> = {
+  indicadores: "Indicadores",
   listaview: "Produção",
   expedicao: "Expedição",
   pedidos: "Ordem de Serviço",
