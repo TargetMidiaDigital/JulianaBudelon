@@ -411,14 +411,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);
   const landedRef = useRef(false);
+  // Deep-link lido UMA vez, na montagem: o Gate (filho) trata ?tarefa/?talento/?pedido e limpa a
+  // URL no mesmo ciclo em que este efeito roda — e efeitos de filho rodam antes dos do pai.
+  // Olhar a URL aqui já encontraria a query apagada e mandaria a tela inicial por cima do link.
+  const deepLinkRef = useRef<boolean>((() => {
+    if (typeof window === "undefined") return false;
+    const sp = new URLSearchParams(window.location.search);
+    return !!(sp.get("tarefa") || sp.get("talento") || sp.get("pedido") || sp.get("page"));
+  })());
   useEffect(() => { if (!authed) landedRef.current = false; }, [authed]);
   useEffect(() => {
     if (!authReady || !authed || landedRef.current) return;
     landedRef.current = true;
-    if (typeof window !== "undefined") {
-      const sp = new URLSearchParams(window.location.search);
-      if (sp.get("tarefa") || sp.get("talento") || sp.get("pedido") || sp.get("page")) return;
-    }
+    if (deepLinkRef.current) { deepLinkRef.current = false; return; } // vale só para o primeiro login desta carga
     setScreen(landingPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, authed, currentUser.cargo]);
