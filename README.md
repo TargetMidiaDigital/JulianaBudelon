@@ -41,6 +41,10 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   `categoria = "expedicao"`: uma por **unidade** que recebe a ordem ("Expedição - Centro - dd/mm/aaaa",
   produtos e quantidades na descrição). Separação em [`lib/tarefas.ts`](lib/tarefas.ts); a rota
   `/api/tarefas` exige "editar" na tela da tarefa (Produção ou Expedição).
+- **Produção × Estoque** — a tarefa de produção tem Produto e Quantidade (`tarefas.produto_id`,
+  `quantidade`, migration 0019; as geradas pela ordem já vêm preenchidas). Ao **concluir** a
+  tarefa, a quantidade **soma no estoque da Fábrica** (reabrir estorna), com log no produto e na
+  tarefa — no servidor, em [`lib/tarefas-server.ts`](lib/tarefas-server.ts).
 - **Operacional → Estoque** — lista de produtos agrupada por categoria (as seções da planilha de
   reposição: Frutas, Caseirinhos, Brownies, Copinhos, Bolos Gelados, Bolos de Potes, Congelados,
   Tortas Acrílico Fatia, Encomendas — em [`lib/estoque.ts`](lib/estoque.ts)); cadastro de produto

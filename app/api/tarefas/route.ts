@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { isCargoFull } from "@/lib/acesso";
 import { toISO } from "@/lib/data";
-import type { Task } from "@/lib/types";
+import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
+import { aplicarEstoqueProducao } from "@/lib/tarefas-server";
+import { parseQuantidade } from "@/lib/estoque";
 import { pageDaTarefa } from "@/lib/tarefas";
 import { requireSession, nivelNaTela } from "@/lib/auth-admin";
 
@@ -37,6 +39,8 @@ function mapPatch(patch: Partial<Task>): Record<string, unknown> {
   if ("comentarios" in patch) c.ultimos_comentarios = patch.comentarios ?? [];
   if ("categoria" in patch) c.categoria = patch.categoria ?? "operacional";
   if ("parentId" in patch) c.parent_id = patch.parentId ?? null;
+  if ("produtoId" in patch) c.produto_id = patch.produtoId || null;
+  if ("quantidade" in patch) c.quantidade = patch.quantidade == null ? null : parseQuantidade(patch.quantidade);
   if ("pedidoId" in patch) c.pedido_id = patch.pedidoId ?? null;
   if ("venc" in patch || "vencHora" in patch) c.vence_em = toISO(patch.venc, patch.vencHora);
   if ("criada" in patch || "criadaHora" in patch) c.criada_em = toISO(patch.criada, patch.criadaHora);
@@ -53,8 +57,8 @@ async function editorDaTarefa(req: Request, sb: NonNullable<ReturnType<typeof ge
 
 /** Linha atual (responsável + categoria) — decide a tela da permissão e o escopo próprio. */
 async function linhaAtual(sb: NonNullable<ReturnType<typeof getSupabase>>, id: string) {
-  const { data } = await sb.from("tarefas").select("responsavel, categoria").eq("id", id).maybeSingle();
-  return data as { responsavel?: string | null; categoria?: string | null } | null;
+  const { data } = await sb.from("tarefas").select("id, nome, status, responsavel, categoria, produto_id, quantidade").eq("id", id).maybeSingle();
+  return data as { id: string; nome?: string | null; status?: string | null; responsavel?: string | null; categoria?: string | null; produto_id?: string | null; quantidade?: number | null } | null;
 }
 
 export async function POST(req: Request) {
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
   const row: Record<string, unknown> = {
     id: task.id, nome: task.titulo, status: task.status, urgencia: task.prio,
     responsavel: task.gestor || null, tipo: task.tipo ?? null, categoria: task.categoria ?? "operacional",
-    parent_id: task.parentId ?? null, pedido_id: task.pedidoId ?? null, descricao: task.desc ?? null, ultimos_comentarios: task.comentarios ?? [],
+    parent_id: task.parentId ?? null, pedido_id: task.pedidoId ?? null, produto_id: task.produtoId || null, quantidade: task.quantidade == null ? null : parseQuantidade(task.quantidade), descricao: task.desc ?? null, ultimos_comentarios: task.comentarios ?? [],
     criada_em: toISO(task.criada, task.criadaHora) ?? new Date().toISOString(), vence_em: toISO(task.venc, task.vencHora),
   };
   const { error } = await sb.from("tarefas").insert(row);
@@ -106,6 +110,8 @@ export async function PATCH(req: Request) {
   // Tarefa de uma ordem de serviço mudou de status → a ordem acompanha (em produção / concluída).
   const pedidoId = (salva as { pedido_id?: string | null } | null)?.pedido_id;
   if (pedidoId && "status" in cols) await sincronizarStatusPedido(sb, pedidoId);
+  // Produção concluída → soma a quantidade no estoque da Fábrica (reaberta → estorna).
+  if ("status" in cols) await aplicarEstoqueProducao(sb, atual, cols.status as TaskStatus);
   return NextResponse.json({ persisted: true });
 }
 

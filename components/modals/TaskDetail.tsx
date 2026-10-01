@@ -18,6 +18,9 @@ import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
+import { corDaCategoria } from "@/lib/estoque";
+import { ehExpedicao } from "@/lib/tarefas";
+import QtdCell from "../ui/QtdCell";
 
 export default function TaskDetail() {
   const { tasks, taskDetailOpen } = useApp();
@@ -27,8 +30,9 @@ export default function TaskDetail() {
 }
 
 function TaskDetailBody({ t }: { t: Task }) {
-  const { team, pedidos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
+  const { team, pedidos, produtos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
   const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
+  const produto = t.produtoId ? produtos.find((p) => p.id === t.produtoId) : undefined;
   const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
   // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
@@ -131,6 +135,36 @@ function TaskDetailBody({ t }: { t: Task }) {
                   <span style={css("display:inline-flex; align-items:center; gap:8px; padding:4px 9px 4px 4px;")}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10.5} /><span style={css("font-size:13.5px; font-weight:600;")}>{g.nome}</span></span>
                 )}
               </Row>
+              {!ehExpedicao(t) && (
+                <Row label="Produto">
+                  <Menu trigger={(tg) => (
+                    <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:600; color:${produto ? "#1B1B28" : "#9398A6"}; cursor:pointer; padding:5px 9px; border-radius:7px;`)}>
+                      {produto && <span style={css(`width:8px; height:8px; border-radius:50%; background:${corDaCategoria(produto.categoria)};`)} />}
+                      {produto?.nome ?? "Definir produto"}
+                      <Svg size={11} sw={2.4} stroke="#9398A6" style={css("flex:none;")}><path d="m6 9 6 6 6-6" /></Svg>
+                    </span>
+                  )} width={300} z={64} popStyle="max-height:320px; overflow-y:auto;">
+                    {(c) => (
+                      <>
+                        <MenuItem checked={!t.produtoId} onClick={() => { updateTask(t.id, { produtoId: undefined }); c(); }}><span style={{ flex: 1, color: "#9398A6" }}>— Nenhum —</span></MenuItem>
+                        {[...produtos].sort((a, b) => a.nome.localeCompare(b.nome, "pt")).map((p) => (
+                          <MenuItem key={p.id} checked={t.produtoId === p.id} onClick={() => { updateTask(t.id, { produtoId: p.id }); c(); }}>
+                            <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDaCategoria(p.categoria)};`)} /><span style={{ flex: 1 }}>{p.nome}</span><span style={css("font-size:11px; color:#9398A6;")}>{p.categoria}</span>
+                          </MenuItem>
+                        ))}
+                      </>
+                    )}
+                  </Menu>
+                </Row>
+              )}
+              {!ehExpedicao(t) && (
+                <Row label="Quantidade">
+                  <span style={css("display:inline-flex; align-items:center; gap:10px;")}>
+                    <QtdCell size="lg" value={t.quantidade ?? 0} onSave={(n) => updateTask(t.id, { quantidade: n })} />
+                    <span style={css("font-size:12px; color:#9398A6; font-weight:600;")}>{t.status === "concluida" || t.status === "validada" ? "somada ao estoque da Fábrica" : "soma no estoque da Fábrica ao concluir"}</span>
+                  </span>
+                </Row>
+              )}
               <Row label="Tipo">
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />
               </Row>

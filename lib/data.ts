@@ -82,7 +82,7 @@ export function teamDe(r: UsuarioRow): TeamMember {
 
 export type TarefaRow = {
   id: string; nome: string; status: string; urgencia: string; responsavel: string | null; tipo: string | null; categoria: string | null;
-  parent_id: string | null; pedido_id?: string | null; descricao: string | null; ultimos_comentarios: unknown; criada_em: string | null; vence_em: string | null; atualizada_em: string | null;
+  parent_id: string | null; pedido_id?: string | null; produto_id?: string | null; quantidade?: number | null; descricao: string | null; ultimos_comentarios: unknown; criada_em: string | null; vence_em: string | null; atualizada_em: string | null;
 };
 export function taskDe(t: TarefaRow): Task {
   const cr = fmtBR(t.criada_em);
@@ -91,7 +91,7 @@ export function taskDe(t: TarefaRow): Task {
   return {
     id: t.id, titulo: t.nome, gestor: t.responsavel ?? "",
     status: t.status as TaskStatus, prio: t.urgencia as Prioridade,
-    tipo: t.tipo ?? undefined, categoria: t.categoria ?? "operacional", parentId: t.parent_id ?? undefined, pedidoId: t.pedido_id ?? undefined,
+    tipo: t.tipo ?? undefined, categoria: t.categoria ?? "operacional", parentId: t.parent_id ?? undefined, pedidoId: t.pedido_id ?? undefined, produtoId: t.produto_id ?? undefined, quantidade: t.quantidade ?? undefined,
     criada: cr.date ?? "", criadaHora: cr.hora,
     atualizada: at.date, atualizadaHora: at.hora,
     venc: vn.date ?? "", vencHora: vn.hora && vn.hora !== "00:00" ? vn.hora : undefined,

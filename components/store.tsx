@@ -14,7 +14,7 @@ import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/ac
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
-import { CATEGORIA_EXPEDICAO } from "@/lib/tarefas";
+import { CATEGORIA_EXPEDICAO, ehExpedicao } from "@/lib/tarefas";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
@@ -374,6 +374,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [demo]);
 
   const { team, tasks, clients: allClients, talentos, produtos, pedidos, unidades, vagas, linkbio, gruposInternos, workspace, acessos, escopoProprio } = db;
+  produtosGlobais = produtos;
   const currentUser: TeamMember = (sessionId && team.find((t) => t.id === sessionId)) || FALLBACK_USER;
   const authed = !!sessionId && currentUser.id !== "";
   const hasSession = demo ? !!sessionId : !!authEmail;
@@ -561,7 +562,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const fp: Partial<Task> = logs.length
         ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs], atualizada: nowBR.date, atualizadaHora: nowBR.hora }
         : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
-      patchDb((d) => sincronizarPedidoLocal({ ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) }, old.pedidoId, demo));
+      patchDb((d) => {
+        const comTarefa = { ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) };
+        const comEstoque = patch.status ? aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo) : comTarefa;
+        return sincronizarPedidoLocal(comEstoque, old.pedidoId, demo);
+      });
       void persist("/api/tarefas", "PATCH", { id, patch: fp });
     },
     addTask: (t) => { patchDb((d) => ({ tasks: [t, ...d.tasks] })); void persist("/api/tarefas", "POST", { task: t }); },
@@ -803,8 +808,12 @@ function buildTaskLogs(old: Task, patch: Partial<Task>, user: TeamMember, team: 
     parts.push(`alterou o vencimento para ${d}${h ? ` ${h}` : ""}`);
   }
   if ("desc" in patch && (patch.desc ?? "") !== (old.desc ?? "")) parts.push("alterou a descrição");
+  if ("produtoId" in patch && (patch.produtoId ?? "") !== (old.produtoId ?? "")) parts.push(patch.produtoId ? `definiu o produto ${nomeProduto(produtosGlobais, patch.produtoId)}` : "removeu o produto");
+  if ("quantidade" in patch && (patch.quantidade ?? 0) !== (old.quantidade ?? 0)) parts.push(`alterou a quantidade de ${old.quantidade ?? 0} para ${patch.quantidade ?? 0}`);
   return parts.map((msg) => logComentario(user, msg));
 }
+// Nome do produto nos logs de tarefa (buildTaskLogs não recebe o store; o AppProvider mantém esta lista).
+let produtosGlobais: Produto[] = [];
 
 // Log de atividade do CANDIDATO (status/vaga/qualidade).
 function buildTalentoLogs(old: Talento, patch: Partial<Talento>, user: TeamMember): Comentario[] {
@@ -871,11 +880,27 @@ function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): 
     const porUnidade = LOCAIS_ESTOQUE.filter((l) => itemQtd(pedido.itens, id, l.id) > 0).map((l) => `<li>${l.label}: <strong>${itemQtd(pedido.itens, id, l.id)}</strong></li>`).join("");
     const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p><strong>${nome}</strong> — ${total} un. no total:</p><ul>${porUnidade}</ul>`;
     return {
-      id: `t-${base}-${i}`, titulo: `${nome}: ${total}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional", pedidoId: pedido.id,
+      id: `t-${base}-${i}`, titulo: `${nome}: ${total}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional", pedidoId: pedido.id, produtoId: p?.id, quantidade: total,
       criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
       comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
     };
   });
+}
+
+/**
+ * Espelho local de lib/tarefas-server.ts: produção concluída soma a quantidade no estoque da
+ * Fábrica; reaberta estorna. Com Supabase o servidor grava e registra os logs (a tela só
+ * antecipa o número); no demo, grava também o histórico aqui.
+ */
+function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, demo: boolean): Db {
+  const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
+  if (ehExpedicao(t) || !t.produtoId || !t.quantidade || feita(de) === feita(para)) return d;
+  const prod = d.produtos.find((p) => p.id === t.produtoId);
+  if (!prod) return d;
+  const q = t.quantidade, atual = qtdEm(prod.quantidades, "fabrica"), novo = Math.max(0, atual + (feita(para) ? q : -q));
+  const log: Comentario = { id: crypto.randomUUID(), message: `Sistema ${feita(para) ? "somou" : "estornou"} ${q} un. na unidade Fábrica (${atual} → ${novo}) — tarefa "${t.titulo}" ${feita(para) ? "concluída" : "reaberta"}`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
+  const atualizado: Produto = { ...prod, quantidades: { ...prod.quantidades, fabrica: novo }, atualizada: new Date().toISOString(), historico: demo ? [...(prod.historico ?? []), log] : prod.historico };
+  return { ...d, produtos: d.produtos.map((p) => (p.id === prod.id ? atualizado : p)) };
 }
 
 /**

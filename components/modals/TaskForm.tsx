@@ -14,6 +14,7 @@ import DatePicker from "../ui/DatePicker";
 import CommentEditor from "../ui/CommentEditor";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
 import { categoriaDaPage } from "@/lib/tarefas";
+import { corDaCategoria, parseQuantidade } from "@/lib/estoque";
 
 /** Tipos de tarefa oferecidos no formulário (a lista pode ser agrupada por tipo). */
 // Por enquanto só "Produção" (é o tipo das tarefas geradas pela Ordem de Serviço); os demais entram quando a operação pedir.
@@ -24,12 +25,14 @@ const hojeBR = () => { const d = new Date(); return `${pad(d.getDate())}/${pad(d
 const horaBR = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
 export default function TaskForm() {
-  const { taskFormOpen, setTaskFormOpen, team, addTask, taskFormPrefill, setTaskFormPrefill, currentUser, screen, ownScopeOnly, canSeeAll } = useApp();
+  const { taskFormOpen, setTaskFormOpen, team, produtos, addTask, taskFormPrefill, setTaskFormPrefill, currentUser, screen, ownScopeOnly, canSeeAll } = useApp();
   const statusOpts = statusEscolhiveis(canSeeAll); // sem "Atrasada" (só o sistema marca)
   const [titulo, setTitulo] = useState("");
   const [resp, setResp] = useState<string | null>(currentUser.id || null);
   const [prio, setPrio] = useState<Prioridade | null>(null);
   const [tipo, setTipo] = useState<string>("");
+  const [produtoId, setProdutoId] = useState("");
+  const [quantidade, setQuantidade] = useState("");
   const [status, setStatus] = useState<TaskStatus>("verificar");
   const [venc, setVenc] = useState("");
   const [vencHora, setVencHora] = useState("");
@@ -50,13 +53,14 @@ export default function TaskForm() {
   if (!taskFormOpen) return null;
 
   const reset = () => {
-    setTitulo(""); setResp(currentUser.id || null); setPrio(null); setTipo("");
+    setTitulo(""); setResp(currentUser.id || null); setPrio(null); setTipo(""); setProdutoId(""); setQuantidade("");
     setStatus("verificar"); setVenc(""); setVencHora(""); setObs("");
   };
   const close = () => { setTaskFormOpen(false); reset(); };
   const fecharCriada = () => { setCriada(null); close(); };
 
   const respM = resp ? gestorOf(team, resp) : undefined;
+  const produtoSel = produtoId ? produtos.find((p) => p.id === produtoId) : undefined;
   const valido = !!titulo.trim() && !!resp && !!prio && !!venc;
 
   const submit = () => {
@@ -77,6 +81,8 @@ export default function TaskForm() {
       venc,
       vencHora: vencHora || undefined,
       desc: obs || undefined,
+      produtoId: screen !== "expedicao" && produtoId ? produtoId : undefined,
+      quantidade: screen !== "expedicao" && produtoId ? parseQuantidade(quantidade) ?? 0 : undefined,
     };
     addTask(t);
     setCriada({
@@ -132,6 +138,33 @@ export default function TaskForm() {
               {(c) => PRIO_ORDER.map((p) => (<MenuItem key={p} checked={prio === p} onClick={() => { setPrio(p); c(); }}><Svg size={14} stroke={prioInfo[p].dot}><path d="M5 21V4h11l-2.2 4 2.2 4H5" /></Svg><span style={{ flex: 1 }}>{prioInfo[p].label}</span></MenuItem>))}
             </Menu>
           </Field>
+          {screen !== "expedicao" && (
+            <Field label="Produto">
+              <Menu trigger={(tg) => (
+                <SelectBox onClick={tg} placeholder={!produtoSel}>
+                  {produtoSel && <span style={css(`width:8px; height:8px; border-radius:50%; background:${corDaCategoria(produtoSel.categoria)};`)} />}
+                  <span style={{ flex: 1 }}>{produtoSel?.nome ?? "Selecionar produto (opcional)"}</span>
+                </SelectBox>
+              )} z={70} width={300} popStyle="max-height:320px; overflow-y:auto;">
+                {(c) => (
+                  <>
+                    <MenuItem checked={!produtoId} onClick={() => { setProdutoId(""); c(); }}><span style={{ flex: 1, color: "#9398A6" }}>— Nenhum —</span></MenuItem>
+                    {[...produtos].sort((a, b) => a.nome.localeCompare(b.nome, "pt")).map((p) => (
+                      <MenuItem key={p.id} checked={produtoId === p.id} onClick={() => { setProdutoId(p.id); if (!titulo.trim()) setTitulo(p.nome); c(); }}>
+                        <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDaCategoria(p.categoria)};`)} /><span style={{ flex: 1 }}>{p.nome}</span><span style={css("font-size:11px; color:#9398A6;")}>{p.categoria}</span>
+                      </MenuItem>
+                    ))}
+                  </>
+                )}
+              </Menu>
+            </Field>
+          )}
+          {screen !== "expedicao" && (
+            <Field label="Quantidade">
+              <input value={quantidade} onChange={(e) => setQuantidade(e.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" placeholder="0" disabled={!produtoId} style={{ ...css(inp), opacity: produtoId ? 1 : 0.55 }} />
+              <p style={css("margin:5px 0 0; font-size:11.5px; color:#9398A6;")}>Ao concluir a tarefa, soma no estoque da Fábrica.</p>
+            </Field>
+          )}
           <Field label="Tipo">
             <Menu trigger={(tg) => (
               <SelectBox onClick={tg} placeholder={!tipo}>
