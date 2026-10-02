@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { css } from "@/lib/css";
 import { ACCENT, BRAND } from "@/lib/theme";
@@ -12,7 +12,7 @@ import {
   FILTROS_VAZIOS, PERIODOS, filtrarPedidos, filtrarTarefas, matrizProdutoUnidade, pct, porCategoria, porResponsavel, porUnidade,
   rankingProdutos, resumoOrdens, serieTemporal, statusPorSetor, type Filtros,
 } from "@/lib/indicadores";
-import type { PedidoStatus, TaskStatus } from "@/lib/types";
+import type { TaskStatus } from "@/lib/types";
 import { gestorOf, useApp } from "../store";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
@@ -28,9 +28,6 @@ import Menu, { MenuItem } from "../ui/Menu";
 
 // ── paleta (validada) ──
 const COR_PRODUCAO = "#A4466A", COR_EXPEDICAO = "#0E8FB0", COR_UNIDADES = "#C98500"; // trio validado (todos os pares)
-// Pizza de status das ordens — ordem circular validada (amarelo → verde → laranja → azul).
-const COR_STATUS_ORDEM: Record<PedidoStatus, string> = { aberta: "#C98500", concluida: "#2FB56F", "em andamento": "#F76808", validada: "#2563EB" };
-const ORDEM_PIZZA: PedidoStatus[] = ["aberta", "concluida", "em andamento", "validada"];
 // Rampa sequencial (uma cor, claro → escuro) para o mapa de calor.
 const RAMPA = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
 const GRADE = "#ECEDF1", EIXO = "#9398A6";
@@ -70,7 +67,6 @@ export default function Indicadores() {
   const localLabel = LOCAIS_ESTOQUE.find((l) => l.id === f.local)?.label;
 
   // Dados dos gráficos
-  const pizza = ORDEM_PIZZA.map((s) => ({ key: s, name: pedidoStatusInfo(s).label, value: r.porStatus[s] })).filter((x) => x.value > 0);
   const maxMatriz = Math.max(1, ...d.matriz.flatMap((m) => Object.values(m.valores)));
   const corCelula = (v: number) => (v <= 0 ? "#fff" : RAMPA[Math.min(RAMPA.length - 1, Math.floor((v / maxMatriz) * (RAMPA.length - 1) + 0.0001))]);
   const inkCelula = (v: number) => (v / maxMatriz >= 0.5 ? "#fff" : "#1B1B28");
@@ -116,7 +112,7 @@ export default function Indicadores() {
           </Hoverable>
         )}
         <span style={{ flex: 1 }} />
-        <span style={css("font-size:12px; color:#9398A6; font-weight:600;")}>Clique numa barra ou fatia para filtrar por ela.</span>
+        <span style={css("font-size:12px; color:#9398A6; font-weight:600;")}>Clique numa barra para filtrar por ela.</span>
       </div>
 
       <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:0 30px 30px;")}>
@@ -152,31 +148,6 @@ export default function Indicadores() {
                   <Area type="monotone" dataKey={metrica} name={metrica === "unidades" ? "Unidades" : "Ordens"} stroke={BRAND} strokeWidth={2} fill="url(#ind-area)" dot={{ r: 3, fill: BRAND, stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
-            </Card>
-
-            {/* 2. Pizza: ordens por status (clique filtra) */}
-            <Card titulo="Ordens por status" sub="Clique numa fatia para filtrar"
-              tabela={{ cols: ["Status", "Ordens", "%"], rows: ORDEM_PIZZA.map((s) => [pedidoStatusInfo(s).label, fmt(r.porStatus[s]), pct(r.porStatus[s], r.total)]) }}>
-              <div style={css("display:flex; align-items:center; gap:12px;")}>
-                <ResponsiveContainer width="55%" height={220}>
-                  <PieChart>
-                    <Pie data={pizza} dataKey="value" nameKey="name" innerRadius={52} outerRadius={88} paddingAngle={2} stroke="#fff" strokeWidth={2} onClick={(e) => { const k = (e as { key?: PedidoStatus })?.key; if (k) set({ status: f.status === k ? "" : k }); }} style={{ cursor: "pointer" }}>
-                      {pizza.map((x) => <Cell key={x.key} fill={COR_STATUS_ORDEM[x.key]} opacity={f.status && f.status !== x.key ? 0.35 : 1} />)}
-                    </Pie>
-                    <Tooltip content={<Tip total={r.total} />} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={css("flex:1; display:flex; flex-direction:column; gap:8px;")}>
-                  {ORDEM_PIZZA.map((s) => (
-                    <Hoverable key={s} onClick={() => set({ status: f.status === s ? "" : s })} s={css(`display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:8px; cursor:pointer; ${f.status === s ? "background:#FDF1F4;" : ""}`)} hover="background:#F4F4F7">
-                      <span style={css(`width:10px; height:10px; border-radius:3px; background:${COR_STATUS_ORDEM[s]}; flex:none;`)} />
-                      <span style={css("flex:1; font-size:12.5px; font-weight:600; color:#3A3F4C;")}>{pedidoStatusInfo(s).label}</span>
-                      <strong style={css("font-size:13px; color:#1B1B28;")}>{fmt(r.porStatus[s])}</strong>
-                      <span style={css("font-size:11.5px; color:#9398A6; width:34px; text-align:right;")}>{pct(r.porStatus[s], r.total)}</span>
-                    </Hoverable>
-                  ))}
-                </div>
-              </div>
             </Card>
 
             {/* 3. Barras horizontais: top 5 produtos */}

@@ -18,7 +18,7 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   valem para todos os cartões: KPIs (ordens, concluídas, unidades pedidas, progresso de
   produção e expedição), evolução no tempo (linha/área), ordens por status (rosca), top 5
   produtos, unidades recebidas por loja, tarefas por status (produção × expedição), pedidos por
-  categoria, mapa de calor produto × unidade e tarefas por responsável. Clicar numa fatia/barra
+  categoria, mapa de calor produto × unidade e tarefas por responsável. Clicar numa barra
   filtra; todo gráfico tem vista em tabela. Cálculo no navegador em
   [`lib/indicadores.ts`](lib/indicadores.ts); gráficos com Recharts; cores validadas com o
   validador do skill de dataviz (par produção/expedição, status e rampa sequencial).
