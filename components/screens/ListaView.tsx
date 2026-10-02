@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { css } from "@/lib/css";
-import { DEFAULT_DUE_TIME, daysUntil, parseBR, prazoLabel } from "@/lib/format";
+import { DEFAULT_DUE_TIME, daysUntil, parseBR } from "@/lib/format";
 import { ACCENT, BRAND, prioInfo, statusInfo } from "@/lib/theme";
 import type { Task, TaskStatus } from "@/lib/types";
 import type { ListGroupBy } from "../store";
@@ -632,7 +632,7 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
                       </div>
                       <div style={css("display:flex; align-items:center; gap:8px; padding-top:11px; border-top:1px solid #F0F1F4;")}>
                         <Svg size={13} stroke={late ? "#CC3338" : "#7A8090"}><rect x="3" y="4.5" width="18" height="16" rx="2.2" /><path d="M3 9h18M8 3v3M16 3v3" /></Svg>
-                        <span style={css(`font-size:12px; font-weight:700; color:${late ? "#CC3338" : "#7A8090"};`)}>{prazoLabel(t.venc)}</span>
+                        <span style={css(`font-size:12px; font-weight:700; color:${late ? "#CC3338" : "#7A8090"};`)}>{t.venc || "—"}</span>
                         <span style={{ flex: 1 }} />
                         <RespHover member={g}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10} /></RespHover>
                       </div>

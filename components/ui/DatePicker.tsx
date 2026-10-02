@@ -33,7 +33,7 @@ function monthMatrix(year: number, month: number): Date[][] {
 }
 
 function chipLabel(date: Date, time: string): string {
-  const d = sameDay(date, hoje()) ? "Hoje" : formatBR(date);
+  const d = formatBR(date); // sempre dd/mm/aaaa (nada de "Hoje")
   return `${d} às ${time}`;
 }
 
