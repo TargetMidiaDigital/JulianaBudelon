@@ -15,7 +15,7 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   link compartilhável `?tarefa=<id>` (e `?talento=<id>`
   abre um candidato no Banco de Talentos).
 - **Operacional → Indicadores** — painel com filtros (período, unidade, categoria, status) que
-  valem para todos os cartões: KPIs (ordens, concluídas, unidades pedidas, progresso de
+  valem para todos os cartões: KPIs (ordens, unidades pedidas, progresso de
   produção e expedição), evolução no tempo (linha/área), ordens por status (rosca), top 5
   produtos, unidades recebidas por loja, tarefas por status (produção × expedição), pedidos por
   categoria, mapa de calor produto × unidade e tarefas por responsável. Clicar numa barra
