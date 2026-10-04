@@ -17,6 +17,7 @@ import MatrizPedido from "../ui/MatrizPedido";
 import { gestorOf, useApp } from "../store";
 import { statusInfo } from "@/lib/theme";
 import TreeGuides from "../ui/TreeGuides";
+import RelatorioOrdem from "./RelatorioOrdem";
 
 const dataHora = (iso?: string) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "—";
@@ -50,6 +51,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
   const toggleLogs = () => setMostrarLogs((v) => { try { localStorage.setItem("jb.pedido.logs", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   // Link compartilhável da ordem (?pedido=<id>) — só quem está logado e com acesso consegue abrir.
   const [linkCopied, setLinkCopied] = useState(false);
+  const [relatorio, setRelatorio] = useState(false);
   const copiarLink = async () => {
     try { await navigator.clipboard.writeText(`${window.location.origin}/?pedido=${p.id}`); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500); } catch { /* ignore */ }
   };
@@ -69,6 +71,10 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
                   ? <EditableTitle fill value={p.titulo} onSave={(v) => updatePedido(p.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
                   : <h2 style={css("margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;")}>{p.titulo}</h2>}
               </div>
+              <Hoverable as="button" onClick={() => setRelatorio(true)} title="Pedido × produzido × separado × recebido" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; height:34px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:0 12px; border-radius:9px;")} hover="background:#FAFAFB">
+                <Svg size={14} sw={2.2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></Svg>
+                Relatório
+              </Hoverable>
               <Hoverable as="button" onClick={copiarLink} title="Copiar link da ordem" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; height:34px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:0 12px; border-radius:9px;")} hover="background:#FAFAFB">
                 <Svg size={14} sw={2.2}><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Svg>
                 {linkCopied ? "Link copiado!" : "Copiar link"}
@@ -150,6 +156,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
         </div>
         )}
       </div>
+      {relatorio && <RelatorioOrdem pedido={p} onClose={() => setRelatorio(false)} />}
     </>
   );
 }

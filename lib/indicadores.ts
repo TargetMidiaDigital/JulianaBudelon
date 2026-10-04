@@ -67,14 +67,13 @@ export function filtrarPedidos(pedidos: Pedido[], produtos: Produto[], f: Filtro
 /** Tarefas geradas pelas ordens do recorte, respeitando unidade (expedição) e categoria (produção). */
 export function filtrarTarefas(tasks: Task[], pedidosFiltrados: Pedido[], produtos: Produto[], f: Filtros): Task[] {
   const ids = new Set(pedidosFiltrados.map((p) => p.id));
-  const localLabel = LOCAIS_ESTOQUE.find((l) => l.id === f.local)?.label;
-  const nomesCategoria = f.categoria ? new Set(produtos.filter((p) => p.categoria === f.categoria).map((p) => p.nome)) : null;
+  const doCategoria = f.categoria ? new Set(produtos.filter((p) => p.categoria === f.categoria).map((p) => p.id)) : null;
   return tasks.filter((t) => {
     if (!t.pedidoId || !ids.has(t.pedidoId)) return false;
-    if (ehExpedicao(t)) return !localLabel || t.titulo.startsWith(`Expedição - ${localLabel} -`);
-    if (ehUnidade(t)) return !localLabel || t.titulo.startsWith(`Recebimento - ${localLabel} -`);
-    // produção: "Nome do produto: N"
-    return !nomesCategoria || nomesCategoria.has(t.titulo.replace(/:\s*\d+\s*$/, ""));
+    if (f.local && t.local && t.local !== f.local) return false;
+    // produção: filtra pela categoria do produto da tarefa
+    if (doCategoria && !ehExpedicao(t) && !ehUnidade(t) && t.produtoId && !doCategoria.has(t.produtoId)) return false;
+    return true;
   });
 }
 

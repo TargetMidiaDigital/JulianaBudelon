@@ -25,7 +25,9 @@ export default function PedidoForm({ open, onClose, onCriada }: { open: boolean;
 
   const padrao = `Pedido ${formatBR(TODAY)}`;
   const nProd = produtosNoPedido(itens), nUn = totalPedido(itens);
-  const nUnid = Object.values(totalPorLocal(itens)).filter((n) => n > 0).length; // unidades que recebem algo
+  const tot = totalPorLocal(itens);
+  const nUnid = Object.entries(tot).filter(([l, n]) => l !== "fabrica" && n > 0).length; // lojas que recebem (a Fábrica não gera expedição/recebimento)
+  const nTarefasProd = Object.values(itens).reduce((s, q) => s + Object.values(q).filter((n) => n > 0).length, 0); // produto × unidade
   const valido = nUn > 0 && !!entrega;
   const submit = () => {
     if (!valido) return;
@@ -73,7 +75,7 @@ export default function PedidoForm({ open, onClose, onCriada }: { open: boolean;
           </div>
         </div>
         <div style={css("flex:none; padding:16px 24px; border-top:1px solid #ECEDF1; display:flex; align-items:center; gap:10px;")}>
-          <span style={css("font-size:13px; font-weight:700; color:#5B6472;")}>{nProd} {nProd === 1 ? "produto" : "produtos"} · <strong style={css("color:#1B1B28;")}>{nUn} un.</strong>{nProd > 0 && <span style={css("color:#9398A6; font-weight:600;")}> · gera {nProd} {nProd === 1 ? "tarefa" : "tarefas"} de produção, {nUnid} de expedição e {nUnid} de recebimento{entrega ? `, vencendo em ${entrega}` : ""}</span>}</span>
+          <span style={css("font-size:13px; font-weight:700; color:#5B6472;")}>{nProd} {nProd === 1 ? "produto" : "produtos"} · <strong style={css("color:#1B1B28;")}>{nUn} un.</strong>{nProd > 0 && <span style={css("color:#9398A6; font-weight:600;")}> · gera {nTarefasProd} {nTarefasProd === 1 ? "tarefa" : "tarefas"} de produção, {nUnid} de expedição e {nUnid} de recebimento{entrega ? `, vencendo em ${entrega}` : ""}</span>}</span>
           {!entrega && nUn > 0 && <span style={css("font-size:12.5px; font-weight:700; color:#CC3338;")}>Defina a data de entrega.</span>}
           <span style={{ flex: 1 }} />
           <Hoverable as="button" onClick={close} s={css("border:1px solid #E2E3E9; cursor:pointer; background:#fff; color:#5B6472; font-weight:700; font-size:14px; padding:12px 20px; border-radius:11px;")} hover="background:#F4F4F7">Cancelar</Hoverable>

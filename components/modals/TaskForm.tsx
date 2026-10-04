@@ -83,6 +83,7 @@ export default function TaskForm() {
       desc: obs || undefined,
       produtoId: !pageSemProducao(screen) && produtoId ? produtoId : undefined,
       quantidade: !pageSemProducao(screen) && produtoId ? parseQuantidade(quantidade) ?? 0 : undefined,
+      conferencia: !pageSemProducao(screen) && produtoId ? [{ produtoId, pedido: parseQuantidade(quantidade) ?? 0 }] : undefined,
     };
     addTask(t);
     setCriada({

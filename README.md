@@ -52,6 +52,14 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   **Concluir o recebimento move o estoque**: cada produto da ordem para aquela unidade sai da
   Fábrica e entra na unidade (reabrir desfaz; `tarefas.local`, migration 0020). Se a Fábrica não
   tinha o suficiente, o log do produto registra quanto faltou.
+- **Conferência e relatório da ordem** — produção gera **uma tarefa por produto × unidade**
+  ("Banoffinha - Centro: 3"); a parte da **Fábrica** não gera expedição nem recebimento. Toda
+  tarefa da ordem tem a **Conferência** (`tarefas.conferencia`, migration 0021): produto | pedido |
+  produzido/separado/recebido. **Só conclui com o realizado preenchido** (botão "Igual ao
+  pedido"); concluída, os números travam (reabrir libera). O estoque usa o realizado: produção
+  soma o produzido na Fábrica; recebimento move o recebido da Fábrica para a unidade. No drawer
+  da ordem, **Relatório** mostra pedido × produzido × separado × recebido por unidade, com as
+  etapas onde houve diferença, e imprime/salva em PDF ([`lib/relatorio.ts`](lib/relatorio.ts)).
 - **Operacional → Estoque** — lista de produtos agrupada por categoria (as seções da planilha de
   reposição: Frutas, Caseirinhos, Brownies, Copinhos, Bolos Gelados, Bolos de Potes, Congelados,
   Tortas Acrílico Fatia, Encomendas — em [`lib/estoque.ts`](lib/estoque.ts)); cadastro de produto

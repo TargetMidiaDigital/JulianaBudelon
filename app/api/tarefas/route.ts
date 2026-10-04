@@ -6,6 +6,7 @@ import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
 import { aplicarEstoqueProducao, aplicarEstoqueRecebimento } from "@/lib/tarefas-server";
 import { parseQuantidade } from "@/lib/estoque";
+import { conferenciaCompleta, parseConferencia, rotuloRealizado } from "@/lib/conferencia";
 import { pageDaTarefa, semEtapaProducao } from "@/lib/tarefas";
 import { requireSession, nivelNaTela } from "@/lib/auth-admin";
 
@@ -41,6 +42,7 @@ function mapPatch(patch: Partial<Task>): Record<string, unknown> {
   if ("parentId" in patch) c.parent_id = patch.parentId ?? null;
   if ("produtoId" in patch) c.produto_id = patch.produtoId || null;
   if ("local" in patch) c.local = patch.local || null;
+  if ("conferencia" in patch) c.conferencia = parseConferencia(patch.conferencia);
   if ("quantidade" in patch) c.quantidade = patch.quantidade == null ? null : parseQuantidade(patch.quantidade);
   if ("pedidoId" in patch) c.pedido_id = patch.pedidoId ?? null;
   if ("venc" in patch || "vencHora" in patch) c.vence_em = toISO(patch.venc, patch.vencHora);
@@ -58,8 +60,8 @@ async function editorDaTarefa(req: Request, sb: NonNullable<ReturnType<typeof ge
 
 /** Linha atual (responsável + categoria) — decide a tela da permissão e o escopo próprio. */
 async function linhaAtual(sb: NonNullable<ReturnType<typeof getSupabase>>, id: string) {
-  const { data } = await sb.from("tarefas").select("id, nome, status, responsavel, categoria, produto_id, quantidade, local, pedido_id").eq("id", id).maybeSingle();
-  return data as { id: string; nome?: string | null; status?: string | null; responsavel?: string | null; categoria?: string | null; produto_id?: string | null; quantidade?: number | null; local?: string | null; pedido_id?: string | null } | null;
+  const { data } = await sb.from("tarefas").select("id, nome, status, responsavel, categoria, produto_id, quantidade, local, pedido_id, conferencia").eq("id", id).maybeSingle();
+  return data as { id: string; nome?: string | null; status?: string | null; responsavel?: string | null; categoria?: string | null; produto_id?: string | null; quantidade?: number | null; local?: string | null; pedido_id?: string | null; conferencia?: unknown } | null;
 }
 
 export async function POST(req: Request) {
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
   const row: Record<string, unknown> = {
     id: task.id, nome: task.titulo, status: task.status, urgencia: task.prio,
     responsavel: task.gestor || null, tipo: task.tipo ?? null, categoria: task.categoria ?? "operacional",
-    parent_id: task.parentId ?? null, pedido_id: task.pedidoId ?? null, produto_id: task.produtoId || null, local: task.local || null, quantidade: task.quantidade == null ? null : parseQuantidade(task.quantidade), descricao: task.desc ?? null, ultimos_comentarios: task.comentarios ?? [],
+    parent_id: task.parentId ?? null, pedido_id: task.pedidoId ?? null, produto_id: task.produtoId || null, local: task.local || null, conferencia: parseConferencia(task.conferencia), quantidade: task.quantidade == null ? null : parseQuantidade(task.quantidade), descricao: task.desc ?? null, ultimos_comentarios: task.comentarios ?? [],
     criada_em: toISO(task.criada, task.criadaHora) ?? new Date().toISOString(), vence_em: toISO(task.venc, task.vencHora),
   };
   const { error } = await sb.from("tarefas").insert(row);
@@ -105,6 +107,13 @@ export async function PATCH(req: Request) {
     const recusa = validarStatusManual(cols.status as string, sess.cargo) ?? (semEtapaProducao(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
+  // Conferência: concluir exige todas as linhas preenchidas; tarefa concluída não muda os números
+  // (reabra primeiro — o estoque já foi movido com os valores da conclusão).
+  const jaFeita = atual.status === "concluida" || atual.status === "validada";
+  const vaiFeita = cols.status === "concluida" || cols.status === "validada";
+  const linhasFinais = "conferencia" in cols ? (cols.conferencia as ReturnType<typeof parseConferencia>) : parseConferencia(atual.conferencia);
+  if ("conferencia" in cols && jaFeita && (!("status" in cols) || vaiFeita)) return NextResponse.json({ error: "Reabra a tarefa para alterar as quantidades." }, { status: 409 });
+  if (vaiFeita && !jaFeita && !conferenciaCompleta(linhasFinais)) return NextResponse.json({ error: `Preencha a quantidade ${rotuloRealizado(atual.categoria).toLowerCase()} de todos os produtos antes de concluir.` }, { status: 400 });
   if (Object.keys(cols).length === 0) return NextResponse.json({ persisted: true });
   const { data: salva, error } = await sb.from("tarefas").update(cols).eq("id", id).select("pedido_id").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -112,9 +121,10 @@ export async function PATCH(req: Request) {
   const pedidoId = (salva as { pedido_id?: string | null } | null)?.pedido_id;
   if (pedidoId && "status" in cols) await sincronizarStatusPedido(sb, pedidoId);
   // Produção concluída → soma a quantidade no estoque da Fábrica (reaberta → estorna).
-  if ("status" in cols) await aplicarEstoqueProducao(sb, atual, cols.status as TaskStatus);
+  const comLinhas = { ...atual, conferencia: linhasFinais };
+  if ("status" in cols) await aplicarEstoqueProducao(sb, comLinhas, cols.status as TaskStatus);
   // Recebimento na unidade concluído → sai da Fábrica, entra na unidade (reaberto → desfaz).
-  if ("status" in cols) await aplicarEstoqueRecebimento(sb, atual, cols.status as TaskStatus);
+  if ("status" in cols) await aplicarEstoqueRecebimento(sb, comLinhas, cols.status as TaskStatus);
   return NextResponse.json({ persisted: true });
 }
 

@@ -15,6 +15,7 @@ import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
 import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehProducao, ehUnidade } from "@/lib/tarefas";
+import { faltamPreencher, linhasDaTarefa, qtdEfetiva, rotuloRealizado } from "@/lib/conferencia";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
@@ -557,6 +558,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateTask: (id, patch) => {
       const old = tasks.find((t) => t.id === id);
       if (!old) return;
+      // Conferência obrigatória: só conclui com o realizado de todas as linhas preenchido.
+      const feitaS = (s?: TaskStatus) => s === "concluida" || s === "validada";
+      if (patch.status && feitaS(patch.status) && !feitaS(old.status)) {
+        const linhas = linhasDaTarefa({ ...old, ...patch });
+        const faltam = faltamPreencher(linhas);
+        if (faltam) {
+          if (typeof window !== "undefined") window.alert(`Antes de concluir "${old.titulo}", preencha a quantidade ${rotuloRealizado(old.categoria).toLowerCase()} de ${faltam === 1 ? "1 produto" : `${faltam} produtos`} (abra a tarefa → Conferência).`);
+          return;
+        }
+      }
       const logs = buildTaskLogs(old, patch, currentUser, team, allClients);
       const nowBR = fmtNowBR();
       const fp: Partial<Task> = logs.length
@@ -812,6 +823,13 @@ function buildTaskLogs(old: Task, patch: Partial<Task>, user: TeamMember, team: 
   if ("desc" in patch && (patch.desc ?? "") !== (old.desc ?? "")) parts.push("alterou a descrição");
   if ("produtoId" in patch && (patch.produtoId ?? "") !== (old.produtoId ?? "")) parts.push(patch.produtoId ? `definiu o produto ${nomeProduto(produtosGlobais, patch.produtoId)}` : "removeu o produto");
   if ("quantidade" in patch && (patch.quantidade ?? 0) !== (old.quantidade ?? 0)) parts.push(`alterou a quantidade de ${old.quantidade ?? 0} para ${patch.quantidade ?? 0}`);
+  if (patch.conferencia) {
+    const antes = linhasDaTarefa(old), rot = rotuloRealizado(old.categoria).toLowerCase();
+    for (const l of patch.conferencia) {
+      const a = antes.find((x) => x.produtoId === l.produtoId)?.feito;
+      if (a !== l.feito) parts.push(l.feito == null ? `limpou o ${rot} de ${nomeProduto(produtosGlobais, l.produtoId)}` : `registrou ${rot} ${l.feito} de ${nomeProduto(produtosGlobais, l.produtoId)} (pedido ${l.pedido})`);
+    }
+  }
   return parts.map((msg) => logComentario(user, msg));
 }
 // Nome do produto nos logs de tarefa (buildTaskLogs não recebe o store; o AppProvider mantém esta lista).
@@ -870,23 +888,30 @@ function marcarAtrasadasLocal(tasks: Task[]): Task[] {
  * unidade na descrição, vencendo na data de entrega e sob responsabilidade de quem criou.
  */
 function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): Task[] {
+  // PRODUÇÃO: uma tarefa por produto × unidade ("Banoffinha - Centro: 3"), com a linha de
+  // conferência (pedido × produzido). Inclui a parte da Fábrica.
   const now = fmtNowBR();
   const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
   const ids = Object.keys(pedido.itens)
     .map((id) => ({ id, p: produtos.find((x) => x.id === id) }))
     .sort((a, b) => (ordemCat(a.p?.categoria ?? "") - ordemCat(b.p?.categoria ?? "")) || (a.p?.nome ?? "").localeCompare(b.p?.nome ?? "", "pt"));
   const base = Date.now();
-  return ids.map(({ id, p }, i) => {
+  const out: Task[] = [];
+  for (const { id, p } of ids) {
     const nome = p?.nome ?? "Produto removido";
-    const total = totalProdutoNoPedido(pedido.itens, id);
-    const porUnidade = LOCAIS_ESTOQUE.filter((l) => itemQtd(pedido.itens, id, l.id) > 0).map((l) => `<li>${l.label}: <strong>${itemQtd(pedido.itens, id, l.id)}</strong></li>`).join("");
-    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p><strong>${nome}</strong> — ${total} un. no total:</p><ul>${porUnidade}</ul>`;
-    return {
-      id: `t-${base}-${i}`, titulo: `${nome}: ${total}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional", pedidoId: pedido.id, produtoId: p?.id, quantidade: total,
-      criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
-      comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
-    };
-  });
+    for (const l of LOCAIS_ESTOQUE) {
+      const q = itemQtd(pedido.itens, id, l.id);
+      if (q <= 0) continue;
+      const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p>Produzir <strong>${q} un. de ${nome}</strong> para <strong>${l.label}</strong>. Registre o produzido antes de concluir.</p>`;
+      out.push({
+        id: `t-${base}-p${out.length}`, titulo: `${nome} - ${l.label}: ${q}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional",
+        pedidoId: pedido.id, produtoId: id, quantidade: q, local: l.id, conferencia: [{ produtoId: id, pedido: q }],
+        criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
+        comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
+      });
+    }
+  }
+  return out;
 }
 
 /**
@@ -896,26 +921,34 @@ function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): 
  */
 function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, demo: boolean): Db {
   const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
-  if (!ehProducao(t) || !t.produtoId || !t.quantidade || feita(de) === feita(para)) return d;
-  const prod = d.produtos.find((p) => p.id === t.produtoId);
-  if (!prod) return d;
-  const q = t.quantidade, atual = qtdEm(prod.quantidades, "fabrica"), novo = Math.max(0, atual + (feita(para) ? q : -q));
-  const log: Comentario = { id: crypto.randomUUID(), message: `Sistema ${feita(para) ? "somou" : "estornou"} ${q} un. na unidade Fábrica (${atual} → ${novo}) — tarefa "${t.titulo}" ${feita(para) ? "concluída" : "reaberta"}`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
-  const atualizado: Produto = { ...prod, quantidades: { ...prod.quantidades, fabrica: novo }, atualizada: new Date().toISOString(), historico: demo ? [...(prod.historico ?? []), log] : prod.historico };
-  return { ...d, produtos: d.produtos.map((p) => (p.id === prod.id ? atualizado : p)) };
+  if (!ehProducao(t) || feita(de) === feita(para)) return d;
+  const linhas = linhasDaTarefa(t);
+  if (!linhas.length) return d;
+  const sinal = feita(para) ? 1 : -1;
+  return {
+    ...d,
+    produtos: d.produtos.map((p) => {
+      const q = linhas.filter((l) => l.produtoId === p.id).reduce((s, l) => s + qtdEfetiva(l), 0);
+      if (q <= 0) return p;
+      const atual = qtdEm(p.quantidades, "fabrica"), novo = Math.max(0, atual + sinal * q);
+      const log: Comentario = { id: crypto.randomUUID(), message: `Sistema ${sinal > 0 ? "somou" : "estornou"} ${q} un. na unidade Fábrica (${atual} → ${novo}) — tarefa "${t.titulo}" ${sinal > 0 ? "concluída" : "reaberta"}`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
+      return { ...p, quantidades: { ...p.quantidades, fabrica: novo }, atualizada: new Date().toISOString(), historico: demo ? [...(p.historico ?? []), log] : p.historico };
+    }),
+  };
 }
 
 /** Espelho local de aplicarEstoqueRecebimento: concluir o recebimento move Fábrica → unidade. */
 function aplicarRecebimentoLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
   const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
-  if (!ehUnidade(t) || !t.local || t.local === "fabrica" || !t.pedidoId || feita(de) === feita(para)) return d;
-  const ped = d.pedidos.find((p) => p.id === t.pedidoId);
-  if (!ped) return d;
+  if (!ehUnidade(t) || !t.local || t.local === "fabrica" || feita(de) === feita(para)) return d;
+  const ped = t.pedidoId ? d.pedidos.find((p) => p.id === t.pedidoId) : undefined;
   const local = t.local, ida = feita(para);
+  const linhas = linhasDaTarefa(t);
+  const qtdDe = (pid: string) => (linhas.length ? linhas.filter((l) => l.produtoId === pid).reduce((s, l) => s + qtdEfetiva(l), 0) : ped ? itemQtd(ped.itens, pid, local) : 0);
   return {
     ...d,
     produtos: d.produtos.map((p) => {
-      const q = itemQtd(ped.itens, p.id, local);
+      const q = qtdDe(p.id);
       if (q <= 0) return p;
       const fab = qtdEm(p.quantidades, "fabrica"), uni = qtdEm(p.quantidades, local);
       const quantidades = ida ? { ...p.quantidades, fabrica: Math.max(0, fab - q), [local]: uni + q } : { ...p.quantidades, fabrica: fab + q, [local]: Math.max(0, uni - q) };
@@ -953,15 +986,17 @@ function tarefasPorUnidadeDaOrdem(pedido: Pedido, produtos: Produto[], user: Tea
   const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
   const totais = totalPorLocal(pedido.itens);
   const base = Date.now();
-  return LOCAIS_ESTOQUE.filter((l) => totais[l.id] > 0).map((l, i) => {
+  // A parte da Fábrica fica na Fábrica: não gera expedição nem recebimento.
+  return LOCAIS_ESTOQUE.filter((l) => l.id !== "fabrica" && totais[l.id] > 0).map((l, i) => {
     const linhas = Object.keys(pedido.itens)
-      .map((id) => ({ nome: produtos.find((x) => x.id === id)?.nome ?? "Produto removido", cat: produtos.find((x) => x.id === id)?.categoria ?? "", qtd: itemQtd(pedido.itens, id, l.id) }))
+      .map((id) => ({ id, nome: produtos.find((x) => x.id === id)?.nome ?? "Produto removido", cat: produtos.find((x) => x.id === id)?.categoria ?? "", qtd: itemQtd(pedido.itens, id, l.id) }))
       .filter((x) => x.qtd > 0)
       .sort((a, b) => (ordemCat(a.cat) - ordemCat(b.cat)) || a.nome.localeCompare(b.nome, "pt"));
-    const intro = exp ? "" : `<p>Confira o que chegou da expedição. Faltou ou sobrou algum produto? Registre nos comentários antes de concluir.</p>`;
+    const intro = exp ? "" : `<p>Confira o que chegou da expedição. Faltou ou sobrou algum produto? Registre o recebido de cada produto antes de concluir.</p>`;
     const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p>${intro}<p><strong>${l.label}</strong> — ${totais[l.id]} un. ${exp ? "a separar" : "a receber"}:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
     return {
       id: `t-${base}-${exp ? "e" : "u"}${i}`, titulo: `${exp ? "Expedição" : "Recebimento"} - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: exp ? "Expedição" : "Recebimento", categoria: exp ? CATEGORIA_EXPEDICAO : CATEGORIA_UNIDADE, pedidoId: pedido.id, local: l.id,
+      conferencia: linhas.map((x) => ({ produtoId: x.id, pedido: x.qtd })),
       criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
       comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
     };
