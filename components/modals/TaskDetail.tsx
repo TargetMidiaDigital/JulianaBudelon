@@ -18,7 +18,8 @@ import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
-import { semEtapaProducao } from "@/lib/tarefas";
+import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
+import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
 import Conferencia from "../ui/Conferencia";
 
 export default function TaskDetail() {
@@ -29,7 +30,14 @@ export default function TaskDetail() {
 }
 
 function TaskDetailBody({ t }: { t: Task }) {
-  const { team, pedidos, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
+  const { team, pedidos, produtos, workspace, setTaskDetailOpen, updateTask, currentUser, podeTrocarResp, canSeeAll } = useApp();
+  // Expedição: romaneio para imprimir e levar à unidade (a unidade confere no papel e registra no sistema).
+  const gerarRomaneio = () => {
+    const pedidoT = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
+    const logo = workspace.logo ? (workspace.logo.startsWith("http") || workspace.logo.startsWith("data:") ? workspace.logo : `${window.location.origin}${workspace.logo}`) : `${window.location.origin}/logo.png`;
+    const ok = imprimirRomaneio(htmlRomaneio({ tarefa: t, pedido: pedidoT, produtos, responsavel: gestorOf(team, t.gestor), empresa: workspace.nome, logo, origem: window.location.origin }));
+    if (!ok) window.alert("Libere pop-ups para gerar o romaneio.");
+  };
   const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
   const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, semEtapaProducao(t)); // sem "Atrasada"; Expedição sem "Em produção"
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
@@ -95,6 +103,12 @@ function TaskDetailBody({ t }: { t: Task }) {
               <div style={css("flex:1; min-width:0;")}>
                 <EditableTitle fill value={t.titulo} onSave={(v) => updateTask(t.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
               </div>
+              {ehExpedicao(t) && (
+                <Hoverable as="button" onClick={gerarRomaneio} title="Documento para imprimir e levar com os produtos para a unidade" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:9px;")} hover="background:#FAFAFB">
+                  <Svg size={14} sw={2.2}><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></Svg>
+                  Romaneio
+                </Hoverable>
+              )}
               <Hoverable as="button" onClick={copiarLink} title="Copiar link da tarefa" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:9px;")} hover="background:#FAFAFB">
                 <Svg size={14} sw={2.2}><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Svg>
                 {linkCopied ? "Link copiado!" : "Copiar link"}

@@ -45,6 +45,9 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   `quantidade`, migration 0019; as geradas pela ordem já vêm preenchidas). Ao **concluir** a
   tarefa, a quantidade **soma no estoque da Fábrica** (reabrir estorna), com log no produto e na
   tarefa — no servidor, em [`lib/tarefas-server.ts`](lib/tarefas-server.ts).
+- **Romaneio de expedição** — botão "Romaneio" na tarefa de expedição: documento A4 para
+  imprimir/PDF e levar com os produtos (destino, ordem, entrega, produtos com pedido e separado,
+  coluna "Recebido" em branco para a loja conferir, assinaturas). Em [`lib/romaneio.ts`](lib/romaneio.ts).
 - **Operacional → Unidades** — terceira lista de tarefas (id `unidades`, `categoria = "unidade"`):
   cada ordem gera **uma tarefa por unidade** ("Recebimento - Centro - dd/mm/aaaa") para a loja
   conferir o que recebeu da expedição. Fecha o ciclo produção → expedição → unidade; a ordem só
