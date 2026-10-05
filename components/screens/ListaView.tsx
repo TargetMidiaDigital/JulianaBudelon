@@ -588,7 +588,7 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
   const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
   return (
     <div style={css("flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 30px 28px;")}>
-      <div style={css("flex:1; min-height:0; display:flex; gap:14px; align-items:start; overflow:auto; padding-bottom:8px;")}>
+      <div style={css("flex:1; min-height:0; display:grid; grid-auto-flow:column; grid-auto-columns:max-content; justify-content:start; gap:14px; align-items:stretch; overflow:auto; padding-bottom:8px;")}>
         {groups.map((grp) => {
           if (collapsed[grp.key]) {
             return (
@@ -601,7 +601,7 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
           }
           return (
             <div key={grp.key} style={css("display:flex; flex-direction:column; background:#F2F3F6; border-radius:13px; width:280px; flex:none;")}>
-              <Hoverable onClick={() => toggle(grp.key)} title="Recolher coluna" s={css("display:flex; align-items:center; gap:8px; padding:13px 14px 11px; flex:none; cursor:pointer; border-radius:13px 13px 0 0;")} hover="background:#EAEBEF">
+              <Hoverable onClick={() => toggle(grp.key)} title="Recolher coluna" s={css("position:sticky; top:0; z-index:3; background:#F2F3F6; display:flex; align-items:center; gap:8px; padding:13px 14px 11px; flex:none; cursor:pointer; border-radius:13px 13px 0 0; box-shadow:0 6px 8px -6px rgba(20,24,40,.12);")} hover="background:#EAEBEF">
                 <span style={css(`width:9px; height:9px; border-radius:50%; background:${grp.dot};`)} />
                 <span style={css("font-weight:700; font-size:13px; color:#3A3F4C;")}>{grp.label}</span>
                 <span style={css("font-size:12px; font-weight:700; color:#9398A6;")}>{grp.tasks.length}</span>
