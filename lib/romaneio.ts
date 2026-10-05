@@ -28,7 +28,6 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
       <td class="n">${l.pedido}</td>
       <td class="n">${l.feito ?? ""}</td>
       <td class="box"></td>
-      <td class="obs"></td>
     </tr>`).join("");
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Romaneio — ${esc(unidade)} — ${esc(pedido?.titulo ?? t.titulo)}</title><style>
     *{box-sizing:border-box} body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#111;margin:0;padding:26px 30px;font-size:12.5px}
@@ -42,9 +41,11 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
     table{width:100%;border-collapse:collapse} th,td{border:1px solid #999;padding:7px 8px;vertical-align:middle}
     th{background:#eee;font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left}
     .n{text-align:right;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;width:86px} .c{text-align:center;width:30px;color:#555}
-    .box{width:96px} .obs{width:150px} .cat{font-size:10.5px;color:#666;margin-top:1px}
+    .box{width:130px} .cat{font-size:10.5px;color:#666;margin-top:1px}
+    table{table-layout:fixed} th:nth-child(2),td:nth-child(2){width:auto}
     th.n{font-size:10px;font-weight:700} tr.t td{font-weight:800;background:#f5f5f5}
-    .inst{margin:12px 0 0;padding:9px 12px;background:#f5f5f5;border-radius:6px;font-size:11.5px;line-height:1.5}
+    .inst{margin:12px 0 0;padding:10px 14px;background:#f5f5f5;border-radius:6px;font-size:11.5px;line-height:1.6}
+    .inst ol{margin:6px 0 6px;padding-left:20px} .inst li{margin:2px 0} .inst p{margin:4px 0 0} .inst .link{color:#555;word-break:break-all}
     .ass{display:grid;grid-template-columns:1fr 1fr;gap:34px;margin-top:40px}
     .ass div{border-top:1px solid #111;padding-top:6px;font-size:11px;color:#333}
     .rod{margin-top:22px;font-size:10px;color:#777;display:flex;justify-content:space-between}
@@ -61,10 +62,16 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
       <div><span>Separado por</span><b>${esc(responsavel?.nome ?? "—")}</b></div>
       <div><span>Situação da separação</span><b>${separadoCompleto ? `separado ${totSep} un.` : "a separar"}</b></div>
     </div>
-    <table><thead><tr><th class="c">#</th><th>Produto</th><th class="n">Pedido</th><th class="n">Separado</th><th>Recebido (unidade)</th><th>Observação</th></tr></thead>
-      <tbody>${linhasHtml}<tr class="t"><td></td><td>Total</td><td class="n">${totPed}</td><td class="n">${separadoCompleto ? totSep : ""}</td><td></td><td></td></tr></tbody></table>
-    <div class="inst"><b>Na unidade:</b> confira cada produto e anote a quantidade recebida na coluna “Recebido”. Depois, no sistema, abra
-      <b>Operacional → Unidades → Recebimento - ${esc(unidade)}</b>, registre os mesmos números na Conferência e conclua. Diferenças aparecem no relatório da ordem.<br>${esc(linkRecebimento)}</div>
+    <table><thead><tr><th class="c">#</th><th>Produto</th><th class="n">Pedido</th><th class="n">Separado</th><th class="box">Recebido (unidade)</th></tr></thead>
+      <tbody>${linhasHtml}<tr class="t"><td></td><td>Total</td><td class="n">${totPed}</td><td class="n">${separadoCompleto ? totSep : ""}</td><td></td></tr></tbody></table>
+    <div class="inst"><b>Na unidade:</b>
+      <ol>
+        <li>Confira cada produto e anote a quantidade recebida na coluna “Recebido”.</li>
+        <li>No sistema, abra <b>Operacional → Unidades → Recebimento - ${esc(unidade)}</b>.</li>
+        <li>Registre os mesmos números na Conferência e conclua a tarefa.</li>
+      </ol>
+      <p>Diferenças aparecem no relatório da ordem.</p>
+      <p class="link">${esc(linkRecebimento)}</p></div>
     <div class="ass"><div>Separado / enviado por (nome, assinatura e data)</div><div>Recebido por na unidade (nome, assinatura, data e hora)</div></div>
     <div class="rod"><span>${esc(t.titulo)}</span><span>${esc(empresa)} · romaneio ${esc(numero)}</span></div>
     <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
