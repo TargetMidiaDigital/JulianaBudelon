@@ -47,18 +47,18 @@ export function relatorioDaOrdem(pedido: Pedido, tasks: Task[], produtos: Produt
 }
 
 /**
- * Etapas em que a quantidade mudou em relação à etapa anterior, com a diferença:
- * pedido → produzido → separado → recebido. Ex.: [{ etapa: "Produção", delta: -1 }, { etapa: "Recebimento", delta: -1 }].
+ * Divergência de cada etapa contra o que ELA deveria entregar:
+ *  - Produção  × pedido   (produzir a mais fica de sobra na Fábrica; a menos falta);
+ *  - Expedição × pedido   (a expedição separa o pedido da loja, não o que sobrou da produção);
+ *  - Recebimento × separado (a loja deve receber o que foi enviado; sem separado, × pedido).
+ * Ex.: pedido 8, produzido 10, separado 8, recebido 8 → só "Produção +2".
  */
 export function divergencias(l: LinhaRelatorio): { etapa: string; delta: number }[] {
-  const etapas: [string, number | null | undefined][] = [["Produção", l.produzido], ["Expedição", l.separado], ["Recebimento", l.recebido]];
   const out: { etapa: string; delta: number }[] = [];
-  let ref = l.pedido;
-  for (const [etapa, v] of etapas) {
-    if (v == null) continue;
-    if (v !== ref) out.push({ etapa, delta: v - ref });
-    ref = v;
-  }
+  if (l.produzido != null && l.produzido !== l.pedido) out.push({ etapa: "Produção", delta: l.produzido - l.pedido });
+  if (l.separado != null && l.separado !== l.pedido) out.push({ etapa: "Expedição", delta: l.separado - l.pedido });
+  const enviado = l.separado ?? l.pedido;
+  if (l.recebido != null && l.recebido !== enviado) out.push({ etapa: "Recebimento", delta: l.recebido - enviado });
   return out;
 }
 

@@ -33,7 +33,7 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
   const geradoEm = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "");
 
   const imprimir = () => {
-    const linha = (l: LinhaRelatorio) => `<tr><td>${esc(l.produto)}</td>${COLS.map((c) => { const k = c.toLowerCase() as "pedido"; const v = l[k]; const diff = c !== "Pedido" && v != null && v !== l.pedido; return `<td class="n${diff ? " d" : ""}">${val(v)}</td>`; }).join("")}<td class="d">${esc(textoDivergencias(l))}</td></tr>`;
+    const linha = (l: LinhaRelatorio) => `<tr><td>${esc(l.produto)}</td>${COLS.map((c) => { const k = c.toLowerCase() as "pedido"; const v = l[k]; const ref = c === "Recebido" ? (l.separado ?? l.pedido) : l.pedido; const diff = c !== "Pedido" && v != null && v !== ref; return `<td class="n${diff ? " d" : ""}">${val(v)}</td>`; }).join("")}<td class="d">${esc(textoDivergencias(l))}</td></tr>`;
     const corpo = grupos.map((g) => `<h3>${esc(g.label)}</h3><table><thead><tr><th>Produto</th>${COLS.map((c) => `<th class="n">${c}</th>`).join("")}<th>Divergências</th></tr></thead><tbody>${g.linhas.map(linha).join("")}<tr class="t"><td>Total</td>${COLS.map((c) => `<td class="n">${val(soma(g.linhas, c.toLowerCase() as "pedido"))}</td>`).join("")}<td></td></tr></tbody></table>`).join("");
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório — ${esc(pedido.titulo)}</title><style>
       body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#1B1B28;margin:28px;font-size:12px}
@@ -59,7 +59,7 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
         <div style={css("display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid #ECEDF1;")}>
           <div style={css("flex:1; min-width:0;")}>
             <div style={css("font-size:17px; font-weight:800; letter-spacing:-0.3px;")}>Relatório — {pedido.titulo}</div>
-            <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>Pedido × produzido × separado × recebido, por unidade · entrega {pedido.entrega ?? "—"}</div>
+            <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>Produção e expedição comparadas ao pedido; recebimento ao separado · entrega {pedido.entrega ?? "—"}</div>
           </div>
           <Hoverable as="button" onClick={imprimir} s={css("display:inline-flex; align-items:center; gap:7px; border:none; background:#1B1B28; color:#fff; cursor:pointer; font-size:13px; font-weight:700; padding:9px 14px; border-radius:9px;")} hover="filter:brightness(1.15)">
             <Svg size={14} sw={2.2}><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></Svg>Imprimir / PDF
@@ -85,7 +85,7 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
                     <span style={css("font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{l.produto}</span>
                     <span style={css("text-align:right; font-size:13px; font-weight:700; color:#5B6472; font-variant-numeric:tabular-nums;")}>{l.pedido}</span>
                     {(["produzido", "separado", "recebido"] as const).map((k) => (
-                      <span key={k} style={css(`text-align:right; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; color:${cor(l[k], l.pedido)};`)}>{val(l[k])}</span>
+                      <span key={k} style={css(`text-align:right; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; color:${cor(l[k], k === "recebido" ? (l.separado ?? l.pedido) : l.pedido)};`)}>{val(l[k])}</span>
                     ))}
                     <span style={css(`font-size:12px; font-weight:700; color:${onde ? "#CC3338" : "#B6BAC4"};`)}>{onde ?? "—"}</span>
                   </div>
