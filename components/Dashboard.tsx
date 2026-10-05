@@ -16,6 +16,7 @@ import Vagas from "./screens/Vagas";
 import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
 import TaskDetail from "./modals/TaskDetail";
+import ConcluirTarefa from "./modals/ConcluirTarefa";
 import TaskForm from "./modals/TaskForm";
 import TalentoForm from "./modals/TalentoForm";
 import Login from "./Login";
@@ -60,6 +61,7 @@ function Shell() {
       </div>
       {/* modais/drawers (position:fixed) ficam fora do container arredondado */}
       <TaskDetail />
+      <ConcluirTarefa />
       <TaskForm />
       <TalentoForm />
     </div>

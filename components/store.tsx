@@ -108,6 +108,10 @@ type Store = {
   addUsuario: (u: TeamMember, senha: string) => Promise<{ ok: boolean; error?: string }>;
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => void;
+  /** Concluir tarefa com conferência abre o popup de confirmação (fila, para ações em lote). */
+  conclusoesPendentes: { id: string; status: TaskStatus }[];
+  /** Popup: grava o realizado e conclui; null = cancelou esta da fila. */
+  resolverConclusao: (id: string, conferencia: Task["conferencia"] | null) => void;
   addTask: (t: Task) => void;
   removeTask: (id: string) => void;
   clients: Client[];
@@ -461,10 +465,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [taskFormPrefill, setTaskFormPrefill] = useState<{ cliente?: string | null; gestor?: string | null } | null>(null);
   const [talentoFormOpen, setTalentoFormOpen] = useState(false);
+  const [conclusoesPendentes, setConclusoesPendentes] = useState<{ id: string; status: TaskStatus }[]>([]);
 
   // Clientes (legado do demo): ativos/pausados nas seleções; inativos só p/ resolver nomes.
   const clients = useMemo(() => allClients.filter((c) => c.status !== "inativo"), [allClients]);
   const clientesInativos = useMemo(() => allClients.filter((c) => c.status === "inativo"), [allClients]);
+
+  /** Grava a mudança da tarefa (logs, estoque/ordem locais e servidor) — sem o popup de conclusão. */
+  const aplicarUpdateTask = (old: Task, patch: Partial<Task>) => {
+    const id = old.id;
+    const logs = buildTaskLogs(old, patch, currentUser, team, allClients);
+    const nowBR = fmtNowBR();
+    const fp: Partial<Task> = logs.length
+      ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs], atualizada: nowBR.date, atualizadaHora: nowBR.hora }
+      : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
+    patchDb((d) => {
+      const comTarefa = { ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) };
+      const comEstoque = patch.status ? aplicarRecebimentoLocal(aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo), { ...old, ...fp }, old.status, patch.status) : comTarefa;
+      return sincronizarPedidoLocal(comEstoque, old.pedidoId, demo);
+    });
+    void persist("/api/tarefas", "PATCH", { id, patch: fp });
+  };
 
   const value: Store = {
     demo,
@@ -558,27 +579,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateTask: (id, patch) => {
       const old = tasks.find((t) => t.id === id);
       if (!old) return;
-      // Conferência obrigatória: só conclui com o realizado de todas as linhas preenchido.
+      // Conferência: concluir uma tarefa com produtos abre o popup para registrar/confirmar o
+      // realizado (produzido / separado / recebido). Só o popup conclui de fato.
       const feitaS = (s?: TaskStatus) => s === "concluida" || s === "validada";
-      if (patch.status && feitaS(patch.status) && !feitaS(old.status)) {
-        const linhas = linhasDaTarefa({ ...old, ...patch });
-        const faltam = faltamPreencher(linhas);
-        if (faltam) {
-          if (typeof window !== "undefined") window.alert(`Antes de concluir "${old.titulo}", preencha a quantidade ${rotuloRealizado(old.categoria).toLowerCase()} de ${faltam === 1 ? "1 produto" : `${faltam} produtos`} (abra a tarefa → Conferência).`);
-          return;
-        }
+      if (patch.status && feitaS(patch.status) && !feitaS(old.status) && linhasDaTarefa({ ...old, ...patch }).length) {
+        const resto: Partial<Task> = { ...patch };
+        delete resto.status;
+        if (Object.keys(resto).length) aplicarUpdateTask(old, resto);
+        const status = patch.status;
+        setConclusoesPendentes((f) => (f.some((x) => x.id === id) ? f : [...f, { id, status }]));
+        return;
       }
-      const logs = buildTaskLogs(old, patch, currentUser, team, allClients);
-      const nowBR = fmtNowBR();
-      const fp: Partial<Task> = logs.length
-        ? { ...patch, comentarios: [...((patch.comentarios ?? old.comentarios) ?? []), ...logs], atualizada: nowBR.date, atualizadaHora: nowBR.hora }
-        : { ...patch, atualizada: nowBR.date, atualizadaHora: nowBR.hora };
-      patchDb((d) => {
-        const comTarefa = { ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) };
-        const comEstoque = patch.status ? aplicarRecebimentoLocal(aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo), { ...old, ...fp }, old.status, patch.status) : comTarefa;
-        return sincronizarPedidoLocal(comEstoque, old.pedidoId, demo);
-      });
-      void persist("/api/tarefas", "PATCH", { id, patch: fp });
+      aplicarUpdateTask(old, patch);
+    },
+    conclusoesPendentes,
+    resolverConclusao: (id, conferencia) => {
+      const item = conclusoesPendentes.find((x) => x.id === id);
+      setConclusoesPendentes((f) => f.filter((x) => x.id !== id));
+      const old = tasks.find((t) => t.id === id);
+      if (!item || !old || !conferencia || faltamPreencher(conferencia)) return;
+      aplicarUpdateTask(old, { conferencia, status: item.status });
     },
     addTask: (t) => { patchDb((d) => ({ tasks: [t, ...d.tasks] })); void persist("/api/tarefas", "POST", { task: t }); },
     removeTask: (id) => {
