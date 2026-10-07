@@ -63,6 +63,10 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   soma o produzido na Fábrica; recebimento move o recebido da Fábrica para a unidade. No drawer
   da ordem, **Relatório** mostra pedido × produzido × separado × recebido por unidade, com as
   etapas onde houve diferença, e imprime/salva em PDF ([`lib/relatorio.ts`](lib/relatorio.ts)).
+- **Relatório de estoque** — botão "Relatório" no Estoque (todos ou só com estoque, respeitando
+  busca e categoria): A4 deitado para imprimir/PDF, um produto por linha com a quantidade em cada
+  unidade e o total, subtotais por categoria e total geral. Só leitura
+  ([`lib/relatorio-estoque.ts`](lib/relatorio-estoque.ts)).
 - **Operacional → Estoque** — lista de produtos agrupada por categoria (as seções da planilha de
   reposição: Frutas, Caseirinhos, Brownies, Copinhos, Bolos Gelados, Bolos de Potes, Congelados,
   Tortas Acrílico Fatia, Encomendas — em [`lib/estoque.ts`](lib/estoque.ts)); cadastro de produto

@@ -12,6 +12,8 @@ import Menu, { MenuItem } from "../ui/Menu";
 import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import ProdutoForm from "../modals/ProdutoForm";
+import { htmlRelatorioEstoque } from "@/lib/relatorio-estoque";
+import { imprimirRomaneio } from "@/lib/romaneio";
 import ProdutoDetail from "../modals/ProdutoDetail";
 import QtdCell from "../ui/QtdCell";
 
@@ -41,7 +43,7 @@ const dataHora = (iso?: string) =>
 
 /** Operacional → Estoque: lista de produtos por categoria, com cadastro e ajuste de quantidade. */
 export default function Estoque() {
-  const { produtos, updateProduto, removeProduto, canEditPage } = useApp();
+  const { produtos, updateProduto, removeProduto, canEditPage, workspace } = useApp();
   const editavel = canEditPage("estoque");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -77,6 +79,12 @@ export default function Estoque() {
       : cats.map((c) => ({ key: c, label: c || "Sem categoria", cor: corDaCategoria(c), itens: lista.filter((p) => p.categoria === c) })).filter((g) => g.itens.length);
 
   const filtroAtivo = !!q || !!filtroCat;
+  // Relatório de estoque (somente leitura): produtos da lista atual, para imprimir/PDF.
+  const gerarRelatorio = (ocultarZerados: boolean) => {
+    const logo = workspace.logo ? (workspace.logo.startsWith("http") || workspace.logo.startsWith("data:") ? workspace.logo : `${window.location.origin}${workspace.logo}`) : `${window.location.origin}/logo.png`;
+    const filtro = [filtroCat, q ? `busca “${busca.trim()}”` : ""].filter(Boolean).join(" · ") + (ocultarZerados ? `${filtroCat || q ? " · " : ""}só com estoque` : "");
+    if (!imprimirRomaneio(htmlRelatorioEstoque({ produtos: lista, empresa: workspace.nome, logo, filtro, ocultarZerados }))) window.alert("Libere pop-ups para gerar o relatório.");
+  };
   const cols: { id: string; label: string; key?: SortKey }[] = [
     { id: "nome", label: "Produto", key: "nome" },
     { id: "categoria", label: "Categoria", key: "categoria" },
@@ -159,6 +167,21 @@ export default function Estoque() {
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto" style={css("flex:1; min-width:0; border:none; outline:none; background:transparent; font-size:13px; font-weight:600; color:#1B1B28;")} />
         </div>
         <span style={{ flex: 1 }} />
+        <Menu align="right" width={250} trigger={(toggle) => (
+          <Hoverable as="button" onClick={toggle} title="Relatório de estoque para imprimir ou salvar em PDF" s={css("display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px;")} hover="background:#FAFAFB">
+            <Svg size={15} sw={2.2}><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></Svg>
+            Relatório
+            <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
+          </Hoverable>
+        )}>
+          {(close) => (
+            <>
+              <div style={css("font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.5px; text-transform:uppercase; padding:7px 10px 5px;")}>{filtroAtivo ? "Produtos do filtro atual" : "Todos os produtos"}</div>
+              <MenuItem onClick={() => { gerarRelatorio(false); close(); }}><span style={{ flex: 1 }}>Todos ({lista.length})</span></MenuItem>
+              <MenuItem onClick={() => { gerarRelatorio(true); close(); }}><span style={{ flex: 1 }}>Só com estoque ({lista.filter((p) => totalProduto(p.quantidades) > 0).length})</span></MenuItem>
+            </>
+          )}
+        </Menu>
         <Menu align="right" width={220} trigger={(toggle) => (
           <Hoverable as="button" onClick={toggle} s={css("display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px;")} hover="background:#FAFAFB">
             <Svg size={15} stroke={ACCENT}><rect x="3" y="4" width="7" height="7" rx="1.6" /><rect x="14" y="4" width="7" height="7" rx="1.6" /><rect x="3" y="15" width="7" height="5" rx="1.6" /><rect x="14" y="15" width="7" height="5" rx="1.6" /></Svg>
