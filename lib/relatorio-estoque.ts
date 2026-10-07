@@ -1,5 +1,5 @@
 import type { Produto } from "./types";
-import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm, totalProduto } from "./estoque";
+import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "./estoque";
 
 /**
  * Relatório de estoque para imprimir/PDF: um produto por linha, com a quantidade em cada
@@ -8,12 +8,15 @@ import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm, totalProduto } from "./estoq
  */
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-export function htmlRelatorioEstoque(opts: { produtos: Produto[]; empresa: string; logo?: string | null; filtro?: string; ocultarZerados?: boolean }): string {
+export function htmlRelatorioEstoque(opts: { produtos: Produto[]; empresa: string; logo?: string | null; filtro?: string; ocultarZerados?: boolean; locais?: string[] }): string {
   const { empresa, logo, filtro, ocultarZerados } = opts;
-  const produtos = opts.produtos.filter((p) => !ocultarZerados || totalProduto(p.quantidades) > 0);
+  // Unidades escolhidas no popup (padrão: todas). Colunas, totais e "só com estoque" consideram só elas.
+  const LOCS = LOCAIS_ESTOQUE.filter((l) => !opts.locais?.length || opts.locais.includes(l.id));
+  const totalSel = (p: Produto) => LOCS.reduce((s, l) => s + qtdEm(p.quantidades, l.id), 0);
+  const produtos = opts.produtos.filter((p) => !ocultarZerados || totalSel(p) > 0);
   const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
   const cats = [...new Set(produtos.map((p) => p.categoria))].sort((a, b) => ordemCat(a) - ordemCat(b));
-  const somaLocais = (ps: Produto[]) => LOCAIS_ESTOQUE.map((l) => ps.reduce((s, p) => s + qtdEm(p.quantidades, l.id), 0));
+  const somaLocais = (ps: Produto[]) => LOCS.map((l) => ps.reduce((s, p) => s + qtdEm(p.quantidades, l.id), 0));
   const cel = (n: number) => `<td class="n${n ? "" : " z"}">${n || "–"}</td>`;
   const emitido = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "");
   const geral = somaLocais(produtos);
@@ -21,8 +24,8 @@ export function htmlRelatorioEstoque(opts: { produtos: Produto[]; empresa: strin
   const corpo = cats.map((c) => {
     const ps = produtos.filter((p) => p.categoria === c).sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
     const sub = somaLocais(ps);
-    return `<tr class="cat"><td colspan="${LOCAIS_ESTOQUE.length + 2}">${esc(c || "Sem categoria")} <span>· ${ps.length} produto${ps.length > 1 ? "s" : ""}</span></td></tr>
-      ${ps.map((p) => `<tr><td>${esc(p.nome)}</td>${LOCAIS_ESTOQUE.map((l) => cel(qtdEm(p.quantidades, l.id))).join("")}<td class="n t">${totalProduto(p.quantidades)}</td></tr>`).join("")}
+    return `<tr class="cat"><td colspan="${LOCS.length + 2}">${esc(c || "Sem categoria")} <span>· ${ps.length} produto${ps.length > 1 ? "s" : ""}</span></td></tr>
+      ${ps.map((p) => `<tr><td>${esc(p.nome)}</td>${LOCS.map((l) => cel(qtdEm(p.quantidades, l.id))).join("")}<td class="n t">${totalSel(p)}</td></tr>`).join("")}
       <tr class="sub"><td>Subtotal ${esc(c || "")}</td>${sub.map((n) => `<td class="n">${n}</td>`).join("")}<td class="n t">${sub.reduce((s, n) => s + n, 0)}</td></tr>`;
   }).join("");
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de estoque — ${emitido}</title><style>
@@ -41,17 +44,18 @@ export function htmlRelatorioEstoque(opts: { produtos: Produto[]; empresa: strin
     tr.geral td{font-weight:800;font-size:12.5px;background:#111;color:#fff;border:none}
     thead{display:table-header-group} tr{page-break-inside:avoid}
     .rod{margin-top:14px;font-size:9.5px;color:#777;display:flex;justify-content:space-between}
-    @page{size:A4 landscape;margin:10mm} @media print{body{padding:0}}
+    th:first-child,td:first-child{width:${LOCS.length <= 2 ? 50 : LOCS.length <= 4 ? 40 : 30}%}
+    @page{size:${LOCS.length <= 3 ? "A4" : "A4 landscape"};margin:10mm} @media print{body{padding:0}}
   </style></head><body>
-    <div class="top">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>Relatório de estoque</h1><div class="sub">${esc(empresa)} · quantidade por produto e por unidade</div></div>
+    <div class="top">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>Relatório de estoque</h1><div class="sub">${esc(empresa)} · ${LOCS.length === LOCAIS_ESTOQUE.length ? "todas as unidades" : esc(LOCS.map((l) => l.label).join(", "))}</div></div>
       <div class="em">emitido em<br><b>${emitido}</b></div></div>
     <div class="res">
       <div><span>Produtos</span><b>${produtos.length}</b></div>
-      <div><span>Total em estoque</span><b>${totalGeral} un.</b></div>
-      ${LOCAIS_ESTOQUE.map((l, i) => `<div><span>${esc(l.label)}</span><b>${geral[i]}</b></div>`).join("")}
+      <div><span>${LOCS.length === LOCAIS_ESTOQUE.length ? "Total em estoque" : "Total nas unidades"}</span><b>${totalGeral} un.</b></div>
+      ${LOCS.map((l, i) => `<div><span>${esc(l.label)}</span><b>${geral[i]}</b></div>`).join("")}
       ${filtro ? `<div><span>Filtro</span><b style="font-size:12px">${esc(filtro)}</b></div>` : ""}
     </div>
-    <table><thead><tr><th>Produto</th>${LOCAIS_ESTOQUE.map((l) => `<th>${esc(l.label)}</th>`).join("")}<th>Total</th></tr></thead>
+    <table><thead><tr><th>Produto</th>${LOCS.map((l) => `<th>${esc(l.label)}</th>`).join("")}<th>Total</th></tr></thead>
       <tbody>${corpo}<tr class="geral"><td>TOTAL GERAL</td>${geral.map((n) => `<td class="n">${n}</td>`).join("")}<td class="n">${totalGeral}</td></tr></tbody></table>
     <div class="rod"><span>${esc(empresa)} · relatório de estoque</span><span>“–” = sem estoque na unidade</span></div>
     <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>

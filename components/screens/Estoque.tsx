@@ -12,6 +12,7 @@ import Menu, { MenuItem } from "../ui/Menu";
 import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import ProdutoForm from "../modals/ProdutoForm";
+import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { htmlRelatorioEstoque } from "@/lib/relatorio-estoque";
 import { imprimirRomaneio } from "@/lib/romaneio";
 import ProdutoDetail from "../modals/ProdutoDetail";
@@ -80,10 +81,11 @@ export default function Estoque() {
 
   const filtroAtivo = !!q || !!filtroCat;
   // Relatório de estoque (somente leitura): produtos da lista atual, para imprimir/PDF.
-  const gerarRelatorio = (ocultarZerados: boolean) => {
+  const [escolhaRel, setEscolhaRel] = useState<{ ocultarZerados: boolean } | null>(null);
+  const gerarRelatorio = (ocultarZerados: boolean, locais: string[]) => {
     const logo = workspace.logo ? (workspace.logo.startsWith("http") || workspace.logo.startsWith("data:") ? workspace.logo : `${window.location.origin}${workspace.logo}`) : `${window.location.origin}/logo.png`;
     const filtro = [filtroCat, q ? `busca “${busca.trim()}”` : ""].filter(Boolean).join(" · ") + (ocultarZerados ? `${filtroCat || q ? " · " : ""}só com estoque` : "");
-    if (!imprimirRomaneio(htmlRelatorioEstoque({ produtos: lista, empresa: workspace.nome, logo, filtro, ocultarZerados }))) window.alert("Libere pop-ups para gerar o relatório.");
+    if (!imprimirRomaneio(htmlRelatorioEstoque({ produtos: lista, empresa: workspace.nome, logo, filtro, ocultarZerados, locais }))) window.alert("Libere pop-ups para gerar o relatório.");
   };
   const cols: { id: string; label: string; key?: SortKey }[] = [
     { id: "nome", label: "Produto", key: "nome" },
@@ -177,8 +179,8 @@ export default function Estoque() {
           {(close) => (
             <>
               <div style={css("font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.5px; text-transform:uppercase; padding:7px 10px 5px;")}>{filtroAtivo ? "Produtos do filtro atual" : "Todos os produtos"}</div>
-              <MenuItem onClick={() => { gerarRelatorio(false); close(); }}><span style={{ flex: 1 }}>Todos ({lista.length})</span></MenuItem>
-              <MenuItem onClick={() => { gerarRelatorio(true); close(); }}><span style={{ flex: 1 }}>Só com estoque ({lista.filter((p) => totalProduto(p.quantidades) > 0).length})</span></MenuItem>
+              <MenuItem onClick={() => { setEscolhaRel({ ocultarZerados: false }); close(); }}><span style={{ flex: 1 }}>Todos ({lista.length})</span></MenuItem>
+              <MenuItem onClick={() => { setEscolhaRel({ ocultarZerados: true }); close(); }}><span style={{ flex: 1 }}>Só com estoque ({lista.filter((p) => totalProduto(p.quantidades) > 0).length})</span></MenuItem>
             </>
           )}
         </Menu>
@@ -280,6 +282,13 @@ export default function Estoque() {
         </div>
       )}
 
+      {escolhaRel && (
+        <EscolherUnidades
+          ocultarZerados={escolhaRel.ocultarZerados}
+          onClose={() => setEscolhaRel(null)}
+          onGerar={(locais) => { gerarRelatorio(escolhaRel.ocultarZerados, locais); setEscolhaRel(null); }}
+        />
+      )}
       <ProdutoDetail id={detalhe} onClose={() => setDetalhe(null)} />
       <ProdutoForm open={formOpen} categoriaInicial={catForm} onClose={() => { setFormOpen(false); setCatForm(""); }} />
 
@@ -294,5 +303,47 @@ export default function Estoque() {
         />
       )}
     </div>
+  );
+}
+
+/** Popup do relatório: escolher as unidades (uma, várias ou todas). */
+function EscolherUnidades({ ocultarZerados, onClose, onGerar }: { ocultarZerados: boolean; onClose: () => void; onGerar: (locais: string[]) => void }) {
+  const [sel, setSel] = useState<string[]>(LOCAIS_ESTOQUE.map((l) => l.id));
+  useFecharComEsc(true, onClose);
+  const todas = sel.length === LOCAIS_ESTOQUE.length;
+  const alternar = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : LOCAIS_ESTOQUE.map((l) => l.id).filter((x) => x === id || s.includes(x))));
+  return (
+    <>
+      <div onClick={onClose} style={css("position:fixed; inset:0; z-index:90; background:rgba(20,24,40,.4);")} />
+      <div style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:91; width:420px; max-width:94vw; background:#fff; border-radius:16px; box-shadow:0 24px 70px rgba(20,24,40,.32); overflow:hidden;")}>
+        <div style={css("padding:18px 20px 12px; border-bottom:1px solid #ECEDF1;")}>
+          <div style={css("font-size:16.5px; font-weight:800; letter-spacing:-0.3px;")}>Relatório de estoque</div>
+          <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>{ocultarZerados ? "Só produtos com estoque" : "Todos os produtos"} · escolha as unidades</div>
+        </div>
+        <div style={css("padding:12px 14px;")}>
+          <Hoverable onClick={() => setSel(todas ? [] : LOCAIS_ESTOQUE.map((l) => l.id))} s={css("display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:800; color:#1B1B28; border-bottom:1px solid #F0F1F4; margin-bottom:4px;")} hover="background:#F7F7F9">
+            <Caixa on={todas} parcial={!todas && sel.length > 0} />Todas as unidades
+          </Hoverable>
+          {LOCAIS_ESTOQUE.map((l) => (
+            <Hoverable key={l.id} onClick={() => alternar(l.id)} s={css("display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:600; color:#3A3F4C;")} hover="background:#F7F7F9">
+              <Caixa on={sel.includes(l.id)} />{l.label}
+            </Hoverable>
+          ))}
+        </div>
+        <div style={css("display:flex; align-items:center; gap:10px; padding:14px 20px; border-top:1px solid #ECEDF1;")}>
+          <span style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{sel.length ? `${sel.length} ${sel.length === 1 ? "unidade" : "unidades"}` : "Escolha ao menos uma"}</span>
+          <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13.5px; font-weight:700; padding:10px 16px; border-radius:10px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
+          <Hoverable as="button" onClick={() => sel.length && onGerar(sel)} {...{ disabled: !sel.length }} s={css(`border:none; background:${BRAND}; color:#fff; cursor:${sel.length ? "pointer" : "not-allowed"}; opacity:${sel.length ? 1 : 0.45}; font-size:13.5px; font-weight:700; padding:10px 16px; border-radius:10px;`)} hover={sel.length ? "filter:brightness(1.1)" : undefined}>Gerar relatório</Hoverable>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Caixa({ on, parcial }: { on: boolean; parcial?: boolean }) {
+  return (
+    <span style={css(`width:18px; height:18px; flex:none; border-radius:5px; border:1.5px solid ${on || parcial ? BRAND : "#C7CAD2"}; background:${on ? BRAND : "#fff"}; display:flex; align-items:center; justify-content:center; color:#fff;`)}>
+      {on ? <Svg size={12} sw={3}><path d="M20 6 9 17l-5-5" /></Svg> : parcial ? <span style={css(`width:8px; height:2px; background:${BRAND}; border-radius:1px;`)} /> : null}
+    </span>
   );
 }
