@@ -22,8 +22,8 @@ type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "whatsapp" | "pe
 // por setor (Administrador é sempre implícito e não entra na lista).
 const GRUPO_SETORES = ["Operacional", "Recrutamento"] as const;
 const GRUPO_CARGOS_POR_SETOR: Record<string, Cargo[]> = {
-  Operacional: ["Head Operacional", "Operacional"],
-  Recrutamento: ["Recrutamento"],
+  Operacional: ["Gerente", "Produção", "Expedição", "Líder (Loja)"],
+  Recrutamento: ["Recursos Humanos"],
 };
 const SETOR_COR: Record<string, string> = { Operacional: "#1B7F4D", Recrutamento: "#C2410C" };
 
@@ -654,7 +654,7 @@ function CriarPessoa({ onClose }: { onClose: () => void }) {
   const { addUsuario } = useApp();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [cargo, setCargo] = useState<Cargo>("Operacional");
+  const [cargo, setCargo] = useState<Cargo>("Produção");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
 

@@ -35,11 +35,11 @@ export const seedWorkspace: Workspace = { nome: "Ju Budelon", logo: null };
 
 export const seedTeam: TeamMember[] = [
   { id: "ju", nome: "Ju Budelon", cargo: "Administrador", ini: "JB", cor: "#955C6B", email: "ju@jubudelon.com.br", whatsapp: "5548999990001", ativo: true },
-  { id: "marina", nome: "Marina Lopes", cargo: "Head Operacional", ini: "ML", cor: "#1B7F4D", email: "marina@jubudelon.com.br", whatsapp: "5548999990002", ativo: true },
-  { id: "carlos", nome: "Carlos Andrade", cargo: "Operacional", ini: "CA", cor: "#1366A8", email: "carlos@jubudelon.com.br", whatsapp: "5548999990003", ativo: true },
-  { id: "ana", nome: "Ana Beatriz", cargo: "Operacional", ini: "AB", cor: "#E5484D", email: "ana@jubudelon.com.br", whatsapp: "5548999990004", ativo: true },
-  { id: "pedro", nome: "Pedro Nunes", cargo: "Recrutamento", ini: "PN", cor: "#C2410C", email: "pedro@jubudelon.com.br", whatsapp: "5548999990005", ativo: true },
-  { id: "rafa", nome: "Rafaela Costa", cargo: "Operacional", ini: "RC", cor: "#0E9CC0", email: "rafaela@jubudelon.com.br", ativo: false },
+  { id: "marina", nome: "Marina Lopes", cargo: "Gerente", ini: "ML", cor: "#1B7F4D", email: "marina@jubudelon.com.br", whatsapp: "5548999990002", ativo: true },
+  { id: "carlos", nome: "Carlos Andrade", cargo: "Produção", ini: "CA", cor: "#1366A8", email: "carlos@jubudelon.com.br", whatsapp: "5548999990003", ativo: true },
+  { id: "ana", nome: "Ana Beatriz", cargo: "Expedição", ini: "AB", cor: "#E5484D", email: "ana@jubudelon.com.br", whatsapp: "5548999990004", ativo: true },
+  { id: "pedro", nome: "Pedro Nunes", cargo: "Recursos Humanos", ini: "PN", cor: "#C2410C", email: "pedro@jubudelon.com.br", whatsapp: "5548999990005", ativo: true },
+  { id: "rafa", nome: "Rafaela Costa", cargo: "Líder (Loja)", ini: "RC", cor: "#0E9CC0", email: "rafaela@jubudelon.com.br", ativo: false },
 ];
 
 /** Senha de todos os usuários de exemplo. */
@@ -219,8 +219,8 @@ export const seedTalentos: Talento[] = [
 ];
 
 export const seedGrupos: GrupoInterno[] = [
-  { id: "g1", nome: "Time Operacional", descricao: "Gestores e operação do dia a dia", setores: ["Operacional"], visivelCargos: ["Head Operacional", "Operacional"] },
-  { id: "g2", nome: "Recrutamento", descricao: "Seleção e banco de talentos", setores: ["Recrutamento"], visivelCargos: ["Recrutamento"] },
+  { id: "g1", nome: "Time Operacional", descricao: "Gestores e operação do dia a dia", setores: ["Operacional"], visivelCargos: ["Gerente", "Produção", "Expedição", "Líder (Loja)"] },
+  { id: "g2", nome: "Recrutamento", descricao: "Seleção e banco de talentos", setores: ["Recrutamento"], visivelCargos: ["Recursos Humanos"] },
 ];
 
 export const seedAcessos: Record<string, Record<string, NivelAcesso>> = {};

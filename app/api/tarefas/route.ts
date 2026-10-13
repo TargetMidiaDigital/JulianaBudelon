@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 /** "Atrasada" só o sistema grava (lib/tarefas-server.ts); "Validada" só Administrador/Head. */
 function validarStatusManual(status: unknown, cargo: string): string | null {
   if (status === "atrasada") return 'O status "Atrasada" é definido automaticamente pelo vencimento.';
-  if (status === "validada" && !isCargoFull(cargo)) return 'Só Administrador ou Head Operacional podem validar.';
+  if (status === "validada" && !isCargoFull(cargo)) return 'Só Administrador ou Gerente podem validar.';
   return null;
 }
 

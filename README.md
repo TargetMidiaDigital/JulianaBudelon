@@ -115,6 +115,7 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
 - **Login** — e-mail + senha.
 - **Configurações** — Empresa (nome/logo), Pessoas (cadastro, cargo, status, senha), Grupos,
   Acessos (matriz cargo × tela com Sem acesso / Visualizar / Editar + escopo próprio) e Perfil.
+  Cargos: Administrador, Gerente, Produção, Expedição, Líder (Loja), Recursos Humanos (migration 0022).
 
 ## Dados (fase 2: Supabase)
 

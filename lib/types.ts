@@ -8,7 +8,7 @@ export type TaskStatus =
 export type Prioridade = "urgente" | "alta" | "normal" | "baixa";
 
 /** Cargos do sistema. Administrador tem acesso total; os demais seguem Configurações → Acessos. */
-export type Cargo = "Administrador" | "Head Operacional" | "Operacional" | "Recrutamento";
+export type Cargo = "Administrador" | "Gerente" | "Produção" | "Expedição" | "Líder (Loja)" | "Recursos Humanos";
 
 export type TeamMember = {
   id: string;

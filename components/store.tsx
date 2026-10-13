@@ -56,10 +56,12 @@ const SESSION_KEY = "jb.session";
 
 /** Página inicial padrão por cargo (aplicada uma vez ao logar). */
 const LANDING_POR_CARGO: Record<string, ScreenPage> = {
-  "Administrador": "listaview",
-  "Head Operacional": "listaview",
-  "Operacional": "listaview",
-  "Recrutamento": "recrutamento-talentos",
+  "Administrador": "pedidos",
+  "Gerente": "pedidos",
+  "Produção": "listaview",
+  "Expedição": "expedicao",
+  "Líder (Loja)": "unidades",
+  "Recursos Humanos": "recrutamento-talentos",
 };
 
 export type ListGroupBy =
