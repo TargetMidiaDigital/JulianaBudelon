@@ -10,7 +10,7 @@ import { diasAPartirDeHoje, formatBR, TODAY } from "./format";
 export const spacesTree: Sector[] = [
   {
     id: "operacional",
-    label: "Operacional",
+    label: "Produção", // id interno continua "operacional"
     children: [
       { label: "Indicadores", page: "indicadores" },
       { label: "Ordem de Serviço", page: "pedidos" },
@@ -22,7 +22,7 @@ export const spacesTree: Sector[] = [
   },
   {
     id: "recrutamento",
-    label: "Recrutamento",
+    label: "RH", // id interno continua "recrutamento"
     children: [
       { label: "Banco de Talentos", page: "recrutamento-talentos" },
       { label: "Vagas", page: "recrutamento-vagas" },

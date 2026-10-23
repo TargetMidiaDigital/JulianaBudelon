@@ -46,6 +46,11 @@ export const EDICAO_PADRAO: Record<string, Partial<Record<ScreenPage, NivelAcess
 /** Cargo tem acesso total? */
 export const isCargoFull = (cargo?: string | null) => CARGOS_FULL.includes(cargo ?? "");
 
+/** Nome exibido de cada setor. As chaves internas ("Operacional"/"Recrutamento", e os ids
+ *  "operacional"/"recrutamento") continuam iguais no código e no banco (grupos internos). */
+export const SETOR_NOME: Record<string, string> = { Operacional: "Produção", Recrutamento: "RH" };
+export const nomeDoSetor = (s: string) => SETOR_NOME[s] ?? s;
+
 /** Cargos que aparecem como "Responsável" por setor (só membros ativos). */
 export const SETOR_CARGOS: Record<string, string[]> = {
   Operacional: ["Administrador", "Gerente", "Produção", "Expedição", "Líder (Loja)"],

@@ -16,8 +16,8 @@ export default function FiltroTarefas() {
   const { screen, team, workspace, globalGestor, setGlobalGestor, globalStatus, setGlobalStatus, globalPrio, setGlobalPrio, ownScopeOnly } = useApp();
 
   // Responsáveis elegíveis: os cargos do setor da tela atual.
-  const setorLabel = spacesTree.find((sp) => sp.children.some((k) => k.page === screen))?.label ?? "Operacional";
-  const cargosResp = SETOR_CARGOS[setorLabel] ?? SETOR_CARGOS.Operacional;
+  const setorId = spacesTree.find((sp) => sp.children.some((k) => k.page === screen))?.id ?? "operacional";
+  const cargosResp = setorId === "recrutamento" ? SETOR_CARGOS.Recrutamento : SETOR_CARGOS.Operacional;
   const membros = team.filter((t) => t.ativo !== false && cargosResp.includes(t.cargo));
 
   const optsResp: FiltroOpt[] = [

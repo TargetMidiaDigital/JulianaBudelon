@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { spacesTree } from "@/lib/seed";
 import { sectorIcon } from "../Sidebar";
-import { CARGOS, corDoCargo, DEFAULT_ESCOPO, nivelPadrao } from "@/lib/acesso";
+import { CARGOS, corDoCargo, DEFAULT_ESCOPO, nivelPadrao, nomeDoSetor } from "@/lib/acesso";
 import { uploadLocal } from "@/lib/upload";
 import type { Cargo, GrupoInterno, NivelAcesso, ScreenPage } from "@/lib/types";
 import { Avatar } from "../ui/bits";
@@ -257,7 +257,7 @@ function SetorPill({ setor }: { setor: string }) {
   return (
     <span style={css(`display:inline-flex; align-items:center; gap:5px; background:${cor}1A; color:${cor}; font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px;`)}>
       <span style={css(`width:6px; height:6px; border-radius:50%; flex:none; background:${cor};`)} />
-      {setor}
+      {nomeDoSetor(setor)}
     </span>
   );
 }
@@ -382,7 +382,7 @@ function CriarGrupo({ inicial, onClose }: { inicial?: GrupoInterno; onClose: () 
             {() => GRUPO_SETORES.map((s) => (
               <MenuItem key={s} checked={setores.includes(s)} onClick={() => toggleSetor(s)}>
                 <span style={css(`width:9px; height:9px; border-radius:50%; flex:none; background:${SETOR_COR[s] ?? "#5B6472"};`)} />
-                <span style={{ flex: 1, fontWeight: 600 }}>{s}</span>
+                <span style={{ flex: 1, fontWeight: 600 }}>{nomeDoSetor(s)}</span>
               </MenuItem>
             ))}
           </Menu>
