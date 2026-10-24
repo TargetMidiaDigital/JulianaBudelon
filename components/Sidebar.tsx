@@ -31,6 +31,19 @@ export const sectorIcon: Record<string, React.ReactNode> = {
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </Svg>
   ),
+  lojas: (
+    <Svg size={16}>
+      <path d="M3 9.5 4.6 4h14.8L21 9.5" />
+      <path d="M3 9.5c0 1.4 1.1 2.5 2.5 2.5S8 10.9 8 9.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5c0 1.4 1.1 2.5 2.5 2.5S18 10.9 18 9.5c0 1.4 1.1 2.5 2.5 2.5" />
+      <path d="M5 12v8h14v-8M10 20v-4.5h4V20" />
+    </Svg>
+  ),
+  administrativo: (
+    <Svg size={16}>
+      <rect x="3" y="6" width="18" height="13" rx="2.2" />
+      <path d="M3 10h18M7 15h3" />
+    </Svg>
+  ),
 };
 
 /** Botão da barra recolhida (só ícone). */

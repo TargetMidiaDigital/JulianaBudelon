@@ -29,7 +29,7 @@ export const DEFAULT_ESCOPO: Record<string, boolean> = {};
  *  Administrador não entra aqui: acesso total sempre. Vale só enquanto nada foi salvo em
  *  Configurações → Acessos. */
 export const ACESSO_PADRAO: Record<string, { setores?: string[]; pages?: ScreenPage[] }> = {
-  "Gerente": { setores: ["operacional"] },
+  "Gerente": { setores: ["operacional", "lojas"] },
   "Produção": { pages: ["pedidos", "listaview", "estoque"] },
   "Expedição": { pages: ["pedidos", "listaview", "expedicao", "estoque"] },
   "Líder (Loja)": { pages: ["unidades", "estoque"] },

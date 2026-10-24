@@ -112,6 +112,14 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   estiver cadastrado, é uma **recandidatura**: o cadastro é atualizado (nome, vaga, unidade,
   novo currículo, sobe para o topo) e o histórico registra o que mudou, sem criar duplicata. O Pixel do Facebook é
   configurado em Vagas → Página pública: PageView em todas as páginas e Lead no `/obrigado`.
+- **Administrativo → Contas a Pagar** — lançamentos por empresa (CNPJ) e plano de contas, com
+  forma de pagamento, parcelas mensais (uma linha por parcela, ligadas por `grupo`), situação
+  (A pagar / Pago / Pago c/ comprovante / QR Code-PIX / Pago no débito / Pago no crédito), valor
+  pago com juros, código de barras e comprovantes (PDF/JPG/PNG até 20 MB, bucket privado
+  `contas-pagar`). Aba Contas (cartões Vencidas / Vencem amanhã / Em aberto / Pago no mês, filtros,
+  lista e resumo por plano) e aba Dashboard (visão do ano). Tabelas `conta_pagar`, `cp_empresa`,
+  `cp_plano` (migration 0023), rotas `/api/contas-pagar` (+ `/comprovante`, `/listas`). Fica fora
+  do bootstrap: só quem tem acesso à tela recebe os dados (padrão: só Administrador).
 - **Login** — e-mail + senha.
 - **Configurações** — Empresa (nome/logo), Pessoas (cadastro, cargo, status, senha), Grupos,
   Acessos (matriz cargo × tela com Sem acesso / Visualizar / Editar + escopo próprio) e Perfil.

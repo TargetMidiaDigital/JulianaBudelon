@@ -18,6 +18,7 @@ const TITLES: Record<ScreenPage, string> = {
   "recrutamento-talentos": "Banco de Talentos",
   "recrutamento-vagas": "Vagas",
   "recrutamento-agente": "Agente IA",
+  "contas-pagar": "Contas a Pagar",
   config: "Configurações",
 };
 

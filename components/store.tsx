@@ -342,7 +342,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!sb) return;
     sb.auth.getSession().then(({ data }) => { const tk = data.session?.access_token; if (tk) { try { sb.realtime.setAuth(tk); } catch { /* noop */ } } });
     const ch = sb.channel("realtime-ping")
-      .on("postgres_changes", { event: "*", schema: "public", table: "realtime_ping" }, () => scheduleReload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "realtime_ping" }, (msg) => {
+        // Contas a Pagar não está no bootstrap (a tela recarrega sozinha).
+        const dom = (msg.new as { dominio?: string } | null)?.dominio ?? "";
+        if (!["conta_pagar", "cp_empresa", "cp_plano"].includes(dom)) scheduleReload();
+      })
       .subscribe();
     const onVisible = () => { if (document.visibilityState === "visible") void checarVersao(); };
     document.addEventListener("visibilitychange", onVisible);
@@ -414,7 +418,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initialScreen = ((): ScreenPage => {
     if (typeof window === "undefined") return "listaview";
     const page = new URLSearchParams(window.location.search).get("page");
-    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "unidades", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "config"];
+    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "unidades", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "contas-pagar", "config"];
     return (valid as string[]).includes(page ?? "") ? (page as ScreenPage) : "listaview";
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);
@@ -437,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [authReady, authed, currentUser.cargo]);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth > 768));
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ operacional: true, recrutamento: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ operacional: true, recrutamento: true, lojas: true, administrativo: true });
 
   // ── filtros ────────────────────────────────────────────────────────────────
   const [globalGestor, setGlobalGestorState] = useState("todos");

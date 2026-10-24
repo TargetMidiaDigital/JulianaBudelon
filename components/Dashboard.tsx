@@ -15,6 +15,7 @@ import BancoTalentos from "./screens/BancoTalentos";
 import Vagas from "./screens/Vagas";
 import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
+import ContasPagar from "./screens/ContasPagar";
 import TaskDetail from "./modals/TaskDetail";
 import ConcluirTarefa from "./modals/ConcluirTarefa";
 import TaskForm from "./modals/TaskForm";
@@ -37,6 +38,7 @@ function Screens() {
       {screen === "recrutamento-talentos" && <BancoTalentos />}
       {screen === "recrutamento-vagas" && <Vagas />}
       {screen === "recrutamento-agente" && <AgenteIA />}
+      {screen === "contas-pagar" && <ContasPagar />}
       {screen === "config" && <Config />}
     </div>
   );
