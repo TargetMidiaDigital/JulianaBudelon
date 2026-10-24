@@ -342,7 +342,7 @@ export default function ListaView({
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 18px;")}>
         <div style={{ flex: 1 }}>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>{titulo}</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{ts.length} tarefas{listGroupBy === "none" ? "" : ` · agrupadas por ${GROUP_OPTS.find((o) => o.key === listGroupBy)?.label.toLowerCase()}`}</p>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{ts.length} tarefas{listGroupBy === "none" ? "" : ` · agrupadas por ${GROUP_OPTS.find((o) => o.key === listGroupBy)?.label.toLowerCase()}`}{!showValidadas && tsBase.length > ts.length ? ` · ${tsBase.length - ts.length} validadas ocultas (botão ✓)` : ""}</p>
         </div>
       </div>
 

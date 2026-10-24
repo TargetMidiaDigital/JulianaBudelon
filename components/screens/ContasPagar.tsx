@@ -13,6 +13,8 @@ import { useApp } from "../store";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
+import ConfirmModal from "../ui/ConfirmModal";
+import { useFecharComEsc } from "../ui/useFecharComEsc";
 
 /**
  * Administrativo → Contas a Pagar. Dados em /api/contas-pagar (tabelas conta_pagar, cp_empresa,
@@ -135,7 +137,7 @@ export default function ContasPagar() {
     ...(plano ? [{ label: plano, limpar: () => setPlano("") }] : []),
     ...empresas.map((e) => ({ label: e, limpar: () => setEmpresas((l) => l.filter((x) => x !== e)) })),
     ...(forma ? [{ label: forma, limpar: () => setForma("") }] : []),
-    ...(porData ? [{ label: `Vencimento ${de ? brDe(de) : "…"} a ${ate ? brDe(ate) : "…"}`, limpar: () => { setDe(""); setAte(""); } }] : []),
+    ...(porData ? [{ label: rotuloPeriodo(de, ate), limpar: () => { setDe(""); setAte(""); } }] : []),
   ];
   const limparTudo = () => { setBusca(""); setSit("todas"); setPlano(""); setEmpresas([]); setForma(""); setDe(""); setAte(""); };
   const contagemEmpresa = useMemo(() => {
@@ -160,8 +162,9 @@ export default function ContasPagar() {
       return null;
     } catch (e) { return (e as Error).message; }
   };
+  const [excluindo, setExcluindo] = useState<Conta | null>(null);
   const excluir = async (c: Conta) => {
-    if (!window.confirm(`Excluir a conta "${c.descricao}"?${c.comprovantes.length ? " Os comprovantes anexados também serão apagados." : ""}`)) return;
+    setExcluindo(null);
     try { await apiJson("/api/contas-pagar", "DELETE", { id: c.id }); setContas((cs) => cs.filter((x) => x.id !== c.id)); setEditando(null); avisar("Conta excluída."); }
     catch (e) { avisar(`Não excluiu: ${(e as Error).message}`); }
   };
@@ -211,8 +214,8 @@ export default function ContasPagar() {
           </div>
         )}
         {/* KPIs (carteira toda) */}
-        <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:16px;")}>
-          <Kpi cor={COR_VENCIDA} rotulo="Vencidas" valor={brl(kpi.soma(kpi.vencidas))} sub={`${kpi.vencidas.length} ${kpi.vencidas.length === 1 ? "conta" : "contas"} em atraso`} onClick={() => { limparTudo(); setSit("vencidas"); setDe("2000-01-01"); setAte(addDias(hoje, -1)); setAba("contas"); }} />
+        <div className="cp-kpis" style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:16px;")}>
+          <Kpi cor={COR_VENCIDA} rotulo="Vencidas" valor={brl(kpi.soma(kpi.vencidas))} sub={`${kpi.vencidas.length} ${kpi.vencidas.length === 1 ? "conta" : "contas"} em atraso`} onClick={() => { limparTudo(); setSit("vencidas"); setAte(addDias(hoje, -1)); setAba("contas"); }} />
           <Kpi cor={COR_BREVE} rotulo="Vencem amanhã" valor={brl(kpi.soma(kpi.amanha))} sub={`${kpi.amanha.length} ${kpi.amanha.length === 1 ? "conta" : "contas"} em ${brDe(amanha).slice(0, 5)}`} onClick={() => { limparTudo(); setSit("apagar"); setDe(amanha); setAte(amanha); setAba("contas"); }} />
           <Kpi cor={COR_ABERTO} rotulo="Total em aberto" valor={brl(kpi.soma(kpi.abertas))} sub={`${kpi.abertas.length} contas a pagar`} />
           <Kpi cor={COR_PAGO} rotulo="Pago no mês atual" valor={brl(kpi.soma(kpi.pagasMes))} sub={`${kpi.pagasMes.length} pagamentos em ${MESES[Number(hoje.slice(5, 7)) - 1].toLowerCase()}`} />
@@ -294,7 +297,7 @@ export default function ContasPagar() {
             {/* Tabela */}
             <section style={css("background:#fff; border:1px solid #ECEDF1; border-radius:14px; min-width:0; overflow:hidden;")}>
               <div className="m-wrap" style={css("display:flex; align-items:baseline; gap:10px; padding:14px 16px 10px; flex-wrap:wrap;")}>
-                <div style={css("flex:1; font-size:15px; font-weight:800; color:#1B1B28;")}>{porData ? `Vencimento ${de ? `de ${brDe(de)}` : ""} ${ate ? `até ${brDe(ate)}` : ""}` : nomeMes(mes)}</div>
+                <div style={css("flex:1; font-size:15px; font-weight:800; color:#1B1B28;")}>{porData ? rotuloPeriodo(de, ate) : nomeMes(mes)}</div>
                 <div style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{filtradas.length} contas · {brl(tot.total)} · <span style={{ color: COR_ABERTO }}>{brl(tot.aberto)} em aberto</span></div>
               </div>
               <div style={css("overflow-x:auto;")}>
@@ -335,15 +338,24 @@ export default function ContasPagar() {
               <Legenda />
             </aside>
           </div>
-          <style>{`@media (max-width: 1180px) { .cp-grid { grid-template-columns: minmax(0,1fr) !important; } }`}</style>
         </>)}
       </div>
 
-      {editando && <ContaForm conta={editando === "nova" ? null : editando} hoje={hoje} empresas={EMPRESAS} planos={PLANOS} onNovoItem={novoItem} onFechar={() => setEditando(null)} onSalvar={salvar} onExcluir={excluir} />}
+      <style>{`@media (max-width: 1180px) { .cp-grid { grid-template-columns: minmax(0,1fr) !important; } }
+            @media (max-width: 560px) { .cp-kpis { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap:8px !important; } .cp-kpis .cp-kpi-v { font-size:17px !important; } }`}</style>
+      {editando && <ContaForm conta={editando === "nova" ? null : editando} hoje={hoje} empresas={EMPRESAS} planos={PLANOS} onNovoItem={novoItem} onFechar={() => setEditando(null)} onSalvar={salvar} onExcluir={setExcluindo} />}
+      {excluindo && (
+        <ConfirmModal danger titulo="Excluir conta" confirmLabel="Excluir" onClose={() => setExcluindo(null)} onConfirm={() => void excluir(excluindo)}
+          mensagem={<>A conta <strong>{excluindo.descricao}</strong> ({brl(excluindo.valor)}, vencimento {brDe(excluindo.vencimento)}) será excluída.{excluindo.comprovantes.length ? " Os comprovantes anexados também serão apagados." : ""} Esta ação não pode ser desfeita.</>} />
+      )}
       {aviso && <div style={css("position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:90; background:#1B1B28; color:#fff; font-size:13px; font-weight:700; padding:10px 16px; border-radius:10px; box-shadow:0 10px 30px rgba(20,24,40,.25);")}>{aviso}</div>}
     </div>
   );
 }
+
+/** "Vencimento em 24/10", "de 01/10 a 15/10", "até 23/10" ou "a partir de 01/11". */
+const rotuloPeriodo = (de: string, ate: string) =>
+  de && ate ? (de === ate ? `Vencimento em ${brDe(de)}` : `Vencimento de ${brDe(de)} a ${brDe(ate)}`) : ate ? `Vencimento até ${brDe(ate)}` : `Vencimento a partir de ${brDe(de)}`;
 
 const COLS = "88px minmax(190px,1fr) 108px 112px 128px 104px";
 
@@ -542,7 +554,6 @@ function ListaCurta({ contas, onAbrir, direita }: { contas: Conta[]; onAbrir: (c
 }
 
 // ── Formulário (nova / editar) ──
-const NOVO = "__novo__";
 const pareceCodigo = (t: string) => t.replace(/[\s.]/g, "").length >= 40 && /^[\d\s.]+$/.test(t);
 
 function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalvar, onExcluir }: {
@@ -586,13 +597,12 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
     set({ comprovantes: f.comprovantes.filter((x) => x.path !== cp.path) });
     if (novos.current.includes(cp.path)) { novos.current = novos.current.filter((p) => p !== cp.path); descartarNovos([cp.path]); }
   };
-  const escolher = async (tipo: "empresa" | "plano", v: string) => {
-    if (v !== NOVO) return set(tipo === "empresa" ? { empresa: v } : { plano: v });
-    const nome = window.prompt(tipo === "empresa" ? "Nome da nova empresa:" : "Nome do novo plano de contas:")?.trim();
-    if (!nome) return;
+  const criar = async (tipo: "empresa" | "plano", nome: string) => {
     const ok = await onNovoItem(tipo, nome);
     if (ok) set(tipo === "empresa" ? { empresa: ok } : { plano: ok });
+    return !!ok;
   };
+  useFecharComEsc(true, fechar);
 
   const salvar = async () => {
     const valor = num(f.valor);
@@ -636,7 +646,7 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
   return (
     <>
       <div onClick={fechar} style={css("position:fixed; inset:0; z-index:64; background:rgba(20,24,40,.32);")} />
-      <div role="dialog" aria-label={conta ? "Editar conta" : "Nova conta"} onKeyDown={(e) => e.key === "Escape" && fechar()} style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:65; background:#fff; border-radius:16px; box-shadow:0 24px 60px rgba(20,24,40,.25); width:640px; max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); display:flex; flex-direction:column; overflow:hidden;")}>
+      <div role="dialog" aria-label={conta ? "Editar conta" : "Nova conta"} style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:65; background:#fff; border-radius:16px; box-shadow:0 24px 60px rgba(20,24,40,.25); width:640px; max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); display:flex; flex-direction:column; overflow:hidden;")}>
         <div style={css("display:flex; align-items:flex-start; gap:10px; padding:18px 20px 12px; border-bottom:1px solid #F0F1F4;")}>
           <div style={{ flex: 1 }}>
             <div style={css("font-size:17px; font-weight:800; color:#1B1B28;")}>{conta ? "Editar conta" : "Nova conta"}</div>
@@ -648,9 +658,9 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
           <Campo rotulo="Descrição" span><input autoFocus value={f.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Ex.: CELESC - FÁBRICA 09/2026" style={css(INPUT)} /></Campo>
           <Campo rotulo="Vencimento"><input type="date" value={f.vencimento} onChange={(e) => set({ vencimento: e.target.value })} style={css(INPUT)} /></Campo>
           <Campo rotulo="Valor original (R$)"><input inputMode="decimal" value={f.valor} onChange={(e) => set({ valor: e.target.value })} placeholder="0,00" style={css(INPUT)} /></Campo>
-          <Campo rotulo="Plano de contas"><Select v={f.plano} opts={[...new Set([...planos, ...(f.plano ? [f.plano] : [])])]} novo="+ Novo plano…" set={(v) => void escolher("plano", v)} /></Campo>
-          <Campo rotulo="Empresa"><Select v={f.empresa} opts={[...new Set([...empresas, ...(f.empresa ? [f.empresa] : [])])]} novo="+ Nova empresa…" set={(v) => void escolher("empresa", v)} /></Campo>
-          <Campo rotulo="Forma"><Select v={f.forma} opts={FORMAS} set={(v) => set({ forma: v as FormaPagamento })} /></Campo>
+          <Campo rotulo="Plano de contas"><Escolha v={f.plano} opts={[...new Set([...planos, ...(f.plano ? [f.plano] : [])])]} placeholder="Escolha o plano" set={(v) => set({ plano: v })} novo={{ rotulo: "Novo plano de contas", exemplo: "Ex.: DESP MARKETING", criar: (n) => criar("plano", n) }} /></Campo>
+          <Campo rotulo="Empresa"><Escolha v={f.empresa} opts={[...new Set([...empresas, ...(f.empresa ? [f.empresa] : [])])]} placeholder="Escolha a empresa" set={(v) => set({ empresa: v })} novo={{ rotulo: "Nova empresa", exemplo: "Ex.: JB INGLESES", criar: (n) => criar("empresa", n) }} /></Campo>
+          <Campo rotulo="Forma"><Escolha v={f.forma} opts={FORMAS} set={(v) => set({ forma: v as FormaPagamento })} /></Campo>
           {!conta ? <Campo rotulo="Parcelas (mensais)"><input type="number" min={1} max={60} value={f.parcelas} onChange={(e) => set({ parcelas: e.target.value })} style={css(INPUT)} /></Campo> : <span />}
           <Campo rotulo="Situação" span>
             <div style={css("display:flex; flex-wrap:wrap; gap:6px;")}>
@@ -702,20 +712,63 @@ const milhar = (n: number) => (n >= 1000 ? `${Math.round(n / 1000).toLocaleStrin
 
 function Campo({ rotulo, span, children }: { rotulo: string; span?: boolean; children: ReactNode }) {
   return (
-    <label style={css(`display:flex; flex-direction:column; gap:5px; min-width:0; ${span ? "grid-column:1 / -1;" : ""}`)} onClick={(e) => { if ((e.target as HTMLElement).tagName === "BUTTON") e.preventDefault(); }}>
+    <div style={css(`display:flex; flex-direction:column; gap:5px; min-width:0; ${span ? "grid-column:1 / -1;" : ""}`)}>
       <span style={css("font-size:11.5px; font-weight:700; color:#5B6472; letter-spacing:.2px;")}>{rotulo}</span>
       {children}
-    </label>
+    </div>
   );
 }
 
-function Select({ v, opts, set, novo }: { v: string; opts: readonly string[]; set: (v: string) => void; novo?: string }) {
+/** Seletor no visual do app (no lugar do <select> nativo): busca quando a lista é longa,
+ *  opção marcada e, opcionalmente, cadastro de um item novo dentro do próprio menu. */
+function Escolha({ v, opts, set, placeholder = "Selecione", novo }: {
+  v: string; opts: readonly string[]; set: (v: string) => void; placeholder?: string;
+  novo?: { rotulo: string; exemplo: string; criar: (nome: string) => Promise<boolean> };
+}) {
+  const [q, setQ] = useState("");
+  const [criando, setCriando] = useState(false);
+  const [nome, setNome] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const comBusca = opts.length > 7;
+  const lista = q.trim() ? opts.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())) : opts;
+  const reset = () => { setQ(""); setCriando(false); setNome(""); };
   return (
-    <select value={v} onChange={(e) => set(e.target.value)} style={css(INPUT + "cursor:pointer;")}>
-      {!v && <option value="">Selecione…</option>}
-      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-      {novo && <option value={NOVO}>{novo}</option>}
-    </select>
+    <Menu width={260} popStyle="padding:0;" trigger={(toggle, open) => (
+      <button type="button" onClick={() => { reset(); toggle(); }} style={css(`${INPUT} display:flex; align-items:center; gap:8px; cursor:pointer; text-align:left; ${open ? `border-color:${ACCENT}; box-shadow:0 0 0 3px rgba(149,92,107,.12);` : ""}`)}>
+        <span style={css(`flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${v ? "" : "color:#9398A6;"}`)}>{v || placeholder}</span>
+        <Svg size={13} sw={2.4} stroke="#9398A6" style={{ flex: "none", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}><path d="m6 9 6 6 6-6" /></Svg>
+      </button>
+    )}>
+      {(close) => (
+        <div>
+          {comBusca && (
+            <div style={css("position:sticky; top:0; background:#fff; padding:8px 8px 6px; border-bottom:1px solid #F0F1F4; z-index:1;")}>
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…"
+                onKeyDown={(e) => { if (e.key === "Enter" && lista.length === 1) { set(lista[0]); close(); } }}
+                style={css("width:100%; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:8px; padding:7px 10px; font-size:12.5px; outline:none; background:#FAFAFB;")} />
+            </div>
+          )}
+          <div style={css("padding:5px;")}>
+            {lista.length === 0 && <div style={css("padding:10px; font-size:12.5px; color:#9398A6; font-weight:600;")}>Nada encontrado.</div>}
+            {lista.map((o) => <MenuItem key={o} checked={o === v} accent={ACCENT} onClick={() => { set(o); close(); }}><span style={{ flex: 1 }}>{o}</span></MenuItem>)}
+          </div>
+          {novo && (
+            <div style={css("position:sticky; bottom:0; background:#fff; border-top:1px solid #F0F1F4; padding:6px;")}>
+              {criando ? (
+                <form onSubmit={async (e) => { e.preventDefault(); if (!nome.trim() || salvando) return; setSalvando(true); const ok = await novo.criar(nome.trim()); setSalvando(false); if (ok) close(); }} style={css("display:flex; gap:6px; padding:2px;")}>
+                  <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder={novo.exemplo} style={css("flex:1; min-width:0; border:1px solid #E2E3E9; border-radius:8px; padding:7px 9px; font-size:12.5px; outline:none; text-transform:uppercase;")} />
+                  <button type="submit" disabled={!nome.trim() || salvando} style={css(`border:none; background:${ACCENT}; color:#fff; border-radius:8px; padding:0 11px; font-size:12px; font-weight:700; cursor:pointer; opacity:${!nome.trim() || salvando ? 0.5 : 1};`)}>{salvando ? "…" : "Adicionar"}</button>
+                </form>
+              ) : (
+                <Hoverable as="button" type="button" onClick={() => { setCriando(true); setNome(q.trim().toUpperCase()); }} s={css(`width:100%; display:flex; align-items:center; gap:8px; border:none; background:transparent; color:${ACCENT}; cursor:pointer; font-size:12.5px; font-weight:700; padding:8px 9px; border-radius:7px;`)} hover="background:#FDF1F4">
+                  <Svg size={13} sw={2.6}><path d="M12 5v14M5 12h14" /></Svg>{novo.rotulo}
+                </Hoverable>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Menu>
   );
 }
 
@@ -723,7 +776,7 @@ function Kpi({ cor, rotulo, valor, sub, onClick }: { cor: string; rotulo: string
   return (
     <Hoverable as={onClick ? "button" : "div"} onClick={onClick} title={onClick ? "Ver na lista" : undefined} s={css(`text-align:left; font:inherit; background:#fff; border:1px solid #ECEDF1; border-top:3px solid ${cor}; border-radius:14px; padding:13px 16px; min-width:0; ${onClick ? "cursor:pointer;" : ""}`)} hover={onClick ? "box-shadow:0 6px 18px rgba(20,24,40,.08)" : undefined}>
       <Rot cor={cor}>{rotulo}</Rot>
-      <div style={css("font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#1B1B28; margin-top:4px; font-variant-numeric:tabular-nums;")}>{valor}</div>
+      <div className="cp-kpi-v" style={css("font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#1B1B28; margin-top:4px; font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{valor}</div>
       <div style={css("font-size:12px; font-weight:600; color:#7A8090; margin-top:2px;")}>{sub}</div>
     </Hoverable>
   );

@@ -60,6 +60,7 @@ export const SETOR_CARGOS: Record<string, string[]> = {
 /** Nível padrão de um cargo numa tela (quando nada foi salvo em Configurações → Acessos). */
 export function nivelPadrao(cargo: string, setorId: string, page: ScreenPage): NivelAcesso {
   if (cargo === "Administrador") return "editar";
+  if (page === "treinamentos") return "ver"; // guias: todos os cargos leem
   const def = ACESSO_PADRAO[cargo];
   const temAcesso = def
     ? (def.setores?.includes(setorId) ?? false) || (def.pages?.includes(page) ?? false)

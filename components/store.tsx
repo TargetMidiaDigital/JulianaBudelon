@@ -418,7 +418,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initialScreen = ((): ScreenPage => {
     if (typeof window === "undefined") return "listaview";
     const page = new URLSearchParams(window.location.search).get("page");
-    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "unidades", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "contas-pagar", "config"];
+    const valid: ScreenPage[] = ["indicadores", "listaview", "pedidos", "expedicao", "unidades", "estoque", "recrutamento-talentos", "recrutamento-vagas", "recrutamento-agente", "contas-pagar", "treinamentos", "config"];
     return (valid as string[]).includes(page ?? "") ? (page as ScreenPage) : "listaview";
   })();
   const [screen, setScreen] = useState<ScreenPage>(initialScreen);
@@ -441,7 +441,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [authReady, authed, currentUser.cargo]);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => (typeof window === "undefined" ? true : window.innerWidth > 768));
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ operacional: true, recrutamento: true, lojas: true, administrativo: true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ operacional: true, recrutamento: true, lojas: true, administrativo: true, treinamentos: true });
 
   // ── filtros ────────────────────────────────────────────────────────────────
   const [globalGestor, setGlobalGestorState] = useState("todos");

@@ -120,6 +120,11 @@ Painel de gestão interno da **Ju Budelon**, derivado do sistema da Target Mídi
   lista e resumo por plano) e aba Dashboard (visão do ano). Tabelas `conta_pagar`, `cp_empresa`,
   `cp_plano` (migration 0023), rotas `/api/contas-pagar` (+ `/comprovante`, `/listas`). Fica fora
   do bootstrap: só quem tem acesso à tela recebe os dados (padrão: só Administrador).
+- **Lojas → Unidades** — a conferência do recebimento em cada loja (antes ficava em Produção).
+- **Treinamentos → Guias de processo** — guias de uso de cada processo (fluxo do pedido, Ordem de
+  Serviço, Produção, Expedição, Estoque, Unidades, Vagas, Banco de Talentos, Agente IA e Contas a
+  Pagar). Conteúdo em [`lib/treinamentos.ts`](lib/treinamentos.ts): ao mudar uma regra do sistema,
+  atualize o guia. Todos os cargos leem; cada um vê os guias das telas a que tem acesso.
 - **Login** — e-mail + senha.
 - **Configurações** — Empresa (nome/logo), Pessoas (cadastro, cargo, status, senha), Grupos,
   Acessos (matriz cargo × tela com Sem acesso / Visualizar / Editar + escopo próprio) e Perfil.

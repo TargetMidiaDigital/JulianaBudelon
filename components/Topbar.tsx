@@ -19,6 +19,7 @@ const TITLES: Record<ScreenPage, string> = {
   "recrutamento-vagas": "Vagas",
   "recrutamento-agente": "Agente IA",
   "contas-pagar": "Contas a Pagar",
+  treinamentos: "Guias de processo",
   config: "Configurações",
 };
 

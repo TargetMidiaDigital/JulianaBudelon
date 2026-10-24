@@ -38,6 +38,11 @@ export const spacesTree: Sector[] = [
     label: "Administrativo",
     children: [{ label: "Contas a Pagar", page: "contas-pagar" }],
   },
+  {
+    id: "treinamentos",
+    label: "Treinamentos",
+    children: [{ label: "Guias de processo", page: "treinamentos" }],
+  },
 ];
 
 export const seedWorkspace: Workspace = { nome: "Ju Budelon", logo: null };

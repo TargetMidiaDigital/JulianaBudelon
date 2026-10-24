@@ -169,7 +169,7 @@ export default function Pedidos() {
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 18px;")}>
         <div style={{ flex: 1 }}>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Ordem de Serviço</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{lista.length} {lista.length === 1 ? "ordem" : "ordens"}{groupBy === "none" ? "" : " · agrupadas por status"}</p>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{lista.length} {lista.length === 1 ? "ordem" : "ordens"}{groupBy === "none" ? "" : " · agrupadas por status"}{!filtroStatus && !mostrarValidadas && pedidos.some((p) => p.status === "validada") ? ` · ${pedidos.filter((p) => p.status === "validada").length} validadas ocultas (botão ✓)` : ""}</p>
         </div>
       </div>
 
