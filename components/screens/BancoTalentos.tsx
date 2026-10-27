@@ -61,7 +61,7 @@ function TalentoFiltro({ talentos, filtro, onChange, statusPermitidos }: { talen
     <Menu align="right" width={240} trigger={(tg) => (
       <Hoverable as="button" onClick={() => { setStep("root"); tg(); }} s={css("display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; color:#3A3F4C; cursor:pointer; font-size:13px; padding:9px 14px; border-radius:10px;")} hover="background:#FAFAFB">
         <Svg size={15} stroke="#5B6472"><rect x="3" y="4" width="7" height="7" rx="1.6" /><rect x="14" y="4" width="7" height="7" rx="1.6" /><rect x="3" y="15" width="7" height="5" rx="1.6" /><rect x="14" y="15" width="7" height="5" rx="1.6" /></Svg>
-        <span style={css("color:#9398A6; font-weight:600;")}>Filtrar por</span> <span style={css("font-weight:700;")}>{label}</span>
+        <span className="m-hide" style={css("color:#9398A6; font-weight:600;")}>Filtrar por</span> <span style={css("font-weight:700;")}>{label}</span>
         <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
       </Hoverable>
     )}>

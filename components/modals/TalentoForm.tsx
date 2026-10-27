@@ -69,7 +69,7 @@ export default function TalentoForm() {
           <Hoverable as="button" onClick={close} s={css("width:32px; height:32px; flex:none; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={16} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
         </div>
         <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column; gap:18px;")}>
-          <div style={css("display:grid; grid-template-columns:1fr 1fr; gap:18px 22px;")}>
+          <div className="m-grid-1" style={css("display:grid; grid-template-columns:1fr 1fr; gap:18px 22px;")}>
             <Field label="Nome" req full>
               <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do candidato" style={css(inp)} />
             </Field>

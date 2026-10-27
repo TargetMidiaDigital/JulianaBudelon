@@ -5,16 +5,18 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { css } from "@/lib/css";
 import { ACCENT } from "@/lib/theme";
 import {
-  FORMAS, MESES, MESES_CURTOS, SITUACOES, addDias, brDe, brl, diasEntre, ehPaga, hojeISO, mesDe, nomeMes, situacaoLabel, somaMes,
-  statusDaConta, urlComprovante, valorEfetivo, type Comprovante, type Conta, type FormaPagamento, type ItemLista, type Situacao,
+  FORMAS, MESES, MESES_CURTOS, SITUACOES, TIPOS_DESPESA, tipoDespesaLabel, addDias, brDe, brl, diasEntre, ehPaga, hojeISO, mesDe, nomeMes, situacaoLabel, somaMes,
+  statusDaConta, urlComprovante, valorEfetivo, type Comprovante, type Conta, type FormaPagamento, type ItemLista, type Situacao, type TipoDespesa,
 } from "@/lib/contas-pagar";
 import { apiJson, authToken, getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useApp } from "../store";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
+import RelatorioContas from "../modals/RelatorioContas";
 
 /**
  * Administrativo → Contas a Pagar. Dados em /api/contas-pagar (tabelas conta_pagar, cp_empresa,
@@ -39,6 +41,8 @@ export default function ContasPagar() {
   const [carregando, setCarregando] = useState(true);
   const [erroCarga, setErroCarga] = useState("");
   const podeEditar = podeEditarApi && canEditPage("contas-pagar");
+  const mobile = useIsMobile();
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false); // celular: filtros extras recolhidos
   const [aba, setAba] = useState<"contas" | "dashboard">("contas");
   const [mes, setMes] = useState(mesDe(hoje));
   const [busca, setBusca] = useState("");
@@ -46,6 +50,8 @@ export default function ContasPagar() {
   const [plano, setPlano] = useState("");
   const [empresas, setEmpresas] = useState<string[]>([]);
   const [forma, setForma] = useState("");
+  const [tipo, setTipo] = useState<TipoDespesa | "">("");
+  const [relatorio, setRelatorio] = useState(false);
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [ordem, setOrdem] = useState<"asc" | "desc">("asc");
@@ -107,15 +113,16 @@ export default function ContasPagar() {
       if (plano && c.plano !== plano) return false;
       if (empresas.length && !empresas.includes(c.empresa)) return false;
       if (forma && c.forma !== forma) return false;
+      if (tipo && c.tipoDespesa !== tipo) return false;
       const pago = ehPaga(c.situacao);
       if (sit === "apagar" && pago) return false;
       if (sit === "pagas" && !pago) return false;
       if (sit === "vencidas" && (pago || c.vencimento >= hoje)) return false;
-      if (q && ![c.descricao, c.empresa, c.plano, c.codigoBarras ?? "", c.obs ?? ""].some((v) => v.toLowerCase().includes(q))) return false;
+      if (q && ![c.descricao, c.empresa, c.plano, c.numeroDocumento ?? "", c.codigoBarras ?? "", c.obs ?? ""].some((v) => v.toLowerCase().includes(q))) return false;
       return true;
     });
     return l.sort((a, b) => (ordem === "asc" ? 1 : -1) * (a.vencimento.localeCompare(b.vencimento) || a.descricao.localeCompare(b.descricao)));
-  }, [contas, busca, sit, plano, empresas, forma, de, ate, mes, porData, ordem, hoje]);
+  }, [contas, busca, sit, plano, empresas, forma, tipo, de, ate, mes, porData, ordem, hoje]);
 
   const tot = useMemo(() => {
     const total = filtradas.reduce((s, c) => s + c.valor, 0);
@@ -137,9 +144,10 @@ export default function ContasPagar() {
     ...(plano ? [{ label: plano, limpar: () => setPlano("") }] : []),
     ...empresas.map((e) => ({ label: e, limpar: () => setEmpresas((l) => l.filter((x) => x !== e)) })),
     ...(forma ? [{ label: forma, limpar: () => setForma("") }] : []),
+    ...(tipo ? [{ label: `Despesa ${tipoDespesaLabel(tipo).toLowerCase()}`, limpar: () => setTipo("") }] : []),
     ...(porData ? [{ label: rotuloPeriodo(de, ate), limpar: () => { setDe(""); setAte(""); } }] : []),
   ];
-  const limparTudo = () => { setBusca(""); setSit("todas"); setPlano(""); setEmpresas([]); setForma(""); setDe(""); setAte(""); };
+  const limparTudo = () => { setBusca(""); setSit("todas"); setPlano(""); setEmpresas([]); setForma(""); setTipo(""); setDe(""); setAte(""); };
   const contagemEmpresa = useMemo(() => {
     const m: Record<string, number> = {};
     for (const c of contas) if (porData ? (!de || c.vencimento >= de) && (!ate || c.vencimento <= ate) : mesDe(c.vencimento) === mes) m[c.empresa] = (m[c.empresa] ?? 0) + 1;
@@ -168,6 +176,33 @@ export default function ContasPagar() {
     try { await apiJson("/api/contas-pagar", "DELETE", { id: c.id }); setContas((cs) => cs.filter((x) => x.id !== c.id)); setEditando(null); avisar("Conta excluída."); }
     catch (e) { avisar(`Não excluiu: ${(e as Error).message}`); }
   };
+  /** Quantas contas usam cada empresa / plano (para os avisos de renomear e excluir). */
+  const usoDe = (qual: "empresa" | "plano", nome: string) => contas.filter((c) => c[qual] === nome).length;
+  const renomearItem = async (qual: "empresa" | "plano", de: string, para: string): Promise<string | null> => {
+    const lista = qual === "empresa" ? listaEmpresas : listaPlanos;
+    const item = lista.find((x) => x.nome === de);
+    if (!item) { avisar("Item não encontrado na lista."); return null; }
+    try {
+      const r = await apiJson<{ item: ItemLista; contas: number }>("/api/contas-pagar/listas", "PATCH", { tipo: qual, id: item.id, nome: para });
+      (qual === "empresa" ? setListaEmpresas : setListaPlanos)((l) => l.map((x) => (x.id === item.id ? { ...x, nome: r.item.nome } : x)));
+      setContas((cs) => cs.map((c) => (c[qual] === de ? { ...c, [qual]: r.item.nome } : c)));
+      if (qual === "plano" && plano === de) setPlano(r.item.nome);
+      if (qual === "empresa") setEmpresas((l) => l.map((e) => (e === de ? r.item.nome : e)));
+      avisar(r.contas ? `Renomeado. ${r.contas} ${r.contas === 1 ? "conta atualizada" : "contas atualizadas"}.` : "Renomeado.");
+      return r.item.nome;
+    } catch (e) { avisar((e as Error).message); return null; }
+  };
+  const excluirItem = async (qual: "empresa" | "plano", nome: string): Promise<boolean> => {
+    const lista = qual === "empresa" ? listaEmpresas : listaPlanos;
+    const item = lista.find((x) => x.nome === nome);
+    if (!item) return false;
+    try {
+      await apiJson("/api/contas-pagar/listas", "DELETE", { tipo: qual, id: item.id });
+      (qual === "empresa" ? setListaEmpresas : setListaPlanos)((l) => l.filter((x) => x.id !== item.id));
+      avisar(`“${nome}” saiu da lista.`);
+      return true;
+    } catch (e) { avisar((e as Error).message); return false; }
+  };
   const novoItem = async (tipo: "empresa" | "plano", nome: string): Promise<string | null> => {
     try {
       const { item } = await apiJson<{ item: ItemLista }>("/api/contas-pagar/listas", "POST", { tipo, nome });
@@ -177,7 +212,7 @@ export default function ContasPagar() {
   };
 
   return (
-    <div style={css("height:100%; display:flex; flex-direction:column; min-height:0;")}>
+    <div className="cp-root" style={css("height:100%; display:flex; flex-direction:column; min-height:0;")}>
       {/* Cabeçalho */}
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:14px; padding:24px 30px 14px; flex-wrap:wrap;")}>
         <div style={css("flex:1 1 220px;")}>
@@ -201,12 +236,17 @@ export default function ContasPagar() {
             <IconBtn titulo="Próximo mês" onClick={() => { setMes(somaMes(mes, 1)); setDe(""); setAte(""); }}><path d="m9 18 6-6-6-6" /></IconBtn>
           </div>
         )}
-        {podeEditar && <Hoverable as="button" onClick={() => setEditando("nova")} s={css(`display:inline-flex; align-items:center; gap:7px; border:none; background:${ACCENT}; color:#fff; cursor:pointer; font-size:13px; font-weight:700; padding:10px 15px; border-radius:10px;`)} hover="filter:brightness(1.08)">
+        {aba === "contas" && (
+          <Hoverable as="button" onClick={() => setRelatorio(true)} title="Relatório das contas filtradas (imprimir / PDF)" s={css("display:inline-flex; align-items:center; gap:7px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:9px 14px; border-radius:10px;")} hover="background:#FAFAFB">
+            <Svg size={14} sw={2.2}><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></Svg>Relatório
+          </Hoverable>
+        )}
+        {(carregando ? canEditPage("contas-pagar") : podeEditar) && <Hoverable as="button" onClick={() => !carregando && setEditando("nova")} s={css(`display:inline-flex; align-items:center; gap:7px; border:none; background:${ACCENT}; color:#fff; cursor:pointer; font-size:13px; font-weight:700; padding:10px 15px; border-radius:10px;`)} hover="filter:brightness(1.08)">
           <Svg size={14} sw={2.6}><path d="M12 5v14M5 12h14" /></Svg>Nova conta
         </Hoverable>}
       </div>
 
-      <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:0 30px 30px;")}>
+      <div className="m-pad cp-scroll" style={css("flex:1; min-height:0; overflow-y:auto; padding:0 30px 30px;")}>
         {erroCarga && (
           <div style={css("display:flex; align-items:center; gap:10px; background:#FDECEC; border:1px solid #F5C2C4; color:#A12A2F; border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:13px; font-weight:700;")}>
             <span style={{ flex: 1 }}>Não foi possível carregar as contas: {erroCarga}</span>
@@ -215,23 +255,32 @@ export default function ContasPagar() {
         )}
         {/* KPIs (carteira toda) */}
         <div className="cp-kpis" style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:16px;")}>
-          <Kpi cor={COR_VENCIDA} rotulo="Vencidas" valor={brl(kpi.soma(kpi.vencidas))} sub={`${kpi.vencidas.length} ${kpi.vencidas.length === 1 ? "conta" : "contas"} em atraso`} onClick={() => { limparTudo(); setSit("vencidas"); setAte(addDias(hoje, -1)); setAba("contas"); }} />
-          <Kpi cor={COR_BREVE} rotulo="Vencem amanhã" valor={brl(kpi.soma(kpi.amanha))} sub={`${kpi.amanha.length} ${kpi.amanha.length === 1 ? "conta" : "contas"} em ${brDe(amanha).slice(0, 5)}`} onClick={() => { limparTudo(); setSit("apagar"); setDe(amanha); setAte(amanha); setAba("contas"); }} />
-          <Kpi cor={COR_ABERTO} rotulo="Total em aberto" valor={brl(kpi.soma(kpi.abertas))} sub={`${kpi.abertas.length} contas a pagar`} />
-          <Kpi cor={COR_PAGO} rotulo="Pago no mês atual" valor={brl(kpi.soma(kpi.pagasMes))} sub={`${kpi.pagasMes.length} pagamentos em ${MESES[Number(hoje.slice(5, 7)) - 1].toLowerCase()}`} />
+          <Kpi cor={COR_VENCIDA} rotulo="Vencidas" valor={carregando ? "…" : brl(kpi.soma(kpi.vencidas))} sub={`${kpi.vencidas.length} ${kpi.vencidas.length === 1 ? "conta" : "contas"} em atraso`} onClick={() => { limparTudo(); setSit("vencidas"); setAte(addDias(hoje, -1)); setAba("contas"); }} />
+          <Kpi cor={COR_BREVE} rotulo="Vencem amanhã" valor={carregando ? "…" : brl(kpi.soma(kpi.amanha))} sub={`${kpi.amanha.length} ${kpi.amanha.length === 1 ? "conta" : "contas"} em ${brDe(amanha).slice(0, 5)}`} onClick={() => { limparTudo(); setSit("apagar"); setDe(amanha); setAte(amanha); setAba("contas"); }} />
+          <Kpi cor={COR_ABERTO} rotulo="Total em aberto" valor={carregando ? "…" : brl(kpi.soma(kpi.abertas))} sub={`${kpi.abertas.length} contas a pagar`} />
+          <Kpi cor={COR_PAGO} rotulo="Pago no mês atual" valor={carregando ? "…" : brl(kpi.soma(kpi.pagasMes))} sub={`${kpi.pagasMes.length} pagamentos em ${MESES[Number(hoje.slice(5, 7)) - 1].toLowerCase()}`} />
         </div>
 
         {aba === "dashboard" ? <Dashboard contas={contas} hoje={hoje} anoAtual={anoAtual} onAbrir={(c) => podeEditar && setEditando(c)} /> : (<>
           {/* Filtros */}
           <div style={css("background:#fff; border:1px solid #ECEDF1; border-radius:14px; padding:14px 16px; margin-bottom:14px; display:flex; flex-direction:column; gap:12px;")}>
             <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
-              <label style={css("flex:1 1 260px; display:flex; align-items:center; gap:8px; border:1px solid #E2E3E9; border-radius:10px; padding:0 12px; background:#FAFAFB;")}>
+              <label style={css("flex:1 1 220px; display:flex; align-items:center; gap:8px; border:1px solid #E2E3E9; border-radius:10px; padding:0 12px; background:#FAFAFB;")}>
                 <Svg size={15} stroke="#9398A6"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Svg>
                 <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar fornecedor, NF, código de barras…" style={css("flex:1; border:none; outline:none; background:transparent; font-size:13px; padding:10px 0; min-width:0;")} />
               </label>
               <Seg opts={[{ k: "todas", l: "Todas" }, { k: "apagar", l: "A pagar" }, { k: "vencidas", l: "Vencidas" }, { k: "pagas", l: "Pagas" }]} v={sit} set={(k) => setSit(k as FiltroSit)} />
+              {mobile && (() => {
+                const n = (plano ? 1 : 0) + (empresas.length ? 1 : 0) + (forma ? 1 : 0) + (tipo ? 1 : 0) + (de || ate ? 1 : 0);
+                return (
+                  <button onClick={() => setFiltrosAbertos((v) => !v)} style={css(`display:inline-flex; align-items:center; gap:6px; border:1px solid ${n ? ACCENT : "#E2E3E9"}; background:${n ? "#FDF1F4" : "#fff"}; color:${n ? ACCENT : "#3A3F4C"}; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer;`)}>
+                    <Svg size={14} sw={2.2}><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z" /></Svg>Filtros{n ? ` (${n})` : ""}
+                    <Svg size={12} sw={2.4} style={{ transform: filtrosAbertos ? "rotate(180deg)" : "none" }}><path d="m6 9 6 6 6-6" /></Svg>
+                  </button>
+                );
+              })()}
             </div>
-            <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
+            {(!mobile || filtrosAbertos) && <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap;")}>
               <Filtro rotulo="Plano" valor={plano || "Todos os planos"} ativo={!!plano}>
                 {(c) => (<>
                   <MenuItem checked={!plano} accent={ACCENT} onClick={() => { setPlano(""); c(); }}><span style={{ flex: 1 }}>Todos os planos</span></MenuItem>
@@ -264,6 +313,12 @@ export default function ContasPagar() {
                   {FORMAS.map((f) => <MenuItem key={f} checked={forma === f} accent={ACCENT} onClick={() => { setForma(f); c(); }}><span style={{ flex: 1 }}>{f}</span></MenuItem>)}
                 </>)}
               </Filtro>
+              <Filtro rotulo="Despesa" valor={tipo ? tipoDespesaLabel(tipo) : "Todas"} ativo={!!tipo}>
+                {(c) => (<>
+                  <MenuItem checked={!tipo} accent={ACCENT} onClick={() => { setTipo(""); c(); }}><span style={{ flex: 1 }}>Fixas e variáveis</span></MenuItem>
+                  {TIPOS_DESPESA.map((t) => <MenuItem key={t.key} checked={tipo === t.key} accent={ACCENT} onClick={() => { setTipo(t.key); c(); }}><span style={{ flex: 1 }}>{t.label}</span></MenuItem>)}
+                </>)}
+              </Filtro>
               <div style={css("display:flex; align-items:center; gap:6px; flex-wrap:wrap;")}>
                 <span style={css("font-size:12.5px; color:#9398A6; font-weight:700;")}>Vencimento</span>
                 <input type="date" value={de} onChange={(e) => setDe(e.target.value)} style={css(campoData(!!de))} aria-label="Vencimento de" />
@@ -271,15 +326,15 @@ export default function ContasPagar() {
                 <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} style={css(campoData(!!ate))} aria-label="Vencimento até" />
                 <Hoverable as="button" onClick={() => { setDe(hoje); setAte(hoje); }} s={css("border:1px solid #E2E3E9; background:#fff; border-radius:9px; padding:7px 10px; font-size:12px; font-weight:700; color:#3A3F4C; cursor:pointer;")} hover="background:#FAFAFB">Hoje</Hoverable>
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Resumo do filtro */}
           <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin-bottom:12px;")}>
-            <Mini rotulo="Contas filtradas" valor={String(filtradas.length)} />
-            <Mini rotulo="Valor total" valor={brl(tot.total)} destaque />
-            <Mini rotulo="Pago" valor={brl(tot.pago)} cor={COR_PAGO} />
-            <Mini rotulo="Em aberto" valor={brl(tot.aberto)} cor={COR_ABERTO} />
+            <Mini rotulo="Contas filtradas" valor={carregando ? "…" : String(filtradas.length)} />
+            <Mini rotulo="Valor total" valor={carregando ? "…" : brl(tot.total)} destaque />
+            <Mini rotulo="Pago" valor={carregando ? "…" : brl(tot.pago)} cor={COR_PAGO} />
+            <Mini rotulo="Em aberto" valor={carregando ? "…" : brl(tot.aberto)} cor={COR_ABERTO} />
           </div>
           {chips.length > 0 && (
             <div style={css("display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:12px;")}>
@@ -300,15 +355,17 @@ export default function ContasPagar() {
                 <div style={css("flex:1; font-size:15px; font-weight:800; color:#1B1B28;")}>{porData ? rotuloPeriodo(de, ate) : nomeMes(mes)}</div>
                 <div style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{filtradas.length} contas · {brl(tot.total)} · <span style={{ color: COR_ABERTO }}>{brl(tot.aberto)} em aberto</span></div>
               </div>
-              <div style={css("overflow-x:auto;")}>
-                <div style={css("min-width:760px;")}>
-                  <div style={css(`display:grid; grid-template-columns:${COLS}; gap:10px; padding:8px 16px; border-top:1px solid #F0F1F4; border-bottom:1px solid #F0F1F4; background:#FAFAFB; font-size:11px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:#9398A6;`)}>
+              <div style={css(mobile ? "" : "overflow-x:auto;")}>
+                <div style={css(mobile ? "display:flex; flex-direction:column; gap:8px; padding:0 10px 10px;" : "min-width:760px;")}>
+                  {mobile ? (
+                    <button onClick={() => setOrdem((o) => (o === "asc" ? "desc" : "asc"))} style={css("align-self:flex-start; border:none; background:transparent; padding:0 4px; cursor:pointer; font-size:12px; font-weight:700; color:#5B6472;")}>Vencimento {ordem === "asc" ? "↑ mais antigas primeiro" : "↓ mais novas primeiro"}</button>
+                  ) : <div style={css(`display:grid; grid-template-columns:${COLS}; gap:10px; padding:8px 16px; border-top:1px solid #F0F1F4; border-bottom:1px solid #F0F1F4; background:#FAFAFB; font-size:11px; font-weight:700; letter-spacing:.3px; text-transform:uppercase; color:#9398A6;`)}>
                     <button onClick={() => setOrdem((o) => (o === "asc" ? "desc" : "asc"))} style={css("border:none; background:transparent; padding:0; cursor:pointer; font:inherit; color:#5B6472; text-transform:inherit; letter-spacing:inherit; text-align:left; display:flex; align-items:center; gap:4px;")}>Vencimento {ordem === "asc" ? "↑" : "↓"}</button>
                     <span>Descrição</span><span style={{ textAlign: "right" }}>Valor</span><span>Empresa</span><span>Situação</span><span style={{ textAlign: "right" }}>Ações</span>
-                  </div>
+                  </div>}
                   {filtradas.length === 0 ? (
                     <div style={css("padding:48px 16px; text-align:center; color:#9398A6; font-size:13.5px; font-weight:600;")}>{carregando ? "Carregando contas…" : contas.length === 0 ? (podeEditar ? "Nenhuma conta lançada ainda. Use “+ Nova conta” para começar." : "Nenhuma conta lançada ainda.") : "Nenhuma conta corresponde aos filtros."}</div>
-                  ) : filtradas.map((c) => <Linha key={c.id} c={c} hoje={hoje} podeEditar={podeEditar} onEditar={() => setEditando(c)} onSituacao={(s) => { void atualizar(c.id, pagamentoPara(c, s, hoje)); }} onAnexar={async (f) => { try { const comp = await enviarComprovante(f, c.id); await atualizar(c.id, { comprovantes: [...c.comprovantes, comp] }, "Comprovante anexado."); } catch (e) { avisar((e as Error).message); } }} onCopiar={async () => { try { await navigator.clipboard.writeText(c.codigoBarras ?? ""); } catch { /* sem permissão: só avisa */ } avisar("Código de barras copiado."); }} />)}
+                  ) : filtradas.map((c) => <Linha key={c.id} c={c} hoje={hoje} mobile={mobile} podeEditar={podeEditar} onEditar={() => setEditando(c)} onSituacao={(s) => { void atualizar(c.id, pagamentoPara(c, s, hoje)); }} onAnexar={async (f) => { try { const comp = await enviarComprovante(f, c.id); await atualizar(c.id, { comprovantes: [...c.comprovantes, comp] }, "Comprovante anexado."); } catch (e) { avisar((e as Error).message); } }} onCopiar={async () => { try { await navigator.clipboard.writeText(c.codigoBarras ?? ""); } catch { /* sem permissão: só avisa */ } avisar("Código de barras copiado."); }} />)}
                 </div>
               </div>
             </section>
@@ -342,8 +399,13 @@ export default function ContasPagar() {
       </div>
 
       <style>{`@media (max-width: 1180px) { .cp-grid { grid-template-columns: minmax(0,1fr) !important; } }
+            @media (max-width: 768px) { .cp-root { height:auto !important; } .cp-scroll { overflow:visible !important; flex:none !important; } }
+            @media (max-width: 768px) { .cp-sheet { top:0 !important; left:0 !important; transform:none !important; width:100vw !important; max-width:100vw !important; height:100dvh !important; max-height:100dvh !important; border-radius:0 !important; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); } }
             @media (max-width: 560px) { .cp-kpis { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap:8px !important; } .cp-kpis .cp-kpi-v { font-size:17px !important; } }`}</style>
-      {editando && <ContaForm conta={editando === "nova" ? null : editando} hoje={hoje} empresas={EMPRESAS} planos={PLANOS} onNovoItem={novoItem} onFechar={() => setEditando(null)} onSalvar={salvar} onExcluir={setExcluindo} />}
+      {editando && <ContaForm conta={editando === "nova" ? null : editando} hoje={hoje} empresas={EMPRESAS} planos={PLANOS} onNovoItem={novoItem} onRenomearItem={renomearItem} onExcluirItem={excluirItem} usoDe={usoDe} onFechar={() => setEditando(null)} onSalvar={salvar} onExcluir={setExcluindo} />}
+      {relatorio && (
+        <RelatorioContas contas={filtradas} periodo={porData ? rotuloPeriodo(de, ate) : nomeMes(mes)} filtros={chips.map((c) => c.label).filter((l) => !l.startsWith("Vencimento"))} hoje={hoje} onClose={() => setRelatorio(false)} />
+      )}
       {excluindo && (
         <ConfirmModal danger titulo="Excluir conta" confirmLabel="Excluir" onClose={() => setExcluindo(null)} onConfirm={() => void excluir(excluindo)}
           mensagem={<>A conta <strong>{excluindo.descricao}</strong> ({brl(excluindo.valor)}, vencimento {brDe(excluindo.vencimento)}) será excluída.{excluindo.comprovantes.length ? " Os comprovantes anexados também serão apagados." : ""} Esta ação não pode ser desfeita.</>} />
@@ -380,7 +442,7 @@ async function enviarComprovante(file: File, contaId: string): Promise<Comprovan
 
 const ICONE_CLIPE = <Svg size={14}><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" /></Svg>;
 
-function Linha({ c, hoje, podeEditar, onEditar, onSituacao, onAnexar, onCopiar }: { c: Conta; hoje: string; podeEditar: boolean; onEditar: () => void; onSituacao: (s: Situacao) => void; onAnexar: (f: File) => Promise<void>; onCopiar: () => void }) {
+function Linha({ c, hoje, mobile, podeEditar, onEditar, onSituacao, onAnexar, onCopiar }: { c: Conta; hoje: string; mobile?: boolean; podeEditar: boolean; onEditar: () => void; onSituacao: (s: Situacao) => void; onAnexar: (f: File) => Promise<void>; onCopiar: () => void }) {
   const st = statusDaConta(c, hoje);
   const arq = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
@@ -397,45 +459,77 @@ function Linha({ c, hoje, podeEditar, onEditar, onSituacao, onAnexar, onCopiar }
       {c.comprovantes.length === 0 && <span style={css(`position:absolute; top:-3px; right:-4px; width:7px; height:7px; border-radius:50%; background:${COR_VENCIDA}; border:1.5px solid #fff;`)} />}
     </span>
   );
+  const situacaoEl = podeEditar ? (
+    <Menu width={190} trigger={(t) => pilula(t)}>
+      {(close) => SITUACOES.map((s) => <MenuItem key={s.key} checked={c.situacao === s.key} accent={ACCENT} onClick={() => { onSituacao(s.key); close(); }}><span style={{ flex: 1 }}>{s.label}</span></MenuItem>)}
+    </Menu>
+  ) : <div>{pilula()}</div>;
+  const acoes = (
+    <div onClick={(e) => e.stopPropagation()} style={css(`display:flex; align-items:center; justify-content:flex-end; gap:${mobile ? 6 : 4}px;`)}>
+      <input ref={arq} type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onChange={async (e) => {
+        // Só limpa o campo DEPOIS do envio: em alguns navegadores (iOS/Chrome móvel) limpar antes invalida o arquivo.
+        const input = e.target; const f = input.files?.[0]; if (!f) return;
+        setEnviando(true); try { await onAnexar(f); } finally { setEnviando(false); input.value = ""; }
+      }} />
+      {enviando ? (
+        <span style={css("font-size:11.5px; color:#9398A6; font-weight:700; padding:0 6px;")}>Enviando…</span>
+      ) : c.comprovantes.length === 0 ? (
+        podeEditar ? <Acao grande={mobile} titulo="Sem comprovante — anexar" onClick={() => arq.current?.click()}>{clipe}</Acao> : <span title="Sem comprovante" style={css("display:flex; color:#C9CCD5; padding:6px 7px;")}>{clipe}</span>
+      ) : (
+        <Menu width={240} align="right" trigger={(t) => <Acao grande={mobile} titulo={`${c.comprovantes.length} comprovante(s)`} onClick={t}>{clipe}<span style={css("font-size:11px;")}>{c.comprovantes.length}</span></Acao>}>
+          {(close) => (<>
+            {c.comprovantes.map((cp) => (
+              <a key={cp.path} href={urlComprovante(cp)} target="_blank" rel="noreferrer" onClick={close} style={css("display:flex; align-items:center; gap:8px; padding:10px 9px; border-radius:7px; font-size:13px; font-weight:600; color:#3A3F4C; text-decoration:none;")}>
+                <Svg size={13} stroke="#9398A6"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /></Svg>
+                <span style={css("flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{cp.nome}</span>
+              </a>
+            ))}
+            {podeEditar && <MenuItem onClick={() => { close(); arq.current?.click(); }}><span style={css(`flex:1; color:${ACCENT}; font-weight:700;`)}>+ Anexar outro</span></MenuItem>}
+          </>)}
+        </Menu>
+      )}
+      {c.codigoBarras && <Acao grande={mobile} titulo={`Copiar código de barras: ${c.codigoBarras}`} onClick={onCopiar}><Svg size={14}><path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12" /></Svg></Acao>}
+      {podeEditar && <Acao grande={mobile} titulo="Editar conta" onClick={onEditar}><Svg size={14}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></Svg></Acao>}
+    </div>
+  );
+  const tag = c.tipoDespesa ? <span style={css(`margin-left:6px; font-size:10px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; padding:1px 6px; border-radius:5px; background:${c.tipoDespesa === "fixa" ? "#EEF2FF" : "#F2F3F6"}; color:${c.tipoDespesa === "fixa" ? "#4338CA" : "#5B6472"};`)}>{tipoDespesaLabel(c.tipoDespesa)}</span> : null;
+
+  // Celular: cartão (descrição + valor em cima, vencimento/empresa, situação + ações embaixo).
+  if (mobile) {
+    return (
+      <div onClick={podeEditar ? onEditar : undefined} style={css(`background:#fff; border:1px solid #ECEDF1; border-left:4px solid ${st.tipo === "vencida" ? COR_VENCIDA : st.tipo === "pago" ? COR_PAGO : "#E2E3E9"}; border-radius:12px; padding:11px 12px; display:flex; flex-direction:column; gap:7px; ${podeEditar ? "cursor:pointer;" : ""}`)}>
+        <div style={css("display:flex; gap:10px; align-items:flex-start;")}>
+          <div style={css("flex:1; min-width:0; font-size:13.5px; font-weight:800; color:#1B1B28; text-transform:uppercase; line-height:1.3; overflow-wrap:anywhere;")}>{c.descricao}</div>
+          <div style={css("text-align:right; font-variant-numeric:tabular-nums; flex:none;")}>
+            <div style={css("font-size:14.5px; font-weight:800; color:#1B1B28;")}>{brl(c.valor)}</div>
+            {juros && <div style={css("font-size:11px; color:#CC3338; font-weight:700;")}>pago {brl(c.valorPago!)}</div>}
+          </div>
+        </div>
+        <div style={css("font-size:12px; color:#7A8090; font-weight:600; line-height:1.45;")}>
+          <span style={css(`font-weight:800; color:${st.tipo === "vencida" ? "#CC3338" : "#3A3F4C"};`)}>{brDe(c.vencimento)}</span> · {c.empresa} · {c.plano} · {c.forma}{c.numeroDocumento ? ` · Doc. ${c.numeroDocumento}` : ""}{tag}
+        </div>
+        <div style={css("display:flex; align-items:center; gap:8px;")}>
+          <div onClick={(e) => e.stopPropagation()} style={css("flex:1; min-width:0;")}>{situacaoEl}</div>
+          {acoes}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={css(`display:grid; grid-template-columns:${COLS}; gap:10px; align-items:center; padding:10px 16px; border-bottom:1px solid #F4F5F7; border-left:3px solid ${st.tipo === "vencida" ? COR_VENCIDA : "transparent"}; font-size:13px;`)}>
       <span style={css(`font-weight:700; font-variant-numeric:tabular-nums; color:${st.tipo === "vencida" ? "#CC3338" : "#3A3F4C"};`)}>{brDe(c.vencimento)}</span>
       <div style={css("min-width:0;")}>
         <div style={css("font-weight:700; color:#1B1B28; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")} title={c.descricao}>{c.descricao}</div>
-        <div style={css("font-size:11.5px; color:#9398A6; font-weight:600; margin-top:1px;")}>{c.plano} · {c.forma}</div>
+        <div style={css("font-size:11.5px; color:#9398A6; font-weight:600; margin-top:1px;")}>{c.plano} · {c.forma}{c.numeroDocumento ? ` · Doc. ${c.numeroDocumento}` : ""}{tag}</div>
       </div>
       <div style={css("text-align:right; font-variant-numeric:tabular-nums;")}>
         <div style={css("font-weight:800; color:#1B1B28;")}>{brl(c.valor)}</div>
         {juros && <div style={css("font-size:11px; color:#CC3338; font-weight:700;")} title="Valor pago com juros/multa">pago {brl(c.valorPago!)}</div>}
       </div>
       <span style={css("font-size:12.5px; font-weight:700; color:#5B6472; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{c.empresa}</span>
-      {podeEditar ? (
-        <Menu width={190} trigger={(t) => pilula(t)}>
-          {(close) => SITUACOES.map((s) => <MenuItem key={s.key} checked={c.situacao === s.key} accent={ACCENT} onClick={() => { onSituacao(s.key); close(); }}><span style={{ flex: 1 }}>{s.label}</span></MenuItem>)}
-        </Menu>
-      ) : <div>{pilula()}</div>}
-      <div style={css("display:flex; align-items:center; justify-content:flex-end; gap:4px;")}>
-        <input ref={arq} type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; setEnviando(true); try { await onAnexar(f); } finally { setEnviando(false); } }} />
-        {enviando ? (
-          <span style={css("font-size:11.5px; color:#9398A6; font-weight:700; padding:0 6px;")}>Enviando…</span>
-        ) : c.comprovantes.length === 0 ? (
-          podeEditar ? <Acao titulo="Sem comprovante — anexar" onClick={() => arq.current?.click()}>{clipe}</Acao> : <span title="Sem comprovante" style={css("display:flex; color:#C9CCD5; padding:6px 7px;")}>{clipe}</span>
-        ) : (
-          <Menu width={240} align="right" trigger={(t) => <Acao titulo={`${c.comprovantes.length} comprovante(s)`} onClick={t}>{clipe}<span style={css("font-size:11px;")}>{c.comprovantes.length}</span></Acao>}>
-            {(close) => (<>
-              {c.comprovantes.map((cp) => (
-                <a key={cp.path} href={urlComprovante(cp)} target="_blank" rel="noreferrer" onClick={close} style={css("display:flex; align-items:center; gap:8px; padding:8px 9px; border-radius:7px; font-size:12.5px; font-weight:600; color:#3A3F4C; text-decoration:none;")}>
-                  <Svg size={13} stroke="#9398A6"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /></Svg>
-                  <span style={css("flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{cp.nome}</span>
-                </a>
-              ))}
-              {podeEditar && <MenuItem onClick={() => { close(); arq.current?.click(); }}><span style={css(`flex:1; color:${ACCENT}; font-weight:700;`)}>+ Anexar outro</span></MenuItem>}
-            </>)}
-          </Menu>
-        )}
-        {c.codigoBarras && <Acao titulo={`Copiar código de barras: ${c.codigoBarras}`} onClick={onCopiar}><Svg size={14}><path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12" /></Svg></Acao>}
-        {podeEditar && <Acao titulo="Editar conta" onClick={onEditar}><Svg size={14}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></Svg></Acao>}
-      </div>
+      {situacaoEl}
+      {acoes}
     </div>
   );
 }
@@ -556,13 +650,16 @@ function ListaCurta({ contas, onAbrir, direita }: { contas: Conta[]; onAbrir: (c
 // ── Formulário (nova / editar) ──
 const pareceCodigo = (t: string) => t.replace(/[\s.]/g, "").length >= 40 && /^[\d\s.]+$/.test(t);
 
-function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalvar, onExcluir }: {
+function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onRenomearItem, onExcluirItem, usoDe, onFechar, onSalvar, onExcluir }: {
   conta: Conta | null; hoje: string; empresas: string[]; planos: string[];
   onNovoItem: (tipo: "empresa" | "plano", nome: string) => Promise<string | null>;
+  onRenomearItem: (tipo: "empresa" | "plano", de: string, para: string) => Promise<string | null>;
+  onExcluirItem: (tipo: "empresa" | "plano", nome: string) => Promise<boolean>;
+  usoDe: (tipo: "empresa" | "plano", nome: string) => number;
   onFechar: () => void; onSalvar: (l: Conta[], id?: string) => Promise<string | null>; onExcluir: (c: Conta) => void;
 }) {
   const [f, setF] = useState({
-    descricao: conta?.descricao ?? "", vencimento: conta?.vencimento ?? hoje, valor: conta ? conta.valor.toFixed(2).replace(".", ",") : "",
+    descricao: conta?.descricao ?? "", numeroDocumento: conta?.numeroDocumento ?? "", tipoDespesa: (conta?.tipoDespesa ?? "variavel") as TipoDespesa | "", vencimento: conta?.vencimento ?? hoje, valor: conta ? conta.valor.toFixed(2).replace(".", ",") : "",
     plano: conta?.plano ?? planos[0] ?? "", empresa: conta?.empresa ?? empresas[0] ?? "", forma: (conta?.forma ?? "Boleto") as FormaPagamento, parcelas: "1",
     situacao: (conta?.situacao ?? "a pagar") as Situacao, valorPago: conta?.valorPago != null ? conta.valorPago.toFixed(2).replace(".", ",") : "",
     dataPagamento: conta?.dataPagamento ?? "", obs: conta?.codigoBarras ?? conta?.obs ?? "", comprovantes: conta?.comprovantes ?? ([] as Comprovante[]),
@@ -602,6 +699,21 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
     if (ok) set(tipo === "empresa" ? { empresa: ok } : { plano: ok });
     return !!ok;
   };
+  /** Lápis e lixeira dentro do seletor de empresa / plano. */
+  const gerenciar = (tipo: "empresa" | "plano") => ({
+    rotulo: tipo === "empresa" ? "empresa" : "plano de contas",
+    uso: (nome: string) => usoDe(tipo, nome),
+    renomear: async (de: string, para: string) => {
+      const novo = await onRenomearItem(tipo, de, para);
+      if (novo && f[tipo] === de) set(tipo === "empresa" ? { empresa: novo } : { plano: novo });
+      return !!novo;
+    },
+    excluir: async (nome: string) => {
+      const ok = await onExcluirItem(tipo, nome);
+      if (ok && f[tipo] === nome) set(tipo === "empresa" ? { empresa: "" } : { plano: "" });
+      return ok;
+    },
+  });
   useFecharComEsc(true, fechar);
 
   const salvar = async () => {
@@ -611,11 +723,12 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
     if (!(valor > 0)) return setErro("Informe o valor original.");
     if (!f.plano) return setErro("Escolha o plano de contas.");
     if (!f.empresa) return setErro("Escolha a empresa.");
+    if (!f.tipoDespesa) return setErro("Escolha se a despesa é variável ou fixa.");
     if (enviando) return setErro("Aguarde o envio dos comprovantes.");
     const pago = ehPaga(f.situacao);
     const texto = f.obs.trim();
     const base = {
-      plano: f.plano, empresa: f.empresa, forma: f.forma, valor, situacao: f.situacao, comprovantes: f.comprovantes,
+      plano: f.plano, empresa: f.empresa, forma: f.forma, valor, numeroDocumento: f.numeroDocumento.trim() || undefined, tipoDespesa: f.tipoDespesa || undefined, situacao: f.situacao, comprovantes: f.comprovantes,
       valorPago: pago ? (num(f.valorPago) > 0 ? num(f.valorPago) : valor) : undefined,
       dataPagamento: pago ? f.dataPagamento || hoje : undefined,
       codigoBarras: texto && pareceCodigo(texto) ? texto : undefined,
@@ -646,7 +759,7 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
   return (
     <>
       <div onClick={fechar} style={css("position:fixed; inset:0; z-index:64; background:rgba(20,24,40,.32);")} />
-      <div role="dialog" aria-label={conta ? "Editar conta" : "Nova conta"} style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:65; background:#fff; border-radius:16px; box-shadow:0 24px 60px rgba(20,24,40,.25); width:640px; max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); display:flex; flex-direction:column; overflow:hidden;")}>
+      <div role="dialog" className="cp-sheet" aria-label={conta ? "Editar conta" : "Nova conta"} style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:65; background:#fff; border-radius:16px; box-shadow:0 24px 60px rgba(20,24,40,.25); width:640px; max-width:calc(100vw - 24px); max-height:calc(100vh - 24px); display:flex; flex-direction:column; overflow:hidden;")}>
         <div style={css("display:flex; align-items:flex-start; gap:10px; padding:18px 20px 12px; border-bottom:1px solid #F0F1F4;")}>
           <div style={{ flex: 1 }}>
             <div style={css("font-size:17px; font-weight:800; color:#1B1B28;")}>{conta ? "Editar conta" : "Nova conta"}</div>
@@ -656,17 +769,23 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
         </div>
         <div style={css("padding:16px 20px; overflow-y:auto; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 14px;")}>
           <Campo rotulo="Descrição" span><input autoFocus value={f.descricao} onChange={(e) => set({ descricao: e.target.value })} placeholder="Ex.: CELESC - FÁBRICA 09/2026" style={css(INPUT)} /></Campo>
+          <Campo rotulo="Número do documento"><input value={f.numeroDocumento} onChange={(e) => set({ numeroDocumento: e.target.value })} placeholder="Ex.: NF 000024861" style={css(INPUT)} /></Campo>
           <Campo rotulo="Vencimento"><input type="date" value={f.vencimento} onChange={(e) => set({ vencimento: e.target.value })} style={css(INPUT)} /></Campo>
           <Campo rotulo="Valor original (R$)"><input inputMode="decimal" value={f.valor} onChange={(e) => set({ valor: e.target.value })} placeholder="0,00" style={css(INPUT)} /></Campo>
-          <Campo rotulo="Plano de contas"><Escolha v={f.plano} opts={[...new Set([...planos, ...(f.plano ? [f.plano] : [])])]} placeholder="Escolha o plano" set={(v) => set({ plano: v })} novo={{ rotulo: "Novo plano de contas", exemplo: "Ex.: DESP MARKETING", criar: (n) => criar("plano", n) }} /></Campo>
-          <Campo rotulo="Empresa"><Escolha v={f.empresa} opts={[...new Set([...empresas, ...(f.empresa ? [f.empresa] : [])])]} placeholder="Escolha a empresa" set={(v) => set({ empresa: v })} novo={{ rotulo: "Nova empresa", exemplo: "Ex.: JB INGLESES", criar: (n) => criar("empresa", n) }} /></Campo>
+          <Campo rotulo="Plano de contas"><Escolha v={f.plano} opts={[...new Set([...planos, ...(f.plano ? [f.plano] : [])])]} placeholder="Escolha o plano" set={(v) => set({ plano: v })} novo={{ rotulo: "Novo plano de contas", exemplo: "Ex.: DESP MARKETING", criar: (n) => criar("plano", n) }} gerenciar={gerenciar("plano")} /></Campo>
+          <Campo rotulo="Empresa"><Escolha v={f.empresa} opts={[...new Set([...empresas, ...(f.empresa ? [f.empresa] : [])])]} placeholder="Escolha a empresa" set={(v) => set({ empresa: v })} novo={{ rotulo: "Nova empresa", exemplo: "Ex.: JB INGLESES", criar: (n) => criar("empresa", n) }} gerenciar={gerenciar("empresa")} /></Campo>
           <Campo rotulo="Forma"><Escolha v={f.forma} opts={FORMAS} set={(v) => set({ forma: v as FormaPagamento })} /></Campo>
-          {!conta ? <Campo rotulo="Parcelas (mensais)"><input type="number" min={1} max={60} value={f.parcelas} onChange={(e) => set({ parcelas: e.target.value })} style={css(INPUT)} /></Campo> : <span />}
+          {!conta && <Campo rotulo="Parcelas (mensais)"><input type="number" min={1} max={60} value={f.parcelas} onChange={(e) => set({ parcelas: e.target.value })} style={css(INPUT)} /></Campo>}
+          <Campo rotulo="Despesa">
+            <div style={css("display:flex; flex-wrap:wrap; gap:6px;")}>
+              {TIPOS_DESPESA.map((t) => <Chip key={t.key} on={f.tipoDespesa === t.key} onClick={() => set({ tipoDespesa: t.key })}>{t.label}</Chip>)}
+            </div>
+          </Campo>
           <Campo rotulo="Situação" span>
             <div style={css("display:flex; flex-wrap:wrap; gap:6px;")}>
               {SITUACOES.map((s) => {
                 const on = f.situacao === s.key;
-                return <button key={s.key} onClick={() => set({ situacao: s.key, ...(ehPaga(s.key) && !f.dataPagamento ? { dataPagamento: hoje } : {}) })} style={css(`border:1px solid ${on ? ACCENT : "#E2E3E9"}; background:${on ? "#FDF1F4" : "#fff"}; color:${on ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 11px; border-radius:999px;`)}>{s.label}</button>;
+                return <Chip key={s.key} on={on} onClick={() => set({ situacao: s.key, ...(ehPaga(s.key) && !f.dataPagamento ? { dataPagamento: hoje } : {}) })}>{s.label}</Chip>;
               })}
             </div>
           </Campo>
@@ -676,7 +795,7 @@ function ContaForm({ conta, hoje, empresas, planos, onNovoItem, onFechar, onSalv
           </>)}
           <Campo rotulo="Observação / código de barras" span><textarea value={f.obs} onChange={(e) => set({ obs: e.target.value })} rows={2} placeholder="Linha digitável do boleto, chave PIX ou observação" style={css(INPUT + "resize:vertical; font-family:inherit;")} /></Campo>
           <Campo rotulo="Comprovantes" span>
-            <input ref={arq} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple hidden onChange={(e) => { const fs = [...(e.target.files ?? [])]; e.target.value = ""; void anexar(fs); }} />
+            <input ref={arq} type="file" accept=".pdf,.jpg,.jpeg,.png" multiple hidden onChange={(e) => { const input = e.target; const fs = [...(input.files ?? [])]; void anexar(fs).finally(() => { input.value = ""; }); }} />
             <button onClick={() => arq.current?.click()} disabled={enviando > 0} style={css(`width:100%; border:1.5px dashed #D5D8E0; background:#FAFAFB; border-radius:10px; padding:14px; cursor:${enviando ? "wait" : "pointer"}; font-size:12.5px; font-weight:700; color:#5B6472;`)}>
               {enviando ? "Enviando…" : <>Anexar comprovante <span style={css("color:#9398A6; font-weight:600;")}>· PDF, JPG ou PNG até 20 MB</span></>}
             </button>
@@ -710,6 +829,11 @@ const campoData = (on: boolean) => `border:1px solid ${on ? ACCENT : "#E2E3E9"};
 const arred = (n: number) => Math.round(n * 100) / 100;
 const milhar = (n: number) => (n >= 1000 ? `${Math.round(n / 1000).toLocaleString("pt-BR")} mil` : String(n));
 
+/** Opção em pílula (situação, tipo de despesa). */
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  return <button type="button" onClick={onClick} style={css(`border:1px solid ${on ? ACCENT : "#E2E3E9"}; background:${on ? "#FDF1F4" : "#fff"}; color:${on ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 11px; border-radius:999px;`)}>{children}</button>;
+}
+
 function Campo({ rotulo, span, children }: { rotulo: string; span?: boolean; children: ReactNode }) {
   return (
     <div style={css(`display:flex; flex-direction:column; gap:5px; min-width:0; ${span ? "grid-column:1 / -1;" : ""}`)}>
@@ -719,20 +843,41 @@ function Campo({ rotulo, span, children }: { rotulo: string; span?: boolean; chi
   );
 }
 
+type Gerenciar = { rotulo: string; uso: (nome: string) => number; renomear: (de: string, para: string) => Promise<boolean>; excluir: (nome: string) => Promise<boolean> };
+
 /** Seletor no visual do app (no lugar do <select> nativo): busca quando a lista é longa,
- *  opção marcada e, opcionalmente, cadastro de um item novo dentro do próprio menu. */
-function Escolha({ v, opts, set, placeholder = "Selecione", novo }: {
+ *  opção marcada, cadastro de item novo e — com `gerenciar` — lápis (renomear) e lixeira
+ *  (excluir) em cada item, as duas ações com popup de confirmação. */
+function Escolha({ v, opts, set, placeholder = "Selecione", novo, gerenciar }: {
   v: string; opts: readonly string[]; set: (v: string) => void; placeholder?: string;
   novo?: { rotulo: string; exemplo: string; criar: (nome: string) => Promise<boolean> };
+  gerenciar?: Gerenciar;
 }) {
   const [q, setQ] = useState("");
   const [criando, setCriando] = useState(false);
   const [nome, setNome] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [novoNome, setNovoNome] = useState("");
+  const [confirmar, setConfirmar] = useState<{ acao: "renomear"; de: string; para: string } | { acao: "excluir"; nome: string } | null>(null);
+  const executar = async () => {
+    if (!confirmar || !gerenciar) return;
+    const c = confirmar;
+    setConfirmar(null);
+    if (c.acao === "renomear") { if (await gerenciar.renomear(c.de, c.para)) setEditando(null); }
+    else await gerenciar.excluir(c.nome);
+  };
+  const pedirRenomear = (de: string) => {
+    const para = novoNome.trim().toUpperCase();
+    if (!para || para === de) { setEditando(null); return; }
+    setConfirmar({ acao: "renomear", de, para });
+  };
   const comBusca = opts.length > 7;
   const lista = q.trim() ? opts.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())) : opts;
-  const reset = () => { setQ(""); setCriando(false); setNome(""); };
+  const reset = () => { setQ(""); setCriando(false); setNome(""); setEditando(null); };
+  const usoTxt = (n: number) => (n === 1 ? "1 conta lançada usa" : `${n} contas lançadas usam`);
   return (
+    <>
     <Menu width={260} popStyle="padding:0;" trigger={(toggle, open) => (
       <button type="button" onClick={() => { reset(); toggle(); }} style={css(`${INPUT} display:flex; align-items:center; gap:8px; cursor:pointer; text-align:left; ${open ? `border-color:${ACCENT}; box-shadow:0 0 0 3px rgba(149,92,107,.12);` : ""}`)}>
         <span style={css(`flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; ${v ? "" : "color:#9398A6;"}`)}>{v || placeholder}</span>
@@ -750,7 +895,22 @@ function Escolha({ v, opts, set, placeholder = "Selecione", novo }: {
           )}
           <div style={css("padding:5px;")}>
             {lista.length === 0 && <div style={css("padding:10px; font-size:12.5px; color:#9398A6; font-weight:600;")}>Nada encontrado.</div>}
-            {lista.map((o) => <MenuItem key={o} checked={o === v} accent={ACCENT} onClick={() => { set(o); close(); }}><span style={{ flex: 1 }}>{o}</span></MenuItem>)}
+            {lista.map((o) => !gerenciar ? (
+              <MenuItem key={o} checked={o === v} accent={ACCENT} onClick={() => { set(o); close(); }}><span style={{ flex: 1 }}>{o}</span></MenuItem>
+            ) : editando === o ? (
+              <form key={o} onSubmit={(e) => { e.preventDefault(); pedirRenomear(o); }} style={css("display:flex; gap:5px; padding:3px 2px;")}>
+                <input autoFocus value={novoNome} onFocus={(e) => e.target.select()} onChange={(e) => setNovoNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setEditando(null); } }} style={css(`flex:1; min-width:0; border:1px solid ${ACCENT}; border-radius:7px; padding:6px 8px; font-size:12.5px; outline:none; text-transform:uppercase;`)} />
+                <button type="submit" title="Salvar nome" style={css(`border:none; background:${ACCENT}; color:#fff; border-radius:7px; width:30px; cursor:pointer; display:flex; align-items:center; justify-content:center;`)}><Svg size={13} sw={2.8}><path d="m5 12 5 5 9-10" /></Svg></button>
+                <button type="button" title="Cancelar" onClick={() => setEditando(null)} style={css("border:1px solid #E2E3E9; background:#fff; color:#7A8090; border-radius:7px; width:30px; cursor:pointer; display:flex; align-items:center; justify-content:center;")}><Svg size={12} sw={2.6}><path d="M6 6l12 12M18 6 6 18" /></Svg></button>
+              </form>
+            ) : (
+              <Hoverable key={o} onClick={() => { set(o); close(); }} s={css("display:flex; align-items:center; gap:4px; padding:4px 4px 4px 9px; border-radius:7px; cursor:pointer; font-size:12.5px; font-weight:600; color:#3A3F4C;")} hover="background:#F4F4F7">
+                <span style={css("flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:4px 0;")}>{o}</span>
+                {o === v && <Svg size={14} sw={2.6} stroke={ACCENT} style={{ flex: "none", marginRight: 2 }}><path d="m5 12 5 5 9-10" /></Svg>}
+                <ItemBtn titulo={`Editar ${gerenciar.rotulo}`} onClick={() => { setEditando(o); setNovoNome(o); }}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></ItemBtn>
+                <ItemBtn titulo={`Excluir ${gerenciar.rotulo}`} perigo onClick={() => setConfirmar({ acao: "excluir", nome: o })}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5" /></ItemBtn>
+              </Hoverable>
+            ))}
           </div>
           {novo && (
             <div style={css("position:sticky; bottom:0; background:#fff; border-top:1px solid #F0F1F4; padding:6px;")}>
@@ -769,6 +929,30 @@ function Escolha({ v, opts, set, placeholder = "Selecione", novo }: {
         </div>
       )}
     </Menu>
+    {confirmar && gerenciar && (
+      <ConfirmModal
+        danger={confirmar.acao === "excluir"}
+        titulo={confirmar.acao === "renomear" ? `Renomear ${gerenciar.rotulo}` : `Excluir ${gerenciar.rotulo}`}
+        confirmLabel={confirmar.acao === "renomear" ? "Renomear" : "Excluir"}
+        onClose={() => setConfirmar(null)}
+        onConfirm={() => void executar()}
+        mensagem={confirmar.acao === "renomear"
+          ? <>Trocar <strong>{confirmar.de}</strong> por <strong>{confirmar.para}</strong>?{gerenciar.uso(confirmar.de) ? <> {usoTxt(gerenciar.uso(confirmar.de))} o nome antigo e {gerenciar.uso(confirmar.de) === 1 ? "passa" : "passam"} a usar o novo.</> : ""}</>
+          : <><strong>{confirmar.nome}</strong> sai da lista e não aparece mais para escolher.{gerenciar.uso(confirmar.nome) ? <> {usoTxt(gerenciar.uso(confirmar.nome))} esse nome e {gerenciar.uso(confirmar.nome) === 1 ? "continua" : "continuam"} como {gerenciar.uso(confirmar.nome) === 1 ? "está" : "estão"}.</> : ""}</>}
+      />
+    )}
+    </>
+  );
+}
+
+/** Botão pequeno (lápis / lixeira) dentro de um item do seletor. */
+function ItemBtn({ titulo, onClick, perigo, children }: { titulo: string; onClick: () => void; perigo?: boolean; children: ReactNode }) {
+  return (
+    <Hoverable as="button" type="button" title={titulo} aria-label={titulo} onClick={(e: React.MouseEvent) => { e.stopPropagation(); onClick(); }}
+      s={css("flex:none; width:26px; height:26px; border:none; background:transparent; color:#9398A6; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center;")}
+      hover={perigo ? "background:#FDECEC; color:#CC3338" : "background:#E9EAEF; color:#3A3F4C"}>
+      <Svg size={13} sw={2.2}>{children}</Svg>
+    </Hoverable>
   );
 }
 
@@ -843,9 +1027,9 @@ function IconBtn({ titulo, onClick, children }: { titulo: string; onClick: () =>
   );
 }
 
-function Acao({ titulo, onClick, children }: { titulo: string; onClick: () => void; children: ReactNode }) {
+function Acao({ titulo, onClick, grande, children }: { titulo: string; onClick: () => void; grande?: boolean; children: ReactNode }) {
   return (
-    <Hoverable as="button" onClick={onClick} title={titulo} s={css("display:inline-flex; align-items:center; gap:5px; border:1px solid #ECEDF1; background:#fff; cursor:pointer; color:#5B6472; font-size:11.5px; font-weight:700; padding:6px 7px; border-radius:7px; white-space:nowrap;")} aria-label={titulo} hover="background:#FAFAFB; border-color:#D5D8E0">
+    <Hoverable as="button" onClick={onClick} title={titulo} s={css(`display:inline-flex; align-items:center; justify-content:center; gap:5px; border:1px solid #ECEDF1; background:#fff; cursor:pointer; color:#5B6472; font-size:11.5px; font-weight:700; padding:${grande ? "0 10px" : "6px 7px"}; ${grande ? "min-width:40px; height:40px; border-radius:10px;" : "border-radius:7px;"} white-space:nowrap;`)} aria-label={titulo} hover="background:#FAFAFB; border-color:#D5D8E0">
       {children}
     </Hoverable>
   );

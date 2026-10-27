@@ -9,6 +9,7 @@ type SvgProps = {
   fill?: string;
   viewBox?: string;
   style?: CSSProperties;
+  className?: string;
   children: ReactNode;
 };
 
@@ -22,6 +23,7 @@ export function Svg({
   fill = "none",
   viewBox = "0 0 24 24",
   style,
+  className,
   children,
 }: SvgProps) {
   return (
@@ -35,6 +37,7 @@ export function Svg({
       strokeLinecap="round"
       strokeLinejoin="round"
       style={style}
+      className={className}
     >
       {children}
     </svg>

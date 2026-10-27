@@ -111,7 +111,7 @@ export default function TaskForm() {
               <div style={css("font-size:13px; line-height:1.55; color:#7A8090;")}>Preencha os campos abaixo e detalhe o pedido na descrição.<br />Quanto mais contexto — o que precisa, prazo, links e imagens —, mais rápido e certeiro o time executa.</div>
             </div>
           </div>
-          <div style={css("display:grid; grid-template-columns:1fr 1fr; gap:18px 22px;")}>
+          <div className="m-grid-1" style={css("display:grid; grid-template-columns:1fr 1fr; gap:18px 22px;")}>
           <Field label="Nome" req full>
             <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Otimizar campanha de mensagens" style={css(inp)} />
           </Field>

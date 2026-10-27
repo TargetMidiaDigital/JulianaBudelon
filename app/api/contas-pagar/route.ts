@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabase, type SB } from "@/lib/supabase";
 import { nivelNaTela, requireEditor, requireSession } from "@/lib/auth-admin";
-import { FORMAS, SITUACOES, ehPaga, type Comprovante, type Conta } from "@/lib/contas-pagar";
+import { FORMAS, SITUACOES, TIPOS_DESPESA, ehPaga, type Comprovante, type Conta } from "@/lib/contas-pagar";
 
 /**
  * Administrativo → Contas a Pagar (tabela `conta_pagar`; listas `cp_empresa` e `cp_plano`).
@@ -18,7 +18,7 @@ const BUCKET = "contas-pagar";
 type Row = {
   id: string; descricao: string; plano: string; empresa: string; forma: string; vencimento: string; valor: number | string;
   situacao: string; valor_pago: number | string | null; data_pagamento: string | null; obs: string | null; codigo_barras: string | null;
-  comprovantes: Comprovante[] | null; grupo: string | null; parcela: number | null; parcelas: number | null;
+  comprovantes: Comprovante[] | null; numero_documento: string | null; tipo_despesa: string | null; grupo: string | null; parcela: number | null; parcelas: number | null;
 };
 
 const paraConta = (r: Row): Conta => ({
@@ -26,6 +26,7 @@ const paraConta = (r: Row): Conta => ({
   valor: Number(r.valor), situacao: r.situacao as Conta["situacao"],
   valorPago: r.valor_pago != null ? Number(r.valor_pago) : undefined, dataPagamento: r.data_pagamento ?? undefined,
   obs: r.obs ?? undefined, codigoBarras: r.codigo_barras ?? undefined, comprovantes: Array.isArray(r.comprovantes) ? r.comprovantes : [],
+  numeroDocumento: r.numero_documento ?? undefined, tipoDespesa: (r.tipo_despesa as Conta["tipoDespesa"]) ?? undefined,
   grupo: r.grupo ?? undefined, parcela: r.parcela ?? undefined, parcelas: r.parcelas ?? undefined,
 });
 
@@ -47,6 +48,8 @@ function colunas(p: Partial<Conta>, criando: boolean): Record<string, unknown> |
   if ("obs" in p) c.obs = txt(p.obs);
   if ("codigoBarras" in p) c.codigo_barras = txt(p.codigoBarras);
   if ("comprovantes" in p) c.comprovantes = (Array.isArray(p.comprovantes) ? p.comprovantes : []).filter((x) => x && typeof x.path === "string").slice(0, 30);
+  if ("numeroDocumento" in p) c.numero_documento = txt(p.numeroDocumento)?.slice(0, 80) ?? null;
+  if ("tipoDespesa" in p) { if (p.tipoDespesa && !TIPOS_DESPESA.some((t) => t.key === p.tipoDespesa)) return "Tipo de despesa inválido."; c.tipo_despesa = p.tipoDespesa || null; }
   if ("grupo" in p) c.grupo = txt(p.grupo);
   if ("parcela" in p) c.parcela = p.parcela ?? null;
   if ("parcelas" in p) c.parcelas = p.parcelas ?? null;
@@ -94,7 +97,7 @@ export async function POST(req: Request) {
   const rows: Record<string, unknown>[] = [];
   for (const c of contas) {
     if (!c?.id || typeof c.id !== "string") return NextResponse.json({ error: "id obrigatório." }, { status: 400 });
-    const cols = colunas({ ...c, valorPago: c.valorPago, dataPagamento: c.dataPagamento, obs: c.obs, codigoBarras: c.codigoBarras, comprovantes: c.comprovantes ?? [] }, true);
+    const cols = colunas({ ...c, valorPago: c.valorPago, dataPagamento: c.dataPagamento, obs: c.obs, codigoBarras: c.codigoBarras, comprovantes: c.comprovantes ?? [], numeroDocumento: c.numeroDocumento, tipoDespesa: c.tipoDespesa }, true);
     if (typeof cols === "string") return NextResponse.json({ error: cols }, { status: 400 });
     rows.push({ id: c.id, ...cols, criado_por: sess.userId });
   }

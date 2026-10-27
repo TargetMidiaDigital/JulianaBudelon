@@ -21,6 +21,7 @@ import { pedidoStatusInfo } from "@/lib/pedido";
 import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
 import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
 import Conferencia from "../ui/Conferencia";
+import { UnidadePill } from "../screens/ListaView";
 
 export default function TaskDetail() {
   const { tasks, taskDetailOpen } = useApp();
@@ -147,6 +148,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                   <span style={css("display:inline-flex; align-items:center; gap:8px; padding:4px 9px 4px 4px;")}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10.5} /><span style={css("font-size:13.5px; font-weight:600;")}>{g.nome}</span></span>
                 )}
               </Row>
+              {t.local && <Row label="Unidade"><UnidadePill local={t.local} /></Row>}
               <Row label="Tipo">
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />
               </Row>

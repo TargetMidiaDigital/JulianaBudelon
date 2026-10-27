@@ -9,6 +9,7 @@ import { Svg } from "./Svg";
 import Hoverable from "./Hoverable";
 import Menu, { MenuItem } from "./Menu";
 import { useApp } from "../store";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Conferência da tarefa: produto | pedido | produzido/separado/recebido | diferença.
@@ -23,6 +24,7 @@ export default function Conferencia({ t }: { t: Task }) {
   const rot = rotuloRealizado(t.categoria);
   const avulsa = !t.pedidoId && t.categoria !== "expedicao" && t.categoria !== "unidade";
   const travada = feita;
+  const mobile = useIsMobile();
   const salvar = (novas: LinhaConferencia[]) => updateTask(t.id, { conferencia: novas });
   const setFeito = (i: number, v: number | undefined) => salvar(linhas.map((l, j) => (j === i ? { ...l, feito: v } : l)));
   const faltam = faltamPreencher(linhas);
@@ -30,7 +32,10 @@ export default function Conferencia({ t }: { t: Task }) {
 
   if (!linhas.length && !avulsa) return null;
   const totPed = linhas.reduce((s, l) => s + l.pedido, 0), totFeito = linhas.reduce((s, l) => s + (l.feito ?? 0), 0);
-  const grid = "display:grid; grid-template-columns:minmax(0,1fr) 72px 110px 78px 28px; gap:10px; align-items:center;";
+  // Celular: colunas numéricas mais estreitas para o nome do produto caber.
+  const grid = mobile
+    ? "display:grid; grid-template-columns:minmax(0,1fr) 42px 72px 50px 22px; gap:6px; align-items:center;"
+    : "display:grid; grid-template-columns:minmax(0,1fr) 72px 110px 78px 28px; gap:10px; align-items:center;";
 
   return (
     <div style={css("margin-top:16px; padding-top:16px; border-top:1px solid #F0F1F4;")}>
@@ -122,7 +127,7 @@ function CampoQtd({ value, onSave }: { value?: number; onSave: (v: number | unde
       onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setV(value == null ? "" : String(value)); }}
       onFocus={(e) => e.target.select()}
-      style={css(`width:84px; height:32px; box-sizing:border-box; border:1px solid ${value == null ? "#F3B4BC" : "#E2E3E9"}; border-radius:8px; outline:none; text-align:center; font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; color:#1B1B28; background:${value == null ? "#FFF8F9" : "#fff"};`)}
+      style={css(`width:100%; max-width:84px; height:32px; box-sizing:border-box; border:1px solid ${value == null ? "#F3B4BC" : "#E2E3E9"}; border-radius:8px; outline:none; text-align:center; font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; color:#1B1B28; background:${value == null ? "#FFF8F9" : "#fff"};`)}
     />
   );
 }

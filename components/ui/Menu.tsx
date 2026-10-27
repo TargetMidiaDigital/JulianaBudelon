@@ -3,6 +3,7 @@
 import { useState, useRef, useLayoutEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { css } from "@/lib/css";
+import { useFecharComEsc } from "./useFecharComEsc";
 
 /**
  * Self-contained dropdown: renders a trigger and a popover. O popover é
@@ -30,6 +31,8 @@ export default function Menu({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ top?: number; bottom?: number; left?: number; right?: number; maxH: number } | null>(null);
   const close = () => setOpen(false);
+  // Esc fecha só o menu (camada de cima), não o modal/drawer onde ele está.
+  useFecharComEsc(open, close);
 
   useLayoutEffect(() => {
     if (!open) { setBox(null); return; }

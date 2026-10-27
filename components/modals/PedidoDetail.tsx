@@ -64,9 +64,9 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:61; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:1500px; max-width:97vw; display:flex; overflow:hidden;")}>
         <div style={css(`flex:2; min-width:0; display:flex; flex-direction:column; ${mostrarLogs ? "border-right:1px solid #ECEDF1;" : ""}`)}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
-            <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:18px;")}>
+            <div className="m-wrap" style={css("display:flex; align-items:center; gap:8px; margin-bottom:18px;")}>
               <span style={css(`flex:none; width:34px; height:34px; border-radius:9px; background:${si.bg}; color:${si.fg}; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={2.2}><path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="1" /><path d="M9 13h6M9 17h4" /></Svg></span>
-              <div style={css("flex:1; min-width:0; margin-left:3px;")}>
+              <div className="m-full" style={css("flex:1; min-width:0; margin-left:3px;")}>
                 {editavel
                   ? <EditableTitle fill value={p.titulo} onSave={(v) => updatePedido(p.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
                   : <h2 style={css("margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;")}>{p.titulo}</h2>}
@@ -87,7 +87,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
               </Hoverable>
               <Hoverable as="button" onClick={onClose} title="Fechar" s={css("width:34px; height:34px; flex:none; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={16} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
             </div>
-            <div className="m-wrap" style={css("display:grid; grid-template-columns:1fr 1fr; gap:0 24px;")}>
+            <div className="m-grid-1" style={css("display:grid; grid-template-columns:1fr 1fr; gap:0 24px;")}>
               <Row label="Status">
                 {editavel ? (
                   <Menu trigger={(tg) => (

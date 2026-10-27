@@ -7,14 +7,15 @@ import { useEffect, useState } from "react";
  * utilitárias mobile em app/globals.css. Usado só onde a estrutura muda de verdade
  * (Sidebar vira overlay, Shell tira a borda); o resto do reflow é CSS.
  *
- * SSR-safe: retorna `false` no servidor e no primeiro paint, então o desktop (e a
- * hidratação) seguem o caminho de hoje; no cliente, o matchMedia atualiza logo em
- * seguida. Acima do breakpoint o valor é sempre `false` → desktop intocado.
+ * No cliente já nasce com o valor real (matchMedia na inicialização): sem isto o
+ * primeiro quadro saía com o layout de computador e "pulava" para o de celular. No
+ * servidor é `false` — os componentes que usam este hook só montam no cliente (depois
+ * do login), então não há divergência de hidratação. Acima do breakpoint é sempre `false`.
  */
 const QUERY = "(max-width: 768px)";
 
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(QUERY).matches);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;

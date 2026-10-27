@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { ACCENT, BRAND } from "@/lib/theme";
@@ -34,6 +35,10 @@ const GRID = `${COL_W.nome}px ${COL_W.categoria}px ${LOCAIS_ESTOQUE.map(() => `$
 const NCOLS = 5 + LOCAIS_ESTOQUE.length;
 const GRID_MIN = COL_W.nome + COL_W.categoria + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.total + COL_W.atualizada + COL_W.acoes + 14 * (NCOLS - 1) + 36;
 /** Célula travada (Produto): fundo opaco porque as outras colunas deslizam por baixo. */
+// Celular: sem Categoria (já é o grupo) e sem Última atualização; produto mais estreito.
+const COL_M = { nome: 128, local: 64, total: 52, acoes: 36 };
+const GRID_M = `${COL_M.nome}px ${LOCAIS_ESTOQUE.map(() => `${COL_M.local}px`).join(" ")} ${COL_M.total}px ${COL_M.acoes}px`;
+const GRID_MIN_M = COL_M.nome + COL_M.local * LOCAIS_ESTOQUE.length + COL_M.total + COL_M.acoes + 8 * (LOCAIS_ESTOQUE.length + 2) + 36;
 const fixa = (fundo: string, z: number) => `position:sticky; left:0; z-index:${z}; background:${fundo}; padding-left:18px; margin-left:-18px;`;
 
 const semAcento = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -45,6 +50,8 @@ const dataHora = (iso?: string) =>
 /** Operacional → Estoque: lista de produtos por categoria, com cadastro e ajuste de quantidade. */
 export default function Estoque() {
   const { produtos, updateProduto, removeProduto, canEditPage, workspace } = useApp();
+  const mobile = useIsMobile();
+  const G = mobile ? GRID_M : GRID, GMIN = mobile ? GRID_MIN_M : GRID_MIN, GAP = mobile ? 8 : 14;
   const editavel = canEditPage("estoque");
 
   const [formOpen, setFormOpen] = useState(false);
@@ -106,13 +113,13 @@ export default function Estoque() {
       </span>
     );
     return (
-      <Hoverable key={p.id} onClick={() => setDetalhe(p.id)} s={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:10px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer;`)} hover="background:#FAFAFB">
+      <Hoverable key={p.id} onClick={() => setDetalhe(p.id)} s={css(`display:grid; grid-template-columns:${G}; gap:${GAP}px; padding:10px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer;`)} hover="background:#FAFAFB">
         <div style={css(`${fixa("#fff", 1)} align-self:stretch; display:flex; align-items:center; min-width:0;`)}>
           {editavel
             ? <EditableTitle fill value={p.nome} onSave={(v) => updateProduto(p.id, { nome: v })} textStyle="font-weight:600; font-size:13.5px;" />
             : <span style={css("display:block; font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{p.nome}</span>}
         </div>
-        <div onClick={stop} style={{ minWidth: 0 }}>
+        {!mobile && <div onClick={stop} style={{ minWidth: 0 }}>
           {editavel ? (
             <Menu trigger={(tg) => <span onClick={tg} style={css("display:inline-flex; max-width:100%;")}>{pill}</span>} width={230}>
               {(close) => CATEGORIAS_ESTOQUE.map((c) => (
@@ -122,7 +129,7 @@ export default function Estoque() {
               ))}
             </Menu>
           ) : pill}
-        </div>
+        </div>}
         {LOCAIS_ESTOQUE.map((l) => {
           const n = qtdEm(p.quantidades, l.id);
           return (
@@ -134,7 +141,7 @@ export default function Estoque() {
           );
         })}
         <span style={css("text-align:center; font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums; color:#1B1B28;")}>{totalProduto(p.quantidades)}</span>
-        <span style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{dataHora(p.atualizada ?? p.criada)}</span>
+        {!mobile && <span style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{dataHora(p.atualizada ?? p.criada)}</span>}
         <div onClick={stop} style={css("display:flex; justify-content:center;")}>
           {editavel && (
             <Hoverable as="button" title="Excluir produto" onClick={() => setConfirmDel(p)} s={css("flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:#C7CAD2;")} hover="background:#FDECEC; color:#CC3338">
@@ -187,7 +194,7 @@ export default function Estoque() {
         <Menu align="right" width={220} trigger={(toggle) => (
           <Hoverable as="button" onClick={toggle} s={css("display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px;")} hover="background:#FAFAFB">
             <Svg size={15} stroke={ACCENT}><rect x="3" y="4" width="7" height="7" rx="1.6" /><rect x="14" y="4" width="7" height="7" rx="1.6" /><rect x="3" y="15" width="7" height="5" rx="1.6" /><rect x="14" y="15" width="7" height="5" rx="1.6" /></Svg>
-            <span style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === groupBy)?.label}
+            <span className="m-hide" style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === groupBy)?.label}
             <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
           </Hoverable>
         )}>
@@ -238,7 +245,7 @@ export default function Estoque() {
               const total = grp.itens.reduce((s, p) => s + totalProduto(p.quantidades), 0);
               return (
                 <div key={grp.key} style={css(semGrupo ? "" : "padding-bottom:22px;")}>
-                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${GRID_MIN}px;`)}>
+                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${GMIN}px;`)}>
                     {!semGrupo && (
                       <div style={css("position:sticky; left:0; width:max-content; max-width:100%; background:#F7F7F9; display:flex; align-items:center; gap:10px; padding:2px 0 9px;")}>
                         <Hoverable as="button" onClick={() => setCollapsed((c) => ({ ...c, [grp.key]: !c[grp.key] }))} s={css("width:26px; height:26px; flex:none; border:1px solid #E2E3E9; background:#fff; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F2F3F6">
@@ -257,8 +264,8 @@ export default function Estoque() {
                       </div>
                     )}
                     {open && (
-                      <div style={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:10px 18px; border:1px solid #ECEDF1; background:#FAFAFB; border-radius:12px 12px 0 0; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
-                        {cols.map((col) => {
+                      <div style={css(`display:grid; grid-template-columns:${G}; gap:${GAP}px; padding:10px 18px; border:1px solid #ECEDF1; background:#FAFAFB; border-radius:12px 12px 0 0; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
+                        {cols.filter((col) => !mobile || (col.id !== "categoria" && col.id !== "atualizada")).map((col) => {
                           const centro = col.id !== "nome" && col.id !== "categoria" && col.id !== "atualizada";
                           return col.key ? (
                             <Hoverable key={col.id} onClick={() => toggleSort(col.key!)} s={css(`${col.id === "nome" ? fixa("#FAFAFB", 5) : ""} display:flex; align-items:center; gap:4px; overflow:hidden; cursor:pointer; user-select:none; min-width:0; ${centro ? "justify-content:center;" : ""}`)} hover="color:#5B6472">
@@ -271,7 +278,7 @@ export default function Estoque() {
                     )}
                   </div>
                   {open && (
-                    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-top:none; border-radius:0 0 12px 12px; min-width:${GRID_MIN}px;`)}>
+                    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-top:none; border-radius:0 0 12px 12px; min-width:${GMIN}px;`)}>
                       {sortRows(grp.itens).map(renderRow)}
                     </div>
                   )}

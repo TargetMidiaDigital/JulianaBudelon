@@ -52,16 +52,16 @@ export default function Topbar() {
             </Svg>
           </Hoverable>
         )}
-        <span style={css("color:#9398A6; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;")}>{workspace.nome} · {setorLabel}</span>
-        <Svg size={14} sw={2.2} stroke="#C7CAD2">
+        <span className="m-hide" style={css("color:#9398A6; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;")}>{workspace.nome} · {setorLabel}</span>
+        <Svg size={14} sw={2.2} stroke="#C7CAD2" className="m-hide">
           <path d="m9 6 6 6-6 6" />
         </Svg>
-        <span style={css("font-size:15px; font-weight:700; color:#1B1B28; white-space:nowrap;")}>
+        <span style={css("font-size:15px; font-weight:700; color:#1B1B28; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;")}>
           {TITLES[screen]}
         </span>
       </div>
       <div style={{ flex: 1 }} />
-      <div style={css("display:flex; align-items:center; gap:7px; flex:none; color:#5B6472; background:#F7F8FA; border:1px solid #ECEDF1; border-radius:9px; padding:6px 12px;")}>
+      <div className="m-hide" style={css("display:flex; align-items:center; gap:7px; flex:none; color:#5B6472; background:#F7F8FA; border:1px solid #ECEDF1; border-radius:9px; padding:6px 12px;")}>
         <Svg size={14} sw={2.2} stroke="#9398A6"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>
         <Relogio s="font-size:13px; color:#3A3F4C; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:0.3px;" />
       </div>

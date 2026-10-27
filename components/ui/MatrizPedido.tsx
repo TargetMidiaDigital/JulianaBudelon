@@ -7,11 +7,16 @@ import { comItem, itemQtd, totalPorLocal, totalProdutoNoPedido, type Itens } fro
 import type { Produto } from "@/lib/types";
 import { Svg } from "./Svg";
 import QtdCell from "./QtdCell";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 const semAcento = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const COL_PROD = 250, COL_LOCAL = 84, COL_TOTAL = 70;
-const GRID = `${COL_PROD}px ${LOCAIS_ESTOQUE.map(() => `${COL_LOCAL}px`).join(" ")} ${COL_TOTAL}px`;
-const GRID_MIN = COL_PROD + COL_LOCAL * LOCAIS_ESTOQUE.length + COL_TOTAL + 10 * (LOCAIS_ESTOQUE.length + 1) + 28;
+const grade = (prod: number, local: number, total: number) => ({
+  GRID: `${prod}px ${LOCAIS_ESTOQUE.map(() => `${local}px`).join(" ")} ${total}px`,
+  GRID_MIN: prod + local * LOCAIS_ESTOQUE.length + total + 10 * (LOCAIS_ESTOQUE.length + 1) + 28,
+});
+const DESKTOP = grade(COL_PROD, COL_LOCAL, COL_TOTAL);
+const CELULAR = grade(128, 70, 52); // produto (fixo à esquerda) mais estreito para as lojas aparecerem
 const fixa = (fundo: string, z: number) => `position:sticky; left:0; z-index:${z}; background:${fundo}; padding-left:14px; margin-left:-14px;`;
 
 /**
@@ -28,6 +33,7 @@ export default function MatrizPedido({ produtos, itens, onChange, editavel, soCo
   busca?: string;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const { GRID, GRID_MIN } = useIsMobile() ? CELULAR : DESKTOP;
   const q = semAcento(busca.trim());
   const ordemCat = (c: string) => { const i = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return i < 0 ? 999 : i; };
   const cats = [...CATEGORIAS_ESTOQUE.map((c) => c.v), ...new Set(produtos.map((p) => p.categoria).filter((c) => ordemCat(c) === 999))];

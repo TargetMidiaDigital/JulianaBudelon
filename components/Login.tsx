@@ -34,7 +34,7 @@ export default function Login() {
   const demoUsers = demo ? team.filter((t) => t.ativo !== false && t.email) : [];
 
   return (
-    <div style={css(`height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
+    <div className="app-h" style={css(`width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
       {/* POPUP / card central */}
       <div style={css("width:100%; max-width:960px; height:600px; max-height:92vh; display:flex; background:#fff; color:#1B1B28; border-radius:22px; overflow:hidden; box-shadow:0 30px 80px rgba(20,24,40,.35);")}>
         {/* ESQUERDA: formulário */}

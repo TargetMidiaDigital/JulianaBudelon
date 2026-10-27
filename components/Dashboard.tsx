@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { BG_GRADIENT } from "@/lib/theme";
-import { useIsMobile } from "@/lib/useIsMobile";
 import { AppProvider, useApp } from "./store";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
@@ -49,12 +48,14 @@ function Screens() {
 function Shell() {
   // No mobile a moldura é full-bleed (sem a borda de 14px nem o cartão arredondado);
   // a Sidebar vira overlay (position:fixed) e sai do fluxo, então o main ocupa tudo.
-  const isMobile = useIsMobile();
+  // Desktop: moldura de 14px e cartão arredondado. Celular: as classes app-shell/app-card
+  // (globals.css) tiram a moldura e aplicam a área segura do iPhone — via CSS, já no 1º quadro.
   return (
-    <div style={css(`height:100vh; width:100%; box-sizing:border-box; padding:${isMobile ? "0" : "14px"}; background:${BG_GRADIENT};`)}>
+    <div className="app-h app-shell" style={css(`width:100%; box-sizing:border-box; padding:14px; background:${BG_GRADIENT};`)}>
       <div
+        className="app-card"
         style={css(
-          `display:flex; height:100%; width:100%; overflow:hidden; background:#F7F7F9; color:#1B1B28; font-size:14px; ${isMobile ? "" : "border-radius:18px; box-shadow:0 20px 60px rgba(20,24,40,.28);"}`,
+          "display:flex; height:100%; width:100%; overflow:hidden; background:#F7F7F9; color:#1B1B28; font-size:14px; border-radius:18px; box-shadow:0 20px 60px rgba(20,24,40,.28);",
         )}
       >
         <Sidebar />
@@ -75,7 +76,7 @@ function Shell() {
 /** Tela de "sem acesso" (mesmo estilo da de carregamento). */
 function SemAcessoTarefa({ onClose }: { onClose: () => void }) {
   return (
-    <div style={css(`height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
+    <div className="app-h" style={css(`width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
       <div style={css("width:100%; max-width:440px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:14px; background:#fff; border-radius:22px; padding:44px 40px; box-shadow:0 30px 80px rgba(20,24,40,.35); text-align:center;")}>
         <img src="/logo.png" alt="Ju Budelon" style={css("height:96px; width:auto; object-fit:contain; margin-bottom:2px;")} />
         <div style={css("font-size:17px; font-weight:800; color:#1B1B28; letter-spacing:-0.2px;")}>Você não tem acesso a este item</div>
@@ -128,7 +129,7 @@ function Gate() {
 function ErroCarga({ msg, onRetry }: { msg: string; onRetry: () => void }) {
   const { logout } = useApp();
   return (
-    <div style={css(`height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
+    <div className="app-h" style={css(`width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
       <div style={css("width:100%; max-width:440px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:14px; background:#fff; border-radius:22px; padding:44px 40px; box-shadow:0 30px 80px rgba(20,24,40,.35); text-align:center;")}>
         <img src="/logo.png" alt="Ju Budelon" style={css("height:96px; width:auto; object-fit:contain; margin-bottom:2px;")} />
         <div style={css("font-size:17px; font-weight:800; color:#1B1B28; letter-spacing:-0.2px;")}>Não foi possível carregar os dados</div>
@@ -145,7 +146,7 @@ function ErroCarga({ msg, onRetry }: { msg: string; onRetry: () => void }) {
 /** Tela de carregamento (logo + "Carregando…"). */
 function Carregando() {
   return (
-    <div style={css(`height:100vh; width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
+    <div className="app-h" style={css(`width:100%; display:flex; align-items:center; justify-content:center; padding:24px; box-sizing:border-box; background:${BG_GRADIENT};`)}>
       <style>{"@keyframes jb-pulse{0%,100%{opacity:.45}50%{opacity:1}}"}</style>
       <div style={css("width:100%; max-width:420px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:14px; background:#fff; border-radius:22px; padding:48px 40px; box-shadow:0 30px 80px rgba(20,24,40,.35); text-align:center;")}>
         <img src="/logo.png" alt="Ju Budelon" style={css("height:100px; width:auto; object-fit:contain;")} />

@@ -19,6 +19,7 @@ import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import PedidoForm from "../modals/PedidoForm";
 import PedidoDetail from "../modals/PedidoDetail";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 type SortKey = "titulo" | "status" | "itens" | "entrega" | "criada";
 type GroupBy = "status" | "none";
@@ -90,6 +91,35 @@ export default function Pedidos() {
     { id: "criada", label: "Criada", key: "criada" },
     { id: "acoes", label: "" },
   ];
+
+  const mobile = useIsMobile();
+  /** Celular: cartão da ordem (toque abre o detalhe). */
+  const renderCard = (p: Pedido) => {
+    const si = pedidoStatusInfo(p.status);
+    const daOrdem = tasks.filter((t) => t.pedidoId === p.id);
+    const feita = (t: { status: string }) => t.status === "concluida" || t.status === "validada";
+    const late = p.entrega ? (daysUntil(p.entrega) ?? 0) < 0 && p.status !== "concluida" && p.status !== "validada" : false;
+    const prog = (rot: string, l: typeof daOrdem) => {
+      if (!l.length) return null;
+      const ok = l.filter(feita).length;
+      const cor = ok === l.length ? "#1B7F4D" : ok ? "#C25712" : "#5B6472";
+      return <span key={rot} style={css(`font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:7px; background:${cor}14; color:${cor}; font-variant-numeric:tabular-nums;`)}>{rot} {ok}/{l.length}</span>;
+    };
+    return (
+      <div key={p.id} onClick={() => setPedidoDetailOpen(p.id)} style={css(`background:#fff; border:1px solid #ECEDF1; border-left:4px solid ${si.dot}; border-radius:12px; padding:11px 12px; display:flex; flex-direction:column; gap:7px; cursor:pointer;`)}>
+        <div style={css("display:flex; align-items:flex-start; gap:8px;")}>
+          <span style={css("flex:1; min-width:0; font-size:14px; font-weight:800; color:#1B1B28; overflow-wrap:anywhere;")}>{p.titulo}</span>
+          <span style={css(`flex:none; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${si.bg}; color:${si.fg};`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${si.dot};`)} />{si.label}</span>
+        </div>
+        <div style={css("font-size:12.5px; color:#5B6472; font-weight:600;")}>
+          Entrega <strong style={css(`color:${late ? "#CC3338" : "#1B1B28"};`)}>{p.entrega ?? "—"}</strong> · {produtosNoPedido(p.itens)} prod. · <strong style={css("color:#1B1B28;")}>{totalPedido(p.itens)} un.</strong>
+        </div>
+        <div style={css("display:flex; flex-wrap:wrap; gap:6px;")}>
+          {prog("Produção", daOrdem.filter(ehProducao))}{prog("Expedição", daOrdem.filter(ehExpedicao))}{prog("Unidades", daOrdem.filter(ehUnidade))}
+        </div>
+      </div>
+    );
+  };
 
   const renderRow = (p: Pedido) => {
     const si = pedidoStatusInfo(p.status);
@@ -187,7 +217,7 @@ export default function Pedidos() {
         <Menu align="right" width={220} trigger={(toggle) => (
           <Hoverable as="button" onClick={toggle} s={css("display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px;")} hover="background:#FAFAFB">
             <Svg size={15} stroke={ACCENT}><rect x="3" y="4" width="7" height="7" rx="1.6" /><rect x="14" y="4" width="7" height="7" rx="1.6" /><rect x="3" y="15" width="7" height="5" rx="1.6" /><rect x="14" y="15" width="7" height="5" rx="1.6" /></Svg>
-            <span style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === groupBy)?.label}
+            <span className="m-hide" style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === groupBy)?.label}
             <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
           </Hoverable>
         )}>
@@ -233,7 +263,7 @@ export default function Pedidos() {
               const open = semGrupo || !collapsed[grp.key];
               return (
                 <div key={grp.key} style={css(semGrupo ? "" : "padding-bottom:22px;")}>
-                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${GRID_MIN}px;`)}>
+                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${mobile ? 0 : GRID_MIN}px;`)}>
                     {!semGrupo && (
                       <div style={css("position:sticky; left:0; width:max-content; max-width:100%; background:#F7F7F9; display:flex; align-items:center; gap:10px; padding:2px 0 9px;")}>
                         <Hoverable as="button" onClick={() => setCollapsed((c) => ({ ...c, [grp.key]: !c[grp.key] }))} s={css("width:26px; height:26px; flex:none; border:1px solid #E2E3E9; background:#fff; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F2F3F6">
@@ -245,7 +275,7 @@ export default function Pedidos() {
                         <span style={css("font-size:13px; color:#9398A6; font-weight:700;")}>{grp.itens.length}</span>
                       </div>
                     )}
-                    {open && (
+                    {open && !mobile && (
                       <div style={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:10px 18px; border:1px solid #ECEDF1; background:#FAFAFB; border-radius:12px 12px 0 0; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
                         {cols.map((col) => col.key ? (
                           <Hoverable key={col.id} onClick={() => toggleSort(col.key!)} s={css(`${col.id === "titulo" ? fixa("#FAFAFB", 5) : ""} display:flex; align-items:center; gap:4px; overflow:hidden; cursor:pointer; user-select:none; min-width:0;`)} hover="color:#5B6472">
@@ -256,7 +286,8 @@ export default function Pedidos() {
                       </div>
                     )}
                   </div>
-                  {open && (
+                  {open && mobile && <div style={css("display:flex; flex-direction:column; gap:8px;")}>{sortRows(grp.itens).map(renderCard)}</div>}
+                  {open && !mobile && (
                     <div style={css(`background:#fff; border:1px solid #ECEDF1; border-top:none; border-radius:0 0 12px 12px; min-width:${GRID_MIN}px;`)}>
                       {sortRows(grp.itens).map(renderRow)}
                     </div>

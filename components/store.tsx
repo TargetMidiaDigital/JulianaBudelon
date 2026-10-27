@@ -65,6 +65,8 @@ const LANDING_POR_CARGO: Record<string, ScreenPage> = {
 };
 
 export type ListGroupBy =
+  | "produto" // só na lista de Produção
+  | "unidade"
   | "status"
   | "responsavel"
   | "prioridade"
@@ -175,6 +177,8 @@ type Store = {
   setGlobalStatus: (s: string) => void;
   globalPrio: string;
   setGlobalPrio: (p: string) => void;
+  globalLocal: string; // unidade (id de LOCAIS_ESTOQUE) nas listas de tarefas; "" = todas
+  setGlobalLocal: (l: string) => void;
   listView: "list" | "board";
   setListView: (v: "list" | "board") => void;
   listGroupBy: ListGroupBy;
@@ -448,6 +452,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [globalCliente, setGlobalCliente] = useState("");
   const [globalStatus, setGlobalStatus] = useState("");
   const [globalPrio, setGlobalPrio] = useState("");
+  const [globalLocal, setGlobalLocal] = useState("");
   const [listView, setListView] = useState<"list" | "board">("board"); // Produção abre no Quadro
   const [listGroupBy, setListGroupByState] = useState<ListGroupBy>("status");
   const gestorKey = (userId: string) => `jb.globalGestor.${userId}`;
@@ -780,7 +785,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     goto: (s) => {
       // Ao trocar de SETOR, reseta o filtro de Responsável para "Todos".
       if (!ownScopeOnly && setorDe(s) !== setorDe(screen)) setGlobalGestor("todos");
-      if (s !== screen) { setGlobalCliente(""); setGlobalStatus(""); setGlobalPrio(""); }
+      if (s !== screen) { setGlobalCliente(""); setGlobalStatus(""); setGlobalPrio(""); setGlobalLocal(""); }
       setScreen(s);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
@@ -801,6 +806,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     globalCliente, setGlobalCliente,
     globalStatus, setGlobalStatus,
     globalPrio, setGlobalPrio,
+    globalLocal, setGlobalLocal,
     listView,
     setListView,
     listGroupBy,

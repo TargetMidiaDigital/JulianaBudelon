@@ -25,11 +25,12 @@ import DatePicker from "../ui/DatePicker";
 import CommentsPopover from "../ui/CommentsPopover";
 import DescricaoPopover from "../ui/DescricaoPopover";
 import EditableTitle from "../ui/EditableTitle";
+import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import FiltroTarefas from "../FiltroTarefas";
 import { pageSemProducao, tarefasDaPage } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 
-type SortKey = "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
+type SortKey = "unidade" | "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
 type ResizeCol = "tarefa" | "descricao" | "com";
 const DEFAULT_COL_W: Record<ResizeCol, number> = { tarefa: 280, descricao: 200, com: 240 };
 
@@ -41,6 +42,8 @@ const descText = (h?: string) => (h ?? "").replace(/<[^>]*>/g, " ").replace(/&nb
 
 export const GROUP_OPTS: { key: ListGroupBy; label: string }[] = [
   { key: "status", label: "Status" },
+  { key: "unidade", label: "Unidade" },
+  { key: "produto", label: "Produto" }, // só em Produção (ver gruposDaPagina)
   { key: "responsavel", label: "Responsável" },
   { key: "prioridade", label: "Prioridade" },
   { key: "vencimento", label: "Data de vencimento" },
@@ -71,10 +74,12 @@ export default function ListaView({
     globalGestor,
     globalStatus,
     globalPrio,
+    globalLocal,
     listView,
     setListView,
-    listGroupBy,
+    listGroupBy: listGroupBySalvo,
     setListGroupBy,
+    produtos,
     updateTask,
     removeTask,
     setTaskDetailOpen,
@@ -83,6 +88,9 @@ export default function ListaView({
     canSeeAll,
     canEditPage,
   } = useApp();
+  // Agrupar por produto só existe em Produção; nas outras listas cai para Status.
+  const gruposDaPagina = GROUP_OPTS.filter((o) => o.key !== "produto" || page === "listaview");
+  const listGroupBy: ListGroupBy = gruposDaPagina.some((o) => o.key === listGroupBySalvo) ? listGroupBySalvo : "status";
   const scope = "operacional";
   const editavel = canEditPage(page);
   const tasks = tarefasDaPage(todasTasks, page);
@@ -134,6 +142,7 @@ export default function ListaView({
     // travada só não tem emenda por onde o conteúdo das outras colunas aparece ao rolar).
     { id: "tarefa", label: "Tarefa", key: "titulo", resize: "tarefa", w: `${colW.tarefa + (selectable ? 58 : 0)}px`, min: colW.tarefa + (selectable ? 58 : 0) },
     { id: "resp", label: "Resp.", key: "resp", w: "70px", min: 70 },
+    { id: "unidade", label: "Unidade", key: "unidade", w: "132px", min: 132 },
     { id: "prio", label: "Prioridade", key: "prio", w: "130px", min: 130 },
     { id: "status", label: "Status", key: "status", w: "150px", min: 150 },
     { id: "descricao", label: "Descrição", resize: "descricao", w: `${colW.descricao}px`, min: colW.descricao },
@@ -156,6 +165,7 @@ export default function ListaView({
   let tsBase = filterByGestor(tasks, globalGestor);
   if (globalStatus) tsBase = tsBase.filter((t) => t.status === globalStatus);
   if (globalPrio) tsBase = tsBase.filter((t) => t.prio === globalPrio);
+  if (globalLocal) tsBase = tsBase.filter((t) => t.local === globalLocal);
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
   const ts = showValidadas ? tsBase : tsBase.filter((t) => t.status !== "validada");
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
@@ -178,6 +188,7 @@ export default function ListaView({
       case "atualizada": return t.atualizada ? dtMs(t.atualizada, t.atualizadaHora) : 0;
       case "venc": return dtMs(t.venc, t.vencHora);
       case "resp": return gestorOf(team, t.gestor).nome;
+      case "unidade": return LOCAIS_ESTOQUE.findIndex((l) => l.id === t.local);
       case "prio": return PRIO_ORDER.indexOf(t.prio);
       case "status": return STATUS_ORDER.indexOf(t.status);
       case "titulo": return t.titulo;
@@ -209,6 +220,30 @@ export default function ListaView({
       key: p, label: prioInfo[p].label, dot: prioInfo[p].dot, bg: prioInfo[p].fg + "1A", fg: prioInfo[p].fg,
       tasks: ts.filter((t) => t.prio === p),
     }));
+  } else if (listGroupBy === "produto") {
+    // Um grupo por produto (ordem das categorias do estoque, depois nome), com a cor da categoria.
+    const prodDe = (t: Task) => t.produtoId ?? t.conferencia?.[0]?.produtoId;
+    const ordemCat = (c?: string) => { const k = CATEGORIAS_ESTOQUE.findIndex((x) => x.v === c); return k < 0 ? 999 : k; };
+    const ids = [...new Set(ts.map(prodDe).filter((x): x is string => !!x))];
+    const lista = ids.map((id) => ({ id, p: produtos.find((x) => x.id === id) }))
+      .sort((a, b) => ordemCat(a.p?.categoria) - ordemCat(b.p?.categoria) || (a.p?.nome ?? "").localeCompare(b.p?.nome ?? "", "pt"));
+    groups = lista.map(({ id, p }) => {
+      const cor = CATEGORIAS_ESTOQUE.find((c) => c.v === p?.categoria)?.cor ?? "#9398A6";
+      const doProduto = ts.filter((t) => prodDe(t) === id);
+      const un = doProduto.reduce((s, t) => s + (t.quantidade ?? t.conferencia?.reduce((q, l) => q + l.pedido, 0) ?? 0), 0);
+      return { key: id, label: `${p?.nome ?? "Produto removido"}${un ? ` · ${un} un.` : ""}`, dot: cor, bg: cor + "1A", fg: cor, tasks: doProduto };
+    });
+    const sem = ts.filter((t) => !prodDe(t));
+    if (sem.length) groups.push({ key: "sem-produto", label: "Sem produto", dot: "#9398A6", bg: "#EFF0F4", fg: "#5B6472", tasks: sem });
+  } else if (listGroupBy === "unidade") {
+    // Uma coluna por unidade (Expedição/Unidades: só as lojas); tarefa sem unidade vai para "Sem unidade".
+    const locais = LOCAIS_ESTOQUE.filter((l) => !expedicao || l.id !== "fabrica");
+    groups = locais.map((l) => {
+      const cor = corDoLocal(l.id);
+      return { key: l.id, label: l.label, dot: cor, bg: cor + "1A", fg: cor, tasks: ts.filter((t) => t.local === l.id) };
+    });
+    const sem = ts.filter((t) => !t.local || !locais.some((l) => l.id === t.local));
+    if (sem.length) groups.push({ key: "sem-unidade", label: "Sem unidade", dot: "#9398A6", bg: "#EFF0F4", fg: "#5B6472", tasks: sem });
   } else if (listGroupBy === "responsavel") {
     groups = team.map((g) => ({
       key: g.id, label: g.nome, dot: g.cor, bg: g.cor + "1A", fg: g.cor,
@@ -232,11 +267,11 @@ export default function ListaView({
     });
   }
   // No Quadro agrupado por status/prioridade, mostra TODAS as colunas (mesmo vazias).
-  const showEmptyGroups = listView === "board" && (listGroupBy === "status" || listGroupBy === "prioridade");
+  const showEmptyGroups = listView === "board" && (listGroupBy === "status" || listGroupBy === "prioridade" || listGroupBy === "unidade");
   if (!showEmptyGroups) groups = groups.filter((g) => g.tasks.length);
 
   const semTarefas = ts.length === 0;
-  const filtroAtivo = globalStatus !== "" || globalPrio !== "" || globalGestor !== "todos";
+  const filtroAtivo = globalStatus !== "" || globalPrio !== "" || globalLocal !== "" || globalGestor !== "todos";
 
   const renderRow = (t: Task) => {
     const g = gestorOf(team, t.gestor);
@@ -269,6 +304,7 @@ export default function ListaView({
             <RespHover member={g}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={26} fontSize={11} /></RespHover>
           )}
         </div>
+        <div style={{ minWidth: 0 }}><UnidadePill local={t.local} /></div>
         <div onClick={stop} style={{ minWidth: 0 }}>
           <Menu trigger={(tg) => (
             <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:6px; color:${prioInfo[t.prio].fg}; cursor:pointer; padding:3px 7px; border-radius:7px; font-size:12.5px; font-weight:700;`)}>
@@ -398,7 +434,7 @@ export default function ListaView({
               hover="background:#FAFAFB"
             >
               <Svg size={15} stroke={ACCENT}><rect x="3" y="4" width="7" height="7" rx="1.6" /><rect x="14" y="4" width="7" height="7" rx="1.6" /><rect x="3" y="15" width="7" height="5" rx="1.6" /><rect x="14" y="15" width="7" height="5" rx="1.6" /></Svg>
-              <span style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === listGroupBy)?.label}
+              <span className="m-hide" style={css("color:#9398A6; font-weight:600;")}>Agrupar por</span> {GROUP_OPTS.find((o) => o.key === listGroupBy)?.label}
               <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
             </Hoverable>
           )}
@@ -406,7 +442,7 @@ export default function ListaView({
           {(close) => (
             <>
               <div style={css("font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.5px; text-transform:uppercase; padding:7px 10px 5px;")}>Agrupar por</div>
-              {GROUP_OPTS.map((o) => (
+              {gruposDaPagina.map((o) => (
                 <MenuItem key={o.key} checked={listGroupBy === o.key} accent={ACCENT} onClick={() => { setListGroupBy(o.key); close(); }}>
                   <span style={{ flex: 1 }}>{o.label}</span>
                 </MenuItem>
@@ -645,5 +681,17 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
         })}
       </div>
     </div>
+  );
+}
+
+/** Unidade da tarefa (Fábrica ou loja), com a cor usada no agrupamento. */
+export function UnidadePill({ local }: { local?: string }) {
+  const l = LOCAIS_ESTOQUE.find((x) => x.id === local);
+  if (!l) return <span style={css("font-size:12.5px; color:#B4B8C4;")}>—</span>;
+  const cor = corDoLocal(l.id);
+  return (
+    <span style={css(`display:inline-flex; align-items:center; gap:6px; max-width:100%; font-size:12.5px; font-weight:700; color:${cor}; background:${cor}14; padding:3px 9px; border-radius:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;`)}>
+      <span style={css(`width:7px; height:7px; border-radius:50%; background:${cor}; flex:none;`)} />{l.label}
+    </span>
   );
 }

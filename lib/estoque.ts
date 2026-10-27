@@ -15,6 +15,12 @@ export const CATEGORIAS_ESTOQUE: { v: string; cor: string }[] = [
 ];
 
 /** Locais com estoque próprio: a fábrica e cada loja (colunas da planilha de reposição). */
+/** Cor de cada local (agrupamento e filtro por unidade nas listas de tarefas). */
+const COR_LOCAL: Record<string, string> = {
+  fabrica: "#955C6B", centro: "#2563EB", "santa-monica": "#0E8FB0", coqueiros: "#16A34A", areias: "#C98500", rocado: "#7C3AED", pagani: "#DB2777",
+};
+export const corDoLocal = (id?: string) => COR_LOCAL[id ?? ""] ?? "#9398A6";
+
 export const LOCAIS_ESTOQUE: { id: string; label: string }[] = [
   { id: "fabrica", label: "Fábrica" },
   { id: "centro", label: "Centro" },

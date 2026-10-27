@@ -180,7 +180,7 @@ export default function Sidebar() {
 
   // ── Barra expandida (desktop no fluxo; mobile como overlay fixo + backdrop) ──
   const asideStyle = isMobile
-    ? "position:fixed; top:0; left:0; bottom:0; z-index:120; width:min(86vw,300px); background:#FFFFFF; border-right:1px solid #ECEDF1; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(20,24,40,.35); overflow-y:auto;"
+    ? "position:fixed; top:0; left:0; bottom:0; z-index:120; width:min(86vw,300px); padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); box-sizing:border-box; background:#FFFFFF; border-right:1px solid #ECEDF1; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(20,24,40,.35); overflow-y:auto;"
     : "width:252px; flex:none; background:#FFFFFF; border-right:1px solid #ECEDF1; display:flex; flex-direction:column;";
   return (
     <>

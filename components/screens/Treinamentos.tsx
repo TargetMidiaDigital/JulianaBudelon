@@ -8,6 +8,7 @@ import { useApp } from "../store";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Fluxograma from "../ui/Fluxograma";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Treinamentos → Guias de processo. Índice por setor à esquerda e o guia aberto à direita.
@@ -22,6 +23,9 @@ export default function Treinamentos() {
     return q && GUIAS.some((g) => g.id === q) ? q : GUIAS[0].id;
   });
   const guia = guias.find((g) => g.id === atual) ?? guias[0];
+  const mobile = useIsMobile();
+  const [indiceAberto, setIndiceAberto] = useState(false); // celular: índice recolhido
+  const escolher = (id: string) => { setAtual(id); setIndiceAberto(false); };
   const i = guias.indexOf(guia);
 
   useEffect(() => {
@@ -43,7 +47,17 @@ export default function Treinamentos() {
       <div className="m-pad tr-grid" style={css("display:grid; grid-template-columns:270px minmax(0,1fr); gap:16px; padding:0 30px 30px; align-items:start;")}>
         {/* Índice */}
         <nav style={css("background:#fff; border:1px solid #ECEDF1; border-radius:14px; padding:10px; position:sticky; top:12px;")}>
-          {SETORES_TREINAMENTO.map((setor) => {
+          {mobile && (
+            <button onClick={() => setIndiceAberto((v) => !v)} style={css("width:100%; display:flex; align-items:center; gap:10px; border:none; background:transparent; cursor:pointer; padding:6px 6px; text-align:left;")}>
+              <span style={css("flex:1; min-width:0;")}>
+                <span style={css("display:block; font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:#9398A6;")}>Guia {guias.indexOf(guia) + 1} de {guias.length}</span>
+                <span style={css(`display:block; font-size:14px; font-weight:800; color:${ACCENT};`)}>{guia.titulo}</span>
+              </span>
+              <span style={css("font-size:12px; font-weight:700; color:#5B6472; flex:none;")}>{indiceAberto ? "Fechar" : "Ver todos"}</span>
+              <Svg size={14} sw={2.4} stroke="#9398A6" style={{ transform: indiceAberto ? "rotate(180deg)" : "none", flex: "none" }}><path d="m6 9 6 6 6-6" /></Svg>
+            </button>
+          )}
+          {(!mobile || indiceAberto) && SETORES_TREINAMENTO.map((setor) => {
             const doSetor = guias.filter((g) => g.setor === setor);
             if (!doSetor.length) return null;
             return (
@@ -52,7 +66,7 @@ export default function Treinamentos() {
                 {doSetor.map((g) => {
                   const on = g.id === guia.id;
                   return (
-                    <Hoverable key={g.id} as="button" onClick={() => setAtual(g.id)} s={css(`display:block; width:100%; text-align:left; border:none; cursor:pointer; font-size:13px; font-weight:${on ? 800 : 600}; color:${on ? ACCENT : "#3A3F4C"}; background:${on ? "#FDF1F4" : "transparent"}; padding:8px 10px; border-radius:8px; line-height:1.35;`)} hover={on ? undefined : "background:#F6F7F9"}>
+                    <Hoverable key={g.id} as="button" onClick={() => escolher(g.id)} s={css(`display:block; width:100%; text-align:left; border:none; cursor:pointer; font-size:13px; font-weight:${on ? 800 : 600}; color:${on ? ACCENT : "#3A3F4C"}; background:${on ? "#FDF1F4" : "transparent"}; padding:8px 10px; border-radius:8px; line-height:1.35;`)} hover={on ? undefined : "background:#F6F7F9"}>
                       {g.titulo}
                     </Hoverable>
                   );

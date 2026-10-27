@@ -22,10 +22,19 @@ export type Conta = {
   obs?: string;
   codigoBarras?: string;
   comprovantes: Comprovante[];
+  numeroDocumento?: string; // NF, boleto, contrato…
+  tipoDespesa?: TipoDespesa;
   grupo?: string; // parcelas do mesmo lançamento
   parcela?: number;
   parcelas?: number;
 };
+
+export type TipoDespesa = "variavel" | "fixa";
+export const TIPOS_DESPESA: { key: TipoDespesa; label: string }[] = [
+  { key: "variavel", label: "Variável" },
+  { key: "fixa", label: "Fixa" },
+];
+export const tipoDespesaLabel = (t?: TipoDespesa) => TIPOS_DESPESA.find((x) => x.key === t)?.label ?? "—";
 
 export type Comprovante = { path: string; nome: string; mime?: string; tamanho?: number; em?: string; autor?: string };
 export type ItemLista = { id: string; nome: string; cnpj?: string | null };
