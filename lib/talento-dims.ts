@@ -11,6 +11,7 @@ export const TALENTO_STATUS: { key: string; label: string; dot: string }[] = [
   { key: "banco de talentos", label: "Banco de Talentos", dot: "#F8AE00" },
   { key: "qualificado", label: "Qualificado", dot: "#16A34A" },
   { key: "reunião agendada", label: "Reunião agendada", dot: "#3DB88B" },
+  { key: "em teste", label: "Em teste", dot: "#8B5CF6" },
   { key: "desqualificado", label: "Desqualificado", dot: "#87909E" },
   { key: "contratado", label: "Contratado", dot: "#2563EB" },
   // "antigos" não vem do ClickUp — é um arquivo interno; oculto por padrão, como o desqualificado.

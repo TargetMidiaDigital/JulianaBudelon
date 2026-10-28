@@ -151,7 +151,7 @@ export type AnaliseIA = {
 export type Talento = {
   id: string;
   nome: string;
-  status: string; // novo / banco de talentos / qualificado / reunião agendada / desqualificado / contratado / antigos
+  status: string; // novo / banco de talentos / qualificado / reunião agendada / em teste / desqualificado / contratado / antigos
   vaga?: string; // título da vaga (texto, p/ exibição e filtro)
   vagaId?: string; // vínculo com a vaga cadastrada
   unidadeId?: string; // vínculo com a unidade
