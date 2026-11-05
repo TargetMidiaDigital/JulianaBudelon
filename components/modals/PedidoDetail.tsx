@@ -18,6 +18,7 @@ import { gestorOf, useApp } from "../store";
 import { statusInfo } from "@/lib/theme";
 import TreeGuides from "../ui/TreeGuides";
 import RelatorioOrdem from "./RelatorioOrdem";
+import FecharMobile from "../ui/FecharMobile";
 
 const dataHora = (iso?: string) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", "") : "—";
@@ -62,11 +63,12 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
           assim clicar fora dela (inclusive sobre esta ordem) fecha só a tarefa. */}
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:60; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:61; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:1500px; max-width:97vw; display:flex; overflow:hidden;")}>
+        <FecharMobile onClose={onClose} />
         <div style={css(`flex:2; min-width:0; display:flex; flex-direction:column; ${mostrarLogs ? "border-right:1px solid #ECEDF1;" : ""}`)}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
             <div className="m-wrap" style={css("display:flex; align-items:center; gap:8px; margin-bottom:18px;")}>
               <span style={css(`flex:none; width:34px; height:34px; border-radius:9px; background:${si.bg}; color:${si.fg}; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={2.2}><path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="1" /><path d="M9 13h6M9 17h4" /></Svg></span>
-              <div className="m-full" style={css("flex:1; min-width:0; margin-left:3px;")}>
+              <div className="m-full m-pr-fechar" style={css("flex:1; min-width:0; margin-left:3px;")}>
                 {editavel
                   ? <EditableTitle fill value={p.titulo} onSave={(v) => updatePedido(p.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
                   : <h2 style={css("margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;")}>{p.titulo}</h2>}

@@ -11,6 +11,7 @@ import EditableTitle from "../ui/EditableTitle";
 import LogLine from "../ui/LogLine";
 import QtdCell from "../ui/QtdCell";
 import { useApp } from "../store";
+import FecharMobile from "../ui/FecharMobile";
 
 /** ISO → "dd/mm/yyyy hh:mm" (Brasília). */
 const dataHora = (iso?: string) =>
@@ -36,9 +37,10 @@ function Body({ p, onClose }: { p: Produto; onClose: () => void }) {
     <>
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:60; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:61; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:960px; max-width:96vw; display:flex; overflow:hidden;")}>
+        <FecharMobile onClose={onClose} />
         <div style={css("flex:1.3; min-width:0; display:flex; flex-direction:column; border-right:1px solid #ECEDF1;")}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
-            <div style={css("display:flex; align-items:center; gap:11px; margin-bottom:20px;")}>
+            <div className="m-pr-fechar" style={css("display:flex; align-items:center; gap:11px; margin-bottom:20px;")}>
               <span style={css(`flex:none; width:34px; height:34px; border-radius:9px; background:${cor}1A; color:${cor}; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={2.2}><path d="M21 8 12 3 3 8v8l9 5 9-5V8z" /><path d="M3 8l9 5 9-5M12 13v8" /></Svg></span>
               <div style={css("flex:1; min-width:0;")}>
                 {editavel

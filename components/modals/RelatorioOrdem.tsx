@@ -56,8 +56,8 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
     <>
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:70; background:rgba(20,24,40,.35);")} />
       <div style={css("position:fixed; top:4vh; left:50%; transform:translateX(-50%); z-index:71; width:980px; max-width:96vw; max-height:92vh; display:flex; flex-direction:column; background:#fff; border-radius:16px; box-shadow:0 24px 70px rgba(20,24,40,.32); overflow:hidden;")}>
-        <div style={css("display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid #ECEDF1;")}>
-          <div style={css("flex:1; min-width:0;")}>
+        <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid #ECEDF1;")}>
+          <div className="m-full" style={css("flex:1; min-width:0;")}>
             <div style={css("font-size:17px; font-weight:800; letter-spacing:-0.3px;")}>Relatório — {pedido.titulo}</div>
             <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>Produção e expedição comparadas ao pedido; recebimento ao separado · entrega {pedido.entrega ?? "—"}</div>
           </div>
@@ -73,7 +73,9 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
             <span style={css("padding:5px 10px; border-radius:8px; background:#F4F4F7; color:#5B6472;")}>“n/a”: a parte da Fábrica não passa por expedição/recebimento</span>
           </div>
           {grupos.map((g) => (
-            <div key={g.id} style={css("margin-bottom:14px; border:1px solid #ECEDF1; border-radius:11px; overflow:hidden;")}>
+            // Rola de lado quando a tela é estreita (celular): as 6 colunas não cabem em ~300px.
+            <div key={g.id} style={css("margin-bottom:14px; border:1px solid #ECEDF1; border-radius:11px; overflow-x:auto; overflow-y:hidden;")}>
+              <div style={css("min-width:600px;")}>
               <div style={css(`${grid} padding:8px 12px; background:#FAFAFB; border-bottom:1px solid #ECEDF1; font-size:10.5px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; color:#9398A6;`)}>
                 <span style={css("font-size:12.5px; letter-spacing:0; text-transform:none; color:#1B1B28; font-weight:800;")}>{g.label}</span>
                 {COLS.map((c) => <span key={c} style={css("text-align:right;")}>{c}</span>)}<span>Divergências</span>
@@ -94,6 +96,7 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
               <div style={css(`${grid} padding:7px 12px; background:#FAFAFB; border-top:1px solid #ECEDF1; font-size:12px; font-weight:800; color:#5B6472;`)}>
                 <span>Total</span>
                 {(["pedido", "produzido", "separado", "recebido"] as const).map((k) => <span key={k} style={css("text-align:right; font-variant-numeric:tabular-nums;")}>{val(soma(g.linhas, k))}</span>)}<span />
+              </div>
               </div>
             </div>
           ))}

@@ -29,6 +29,7 @@ import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import FiltroTarefas from "../FiltroTarefas";
 import { pageSemProducao, tarefasDaPage } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 type SortKey = "unidade" | "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
 type ResizeCol = "tarefa" | "descricao" | "com";
@@ -122,6 +123,10 @@ export default function ListaView({
 
   // Largura ajustável das colunas Tarefa, Descrição e Comentário (alça no cabeçalho).
   const [colW, setColW] = useState<Record<ResizeCol, number>>(DEFAULT_COL_W);
+  // No celular a coluna travada (Tarefa) com 280px + checkbox passa da largura da tela e
+  // esconde todas as outras por baixo dela: lá ela fica estreita.
+  const mobile = useIsMobile();
+  const tarefaW = (mobile ? 150 : colW.tarefa) + (selectable ? 58 : 0);
   const startResize = (col: ResizeCol) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -140,7 +145,7 @@ export default function ListaView({
   const colDefs: ColDef[] = [
     // Sem coluna de seleção: o checkbox entra DENTRO da célula de Tarefa (uma célula
     // travada só não tem emenda por onde o conteúdo das outras colunas aparece ao rolar).
-    { id: "tarefa", label: "Tarefa", key: "titulo", resize: "tarefa", w: `${colW.tarefa + (selectable ? 58 : 0)}px`, min: colW.tarefa + (selectable ? 58 : 0) },
+    { id: "tarefa", label: "Tarefa", key: "titulo", resize: "tarefa", w: `${tarefaW}px`, min: tarefaW },
     { id: "resp", label: "Resp.", key: "resp", w: "70px", min: 70 },
     { id: "unidade", label: "Unidade", key: "unidade", w: "132px", min: 132 },
     { id: "prio", label: "Prioridade", key: "prio", w: "130px", min: 130 },
@@ -468,7 +473,7 @@ export default function ListaView({
           </div>
         </div>
       ) : listView === "list" ? (
-        <div style={css("flex:1; min-height:0; padding:18px 30px 0; display:flex; flex-direction:column; transform:translateZ(0);")}>
+        <div className="m-pad" style={css("flex:1; min-height:0; padding:18px 30px 0; display:flex; flex-direction:column; transform:translateZ(0);")}>
           {/* O respiro de topo fica no wrapper de FORA do scroller: o cabeçalho sticky
               gruda no topo REAL. O translateZ(0) força camada própria e mata o rastro de
               repintura da coluna fixa durante a rolagem. */}
@@ -623,7 +628,7 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggle = (k: string) => setCollapsed((c) => ({ ...c, [k]: !c[k] }));
   return (
-    <div style={css("flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 30px 28px;")}>
+    <div className="m-pad" style={css("flex:1; min-height:0; display:flex; flex-direction:column; padding:18px 30px 28px;")}>
       <div style={css("flex:1; min-height:0; display:grid; grid-auto-flow:column; grid-auto-columns:max-content; justify-content:start; gap:14px; align-items:stretch; overflow:auto; padding-bottom:8px;")}>
         {groups.map((grp) => {
           if (collapsed[grp.key]) {

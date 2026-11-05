@@ -23,7 +23,9 @@ export default function DescricaoPopover({ title, html, preview, heading = "Desc
   const abrir = () => {
     const r = wrapRef.current?.getBoundingClientRect();
     if (r) {
-      const left = Math.min(Math.max(margin, r.left), window.innerWidth - W - margin);
+      // Largura real (no celular o popup encolhe para caber): sem isto o left ficava negativo.
+      const w = Math.min(W, window.innerWidth - 2 * margin);
+      const left = Math.max(margin, Math.min(r.left, window.innerWidth - w - margin));
       const spaceBelow = window.innerHeight - r.bottom - margin - 6;
       const spaceAbove = r.top - margin - 6;
       if (spaceBelow >= spaceAbove) setPos({ top: r.bottom + 6, bottom: null, left, maxH: Math.min(H, spaceBelow) });

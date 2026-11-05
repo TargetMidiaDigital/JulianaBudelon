@@ -34,7 +34,7 @@ export default function ProdutoForm({ open, onClose, categoriaInicial }: { open:
   return (
     <>
       <div onClick={close} style={css("position:fixed; inset:0; z-index:64; background:rgba(20,24,40,.32);")} />
-      <div style={css("position:fixed; top:0; right:0; bottom:0; z-index:65; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:520px; max-width:96vw; display:flex; flex-direction:column; overflow:hidden;")}>
+      <div className="m-drawer" style={css("position:fixed; top:0; right:0; bottom:0; z-index:65; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:520px; max-width:96vw; display:flex; flex-direction:column; overflow:hidden;")}>
         <div style={css("display:flex; align-items:center; gap:10px; padding:18px 24px; border-bottom:1px solid #ECEDF1;")}>
           <h2 style={css("margin:0; font-size:18px; font-weight:800; letter-spacing:-0.3px;")}>Novo produto</h2>
           <span style={{ flex: 1 }} />

@@ -9,6 +9,7 @@ import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import { useApp } from "../store";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
  * Popup ao concluir uma tarefa da ordem: a pessoa registra (ou confirma) o produzido /
@@ -40,7 +41,11 @@ function Corpo() {
   const totFeito = valores.reduce<number>((s, v) => s + (v ?? 0), 0);
   const confirmar = () => { if (completo) resolverConclusao(t.id, linhas.map((l, i) => ({ ...l, feito: valores[i] }))); };
   const destino = item.status === "validada" ? statusInfo.validada.label : statusInfo.concluida.label;
-  const grid = "display:grid; grid-template-columns:minmax(0,1fr) 70px 108px 70px; gap:10px; align-items:center;";
+  // No celular as colunas fixas (278px) engoliam o nome do produto: lá elas encolhem (como na Conferência).
+  const mobile = useIsMobile();
+  const grid = mobile
+    ? "display:grid; grid-template-columns:minmax(0,1fr) 42px 72px 44px; gap:6px; align-items:center;"
+    : "display:grid; grid-template-columns:minmax(0,1fr) 70px 108px 70px; gap:10px; align-items:center;";
 
   return (
     <>
@@ -75,7 +80,7 @@ function Corpo() {
                       onChange={(e) => { const nv = e.target.value.replace(/[^\d]/g, ""); setTxt((a) => a.map((x, j) => (j === i ? nv : x))); }}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (completo) confirmar(); } }}
                       onFocus={(e) => e.target.select()}
-                      style={css(`width:90px; height:36px; box-sizing:border-box; border:1px solid ${v == null ? "#F3B4BC" : "#E2E3E9"}; border-radius:9px; outline:none; text-align:center; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; background:${v == null ? "#FFF8F9" : "#fff"};`)} />
+                      style={css(`width:90px; max-width:100%; height:36px; box-sizing:border-box; border:1px solid ${v == null ? "#F3B4BC" : "#E2E3E9"}; border-radius:9px; outline:none; text-align:center; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; background:${v == null ? "#FFF8F9" : "#fff"};`)} />
                   </span>
                   <span style={css(`text-align:right; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; color:${dif == null ? "#C7CAD2" : dif === 0 ? "#1B7F4D" : dif < 0 ? "#CC3338" : "#C25712"};`)}>{dif == null ? "—" : dif === 0 ? "ok" : dif > 0 ? `+${dif}` : dif}</span>
                 </div>
@@ -90,8 +95,8 @@ function Corpo() {
             <Svg size={13} sw={2.4}><path d="M20 6 9 17l-5-5" /></Svg>Igual ao pedido
           </Hoverable>
         </div>
-        <div style={css("display:flex; align-items:center; gap:10px; padding:14px 20px; border-top:1px solid #ECEDF1;")}>
-          <span style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{completo ? `A tarefa vai para "${destino}".` : "Preencha todos os produtos para concluir."}</span>
+        <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; padding:14px 20px; border-top:1px solid #ECEDF1;")}>
+          <span className="m-full" style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{completo ? `A tarefa vai para "${destino}".` : "Preencha todos os produtos para concluir."}</span>
           <Hoverable as="button" onClick={cancelar} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
           <Hoverable as="button" onClick={confirmar} {...{ disabled: !completo }} s={css(`border:none; background:#1B7F4D; color:#fff; cursor:${completo ? "pointer" : "not-allowed"}; opacity:${completo ? 1 : 0.45}; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;`)} hover={completo ? "filter:brightness(1.1)" : undefined}>Confirmar e concluir</Hoverable>
         </div>

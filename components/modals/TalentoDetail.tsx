@@ -22,6 +22,7 @@ import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
 import BotaoWhatsapp from "../ui/BotaoWhatsapp";
 import { linkWhatsappCandidato } from "@/lib/whatsapp-candidato";
+import FecharMobile from "../ui/FecharMobile";
 
 /** Como o anexo é exibido no visualizador: imagem/vídeo/pdf têm preview; o resto é "file". */
 function tipoDoAnexo(a: Anexo): "image" | "video" | "pdf" | "file" {
@@ -168,10 +169,11 @@ export default function TalentoDetail({ talento, canEdit = true, onClose, onPatc
     <>
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:62; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:63; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:920px; max-width:96vw; display:flex; overflow:hidden;")}>
+        <FecharMobile onClose={onClose} />
         {/* Coluna esquerda — dados do candidato */}
         <div style={css("flex:1.3; min-width:0; display:flex; flex-direction:column; border-right:1px solid #ECEDF1;")}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
-            <div style={css("display:flex; align-items:flex-start; gap:12px; margin-bottom:18px;")}>
+            <div className="m-pr-fechar" style={css("display:flex; align-items:flex-start; gap:12px; margin-bottom:18px;")}>
               <div style={css("flex:1; min-width:0;")}>
                 {canEdit
                   ? <EditableTitle fill value={l.nome} onSave={(v) => onPatch({ nome: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />

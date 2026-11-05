@@ -56,8 +56,9 @@ export default function BulkActionsBar({
 }) {
   if (count <= 0) return null;
   return (
-    <div style={css("position:fixed; left:0; right:0; bottom:24px; z-index:55; display:flex; justify-content:center; pointer-events:none; padding:0 16px;")}>
-      <div style={css("pointer-events:auto; display:flex; align-items:center; gap:10px; max-width:100%; background:#fff; border:1px solid #E2E3E9; border-radius:14px; padding:9px 12px 9px 16px; box-shadow:0 18px 46px rgba(20,24,40,.22);")}>
+    <div style={css("position:fixed; left:0; right:0; bottom:calc(24px + env(safe-area-inset-bottom)); z-index:55; display:flex; justify-content:center; pointer-events:none; padding:0 16px;")}>
+      {/* m-wrap: no celular os botões de ação quebram linha em vez de sair da tela. */}
+      <div className="m-wrap" style={css("pointer-events:auto; display:flex; align-items:center; gap:10px; max-width:100%; background:#fff; border:1px solid #E2E3E9; border-radius:14px; padding:9px 12px 9px 16px; box-shadow:0 18px 46px rgba(20,24,40,.22);")}>
         <span style={css("font-size:13px; font-weight:800; color:#1B1B28; white-space:nowrap;")}>
           {count} {count === 1 ? "selecionada" : "selecionadas"}
         </span>

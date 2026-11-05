@@ -13,6 +13,7 @@ import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
 import TalentoDetail from "../modals/TalentoDetail";
 import { useApp } from "../store";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 // ── Vista LISTA: tabela ordenável — mesmas colunas da tabela do Banco de Talentos do
 // Cachorrão HD (Data · Qualidade · Unidade · Nome · WhatsApp · Status · Vaga · Turno ·
@@ -152,6 +153,46 @@ export default function BancoTalentos() {
 
   const aberto = abertoId ? talentos.find((t) => t.id === abertoId) ?? null : null;
 
+  // No celular a tabela (1640px, Nome na 4ª coluna) só mostrava data/qualidade/unidade:
+  // lá a Lista vira cartões — os mesmos do Quadro, com o status junto.
+  const mobile = useIsMobile();
+
+  /** Cartão do candidato (Quadro; e Lista no celular, com `comStatus`). */
+  const cartao = (t: Talento, comStatus = false) => {
+    const q = QUALIDADE_TALENTO.find((x) => x.v === (t.qualidade || "Aguardando Análise"));
+    const p = statusPill(t.status);
+    return (
+      <Hoverable key={t.id} onClick={() => abrir(t.id)} s={css("background:#fff; border:1px solid #ECEDF1; border-radius:12px; padding:14px 15px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer; user-select:none;")} hover="box-shadow:0 2px 8px rgba(16,24,40,.08)">
+        <div style={css("font-weight:700; font-size:14px; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:10px;")}>{t.nome}</div>
+        <div style={css("display:flex; flex-wrap:wrap; gap:6px; align-items:center;")}>
+          {comStatus && (
+            <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; background:${p.bg}; color:${p.fg};`)}>
+              <span style={css(`width:6px; height:6px; border-radius:50%; background:${p.fg};`)} />{p.label}
+            </span>
+          )}
+          {t.vaga && (
+            <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${vagaCor(t.vaga)}1A; color:${vagaCor(t.vaga)};`)}>
+              <span style={css(`width:6px; height:6px; border-radius:50%; background:${vagaCor(t.vaga)};`)} />{t.vaga}
+            </span>
+          )}
+          <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${q ? `${q.cor}22` : "#EDEEF2"}; color:#3A3F4C;`)}>
+            {q && <span style={css(`width:6px; height:6px; border-radius:50%; background:${q.cor};`)} />}{t.qualidade || "Aguardando Análise"}
+          </span>
+        </div>
+        {unidadeDe(t.unidadeId) && (
+          <div style={css("margin-top:8px; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#7A8090;")}>
+            <Svg size={12} sw={2.2} stroke="#9398A6"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>{unidadeLabel(unidadeDe(t.unidadeId))}
+          </div>
+        )}
+        {t.fone && (
+          <div style={css("margin-top:10px; display:flex; align-items:center; gap:8px; font-size:12.5px; color:#7A8090; font-variant-numeric:tabular-nums;")}>
+            {foneBR(t.fone)}<BotaoWhatsapp candidato={t} size={24} />
+          </div>
+        )}
+      </Hoverable>
+    );
+  };
+
   return (
     <div style={css("padding:0; height:100%; display:flex; flex-direction:column;")}>
       {/* Header */}
@@ -201,8 +242,16 @@ export default function BancoTalentos() {
         <TalentoFiltro talentos={talentos} filtro={filtro} onChange={setFiltro} statusPermitidos={colunas.map((c) => c.key)} />
       </div>
 
+      {/* ── Lista no celular: cartões em coluna (mesma ordem/ordenação da tabela) ── */}
+      {vista === "list" && mobile && (
+        <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:0 30px 24px; display:flex; flex-direction:column; gap:10px;")}>
+          {linhas.map((t) => cartao(t, true))}
+          {linhas.length === 0 && <div style={css("padding:26px 18px; text-align:center; color:#B6BAC4; font-size:13px;")}>Nenhum candidato.</div>}
+        </div>
+      )}
+
       {/* ── Lista: tabela ordenável ── */}
-      {vista === "list" && (
+      {vista === "list" && !mobile && (
         <div className="m-pad" style={css("flex:1; min-height:0; padding:0 30px 24px; display:flex; flex-direction:column;")}>
           <div style={css("flex:1; min-height:0; overflow:auto; border:1px solid #ECEDF1; border-radius:12px; background:#fff;")}>
             <div style={css(`min-width:${GRID_MIN}px;`)}>
@@ -292,36 +341,7 @@ export default function BancoTalentos() {
                       <span style={css("font-size:12.5px; font-weight:700; color:#9398A6;")}>{col.length}</span>
                     </Hoverable>
                     <div style={css("flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 12px 10px;")}>
-                      {col.map((t) => (
-                        <Hoverable key={t.id} onClick={() => abrir(t.id)} s={css("background:#fff; border:1px solid #ECEDF1; border-radius:12px; padding:14px 15px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer; user-select:none;")} hover="box-shadow:0 2px 8px rgba(16,24,40,.08)">
-                          <div style={css("font-weight:700; font-size:14px; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:10px;")}>{t.nome}</div>
-                          <div style={css("display:flex; flex-wrap:wrap; gap:6px; align-items:center;")}>
-                            {t.vaga && (
-                              <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${vagaCor(t.vaga)}1A; color:${vagaCor(t.vaga)};`)}>
-                                <span style={css(`width:6px; height:6px; border-radius:50%; background:${vagaCor(t.vaga)};`)} />{t.vaga}
-                              </span>
-                            )}
-                            {(() => {
-                              const q = QUALIDADE_TALENTO.find((x) => x.v === (t.qualidade || "Aguardando Análise"));
-                              return (
-                                <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${q ? `${q.cor}22` : "#EDEEF2"}; color:#3A3F4C;`)}>
-                                  {q && <span style={css(`width:6px; height:6px; border-radius:50%; background:${q.cor};`)} />}{t.qualidade || "Aguardando Análise"}
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          {unidadeDe(t.unidadeId) && (
-                            <div style={css("margin-top:8px; display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#7A8090;")}>
-                              <Svg size={12} sw={2.2} stroke="#9398A6"><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>{unidadeLabel(unidadeDe(t.unidadeId))}
-                            </div>
-                          )}
-                          {t.fone && (
-                            <div style={css("margin-top:10px; display:flex; align-items:center; gap:8px; font-size:12.5px; color:#7A8090; font-variant-numeric:tabular-nums;")}>
-                              {foneBR(t.fone)}<BotaoWhatsapp candidato={t} size={24} />
-                            </div>
-                          )}
-                        </Hoverable>
-                      ))}
+                      {col.map((t) => cartao(t))}
                       {col.length === 0 && (
                         <div style={css("padding:16px 8px; text-align:center; color:#B6BAC4; font-size:12.5px;")}>Sem candidatos.</div>
                       )}

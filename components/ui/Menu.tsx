@@ -50,6 +50,18 @@ export default function Menu({
     }
   }, [open, align]);
 
+  // Já aberto, mede o popover de verdade e o empurra para dentro da tela: no celular o
+  // trigger pode estar colado numa borda (barras que quebram linha) e o menu vazava.
+  const popRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const p = popRef.current;
+    if (!box || !p) return;
+    const r = p.getBoundingClientRect(), vw = window.innerWidth, m = 8;
+    if (r.left >= m && r.right <= vw - m) return;
+    const left = Math.max(m, Math.min(r.left, vw - r.width - m));
+    setBox({ ...box, left, right: undefined });
+  }, [box]);
+
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
       {trigger(() => setOpen((v) => !v), open)}
@@ -58,8 +70,9 @@ export default function Menu({
           <>
             <div onClick={close} style={css(`position:fixed; inset:0; z-index:${z - 1};`)} />
             <div
+              ref={popRef}
               style={css(
-                `position:fixed; ${box.top != null ? `top:${box.top}px;` : `bottom:${box.bottom}px;`} ${box.left != null ? `left:${box.left}px;` : `right:${box.right}px;`} z-index:${z}; background:#fff; border:1px solid #E2E3E9; border-radius:10px; box-shadow:0 12px 34px rgba(20,24,40,.18); padding:5px; ${width ? `min-width:${width}px;` : ""} ${popStyle ?? ""} max-height:${Math.max(160, box.maxH)}px; overflow-y:auto;`,
+                `position:fixed; ${box.top != null ? `top:${box.top}px;` : `bottom:${box.bottom}px;`} ${box.left != null ? `left:${box.left}px;` : `right:${box.right}px;`} z-index:${z}; background:#fff; border:1px solid #E2E3E9; border-radius:10px; box-shadow:0 12px 34px rgba(20,24,40,.18); padding:5px; ${width ? `min-width:${width}px;` : ""} ${popStyle ?? ""} max-width:calc(100vw - 28px); max-height:${Math.max(160, box.maxH)}px; overflow-y:auto;`,
               )}
             >
               {children(close)}

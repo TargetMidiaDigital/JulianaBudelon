@@ -99,7 +99,7 @@ function TelaCheia({ m, titulo, onFechar }: { m: ReturnType<typeof montar>; titu
   useLayoutEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const escala = Math.min(1.15, Math.max(0.6, (w - 64) / m.largura));
   return createPortal(
-    <div style={css("position:fixed; inset:0; z-index:330; background:#fff; display:flex; flex-direction:column;")}>
+    <div className="m-safe" style={css("position:fixed; inset:0; z-index:330; background:#fff; display:flex; flex-direction:column;")}>
       <div style={css("display:flex; align-items:center; gap:10px; padding:14px 24px; border-bottom:1px solid #ECEDF1;")}>
         <div style={css("flex:1; font-size:15px; font-weight:800; color:#1B1B28;")}>{titulo ?? "Fluxo do processo"}</div>
         <button onClick={onFechar} style={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:7px 14px; border-radius:9px;")}>Fechar (Esc)</button>

@@ -48,7 +48,9 @@ export default function CommentsPopover({
   const abrir = () => {
     const r = wrapRef.current?.getBoundingClientRect();
     if (r) {
-      const left = Math.min(Math.max(margin, r.left), window.innerWidth - W - margin);
+      // Largura real (no celular o popup encolhe para caber): sem isto o left ficava negativo.
+      const w = Math.min(W, window.innerWidth - 2 * margin);
+      const left = Math.max(margin, Math.min(r.left, window.innerWidth - w - margin));
       // Ancora SEMPRE na célula: abre logo abaixo; se houver mais espaço acima,
       // abre por cima. A altura é limitada ao espaço do lado escolhido (rola se
       // o conteúdo for maior) — nunca solta o popup no topo da tela.
@@ -124,9 +126,9 @@ export default function CommentsPopover({
                           <span style={css("font-size:11px; color:#9398A6; font-weight:500;")}>{fmtData(c.created_at)}</span>
                           <span style={{ flex: 1 }} />
                           {!editing && !readOnly && (
-                            <span style={css("display:inline-flex; gap:4px;")}>
-                              <Hoverable as="button" title="Editar" onClick={() => setEditId(c.id)} s={css("width:24px; height:24px; border:none; background:transparent; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#9398A6;")} hover="background:#FDF1F4; color:#955C6B"><Svg size={13} sw={2}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></Svg></Hoverable>
-                              <Hoverable as="button" title="Excluir" onClick={() => excluir(c.id)} s={css("width:24px; height:24px; border:none; background:transparent; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#C7CAD2;")} hover="background:#FDECEC; color:#CC3338"><Svg size={13} sw={2}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></Svg></Hoverable>
+                            <span style={css("display:inline-flex; gap:8px;")}>
+                              <Hoverable as="button" title="Editar" onClick={() => setEditId(c.id)} s={css("width:32px; height:32px; border:none; background:transparent; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#9398A6;")} hover="background:#FDF1F4; color:#955C6B"><Svg size={13} sw={2}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></Svg></Hoverable>
+                              <Hoverable as="button" title="Excluir" onClick={() => excluir(c.id)} s={css("width:32px; height:32px; border:none; background:transparent; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#C7CAD2;")} hover="background:#FDECEC; color:#CC3338"><Svg size={13} sw={2}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></Svg></Hoverable>
                             </span>
                           )}
                         </div>

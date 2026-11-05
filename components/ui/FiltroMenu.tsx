@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ACCENT } from "@/lib/theme";
 import { css } from "@/lib/css";
 import { Svg } from "./Svg";
@@ -24,6 +24,19 @@ export default function FiltroMenu({ tipos }: { tipos: FiltroTipo[] }) {
   const [nivel, setNivel] = useState<string>("root");
   const [q, setQ] = useState("");
   const close = () => { setOpen(false); setNivel("root"); setQ(""); };
+  // O menu abre alinhado à direita do botão; no celular, com o botão perto da borda
+  // esquerda, ele vazava para fora da tela. Mede e desloca (dx) para caber.
+  const popRef = useRef<HTMLDivElement>(null);
+  const [dx, setDx] = useState(0);
+  useLayoutEffect(() => {
+    if (!open) { setDx(0); return; }
+    const r = popRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const m = 8, vw = window.innerWidth;
+    const natural = r.left - dx; // onde ficaria sem deslocamento
+    const novo = Math.max(m, Math.min(natural, vw - r.width - m)) - natural;
+    if (novo !== dx) setDx(novo);
+  }, [open, nivel, dx]);
 
   const labelDe = (t: FiltroTipo) => t.opts.find((o) => o.id === t.value)?.label ?? "";
   const ativos = tipos.filter((t) => t.value !== t.vazio);
@@ -55,7 +68,7 @@ export default function FiltroMenu({ tipos }: { tipos: FiltroTipo[] }) {
       {open && (
         <>
           <div onClick={close} style={css("position:fixed; inset:0; z-index:44;")} />
-          <div style={css("position:absolute; top:calc(100% + 6px); right:0; z-index:45; background:#fff; border:1px solid #E2E3E9; border-radius:11px; box-shadow:0 12px 34px rgba(20,24,40,.16); padding:6px; min-width:264px; max-height:64vh; overflow-y:auto;")}>
+          <div ref={popRef} style={css(`position:absolute; top:calc(100% + 6px); right:0; z-index:45; background:#fff; border:1px solid #E2E3E9; border-radius:11px; box-shadow:0 12px 34px rgba(20,24,40,.16); padding:6px; min-width:264px; max-width:calc(100vw - 28px); max-height:64vh; overflow-y:auto; ${dx ? `transform:translateX(${dx}px);` : ""}`)}>
             <div style={css("position:sticky; top:0; background:#fff; padding:0 0 6px; z-index:1;")}>
               <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={nivel === "root" ? "Buscar filtro…" : "Buscar…"} style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", fontSize: 13, border: "1px solid #E2E3E9", borderRadius: 8, outline: "none" }} />
             </div>

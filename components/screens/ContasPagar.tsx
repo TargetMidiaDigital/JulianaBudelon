@@ -410,7 +410,7 @@ export default function ContasPagar() {
         <ConfirmModal danger titulo="Excluir conta" confirmLabel="Excluir" onClose={() => setExcluindo(null)} onConfirm={() => void excluir(excluindo)}
           mensagem={<>A conta <strong>{excluindo.descricao}</strong> ({brl(excluindo.valor)}, vencimento {brDe(excluindo.vencimento)}) será excluída.{excluindo.comprovantes.length ? " Os comprovantes anexados também serão apagados." : ""} Esta ação não pode ser desfeita.</>} />
       )}
-      {aviso && <div style={css("position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:90; background:#1B1B28; color:#fff; font-size:13px; font-weight:700; padding:10px 16px; border-radius:10px; box-shadow:0 10px 30px rgba(20,24,40,.25);")}>{aviso}</div>}
+      {aviso && <div style={css("position:fixed; left:50%; bottom:calc(26px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:90; background:#1B1B28; color:#fff; font-size:13px; font-weight:700; padding:10px 16px; border-radius:10px; box-shadow:0 10px 30px rgba(20,24,40,.25);")}>{aviso}</div>}
     </div>
   );
 }

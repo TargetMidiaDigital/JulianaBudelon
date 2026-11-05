@@ -22,6 +22,7 @@ import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
 import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
 import Conferencia from "../ui/Conferencia";
 import { UnidadePill } from "../screens/ListaView";
+import FecharMobile from "../ui/FecharMobile";
 
 export default function TaskDetail() {
   const { tasks, taskDetailOpen } = useApp();
@@ -97,9 +98,10 @@ function TaskDetailBody({ t }: { t: Task }) {
     <>
       <div onClick={close} style={css("position:fixed; inset:0; z-index:62; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:63; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:1000px; max-width:96vw; display:flex; overflow:hidden;")}>
+        <FecharMobile onClose={close} />
         <div style={css("flex:1.4; min-width:0; display:flex; flex-direction:column; border-right:1px solid #ECEDF1;")}>
           <div style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 24px; display:flex; flex-direction:column;")}>
-            <div style={css("display:flex; align-items:center; gap:11px; margin-bottom:20px;")}>
+            <div className="m-pr-fechar" style={css("display:flex; align-items:center; gap:11px; margin-bottom:20px;")}>
               <span style={css(`flex:none; width:34px; height:34px; border-radius:9px; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg}; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={2.2}><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></Svg></span>
               <div style={css("flex:1; min-width:0;")}>
                 <EditableTitle fill value={t.titulo} onSave={(v) => updateTask(t.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />

@@ -58,6 +58,7 @@ export default function CampoExpansivel({
 
   return (
     <div
+      className={cheio ? "m-safe" : undefined}
       style={css(
         cheio
           // Fundo cinza e a "folha" centralizada abaixo — leitura de documento, não de

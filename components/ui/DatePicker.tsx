@@ -126,8 +126,8 @@ export default function DatePicker({
             <div style={css("display:flex; align-items:center; gap:6px; margin-bottom:10px;")}>
               <span style={css("flex:1; font-size:14px; font-weight:800;")}>{MONTHS_FULL[view.m]} {view.y}</span>
               <button onClick={goToday} style={css("border:none; background:transparent; cursor:pointer; font-size:12.5px; font-weight:700; color:#5B6472; padding:4px 8px; border-radius:7px;")}>Hoje</button>
-              <button onClick={() => shift(-1)} style={css("width:26px; height:26px; border:none; background:transparent; cursor:pointer; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#5B6472;")}><Svg size={15} sw={2.2}><path d="m15 18-6-6 6-6" /></Svg></button>
-              <button onClick={() => shift(1)} style={css("width:26px; height:26px; border:none; background:transparent; cursor:pointer; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#5B6472;")}><Svg size={15} sw={2.2}><path d="m9 6 6 6-6 6" /></Svg></button>
+              <button onClick={() => shift(-1)} style={css("width:32px; height:32px; border:none; background:transparent; cursor:pointer; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#5B6472;")}><Svg size={15} sw={2.2}><path d="m15 18-6-6 6-6" /></Svg></button>
+              <button onClick={() => shift(1)} style={css("width:32px; height:32px; border:none; background:transparent; cursor:pointer; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#5B6472;")}><Svg size={15} sw={2.2}><path d="m9 6 6 6-6 6" /></Svg></button>
             </div>
 
             <div style={css("display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px;")}>

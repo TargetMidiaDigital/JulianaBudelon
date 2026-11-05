@@ -91,6 +91,8 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; touch-act
      As colunas viram blocos de altura natural, um sob o outro. */
   .m-drawer.m-stack { overflow: auto !important; }
   .m-drawer.m-stack > * { border-right: none !important; }
+  /* Cabeçalho de drawer com o X fixo do celular (ui/FecharMobile) no canto: abre espaço. */
+  .m-pr-fechar { padding-right: 44px !important; }
 
   /* Respiro: reduz os paddings agressivos de header/tela. */
   .m-pad { padding-left: 14px !important; padding-right: 14px !important; }
