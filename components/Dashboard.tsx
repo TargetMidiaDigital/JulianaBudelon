@@ -16,6 +16,10 @@ import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
 import ContasPagar from "./screens/ContasPagar";
 import Treinamentos from "./screens/Treinamentos";
+import EncAutoatendimento from "./screens/EncAutoatendimento";
+import EncCrm from "./screens/EncCrm";
+import EncContatos from "./screens/EncContatos";
+import EncAgenda from "./screens/EncAgenda";
 import TaskDetail from "./modals/TaskDetail";
 import ConcluirTarefa from "./modals/ConcluirTarefa";
 import TaskForm from "./modals/TaskForm";
@@ -39,6 +43,10 @@ function Screens() {
       {screen === "recrutamento-vagas" && <Vagas />}
       {screen === "recrutamento-agente" && <AgenteIA />}
       {screen === "contas-pagar" && <ContasPagar />}
+      {screen === "encomendas-autoatendimento" && <EncAutoatendimento />}
+      {screen === "encomendas-crm" && <EncCrm />}
+      {screen === "encomendas-contatos" && <EncContatos />}
+      {screen === "encomendas-agenda" && <EncAgenda />}
       {screen === "treinamentos" && <Treinamentos />}
       {screen === "config" && <Config />}
     </div>

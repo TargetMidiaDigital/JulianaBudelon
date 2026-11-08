@@ -25,6 +25,17 @@ export const spacesTree: Sector[] = [
     children: [{ label: "Unidades", page: "unidades" }], // conferência do recebimento em cada loja (categoria "unidade")
   },
   {
+    // Primeira versão sem banco (lib/encomendas.ts): funil do cliente → CRM → contatos → agenda.
+    id: "encomendas",
+    label: "Encomendas",
+    children: [
+      { label: "Autoatendimento", page: "encomendas-autoatendimento" },
+      { label: "CRM", page: "encomendas-crm" },
+      { label: "Contatos", page: "encomendas-contatos" },
+      { label: "Agenda", page: "encomendas-agenda" },
+    ],
+  },
+  {
     id: "recrutamento",
     label: "RH", // id interno continua "recrutamento"
     children: [
