@@ -3,64 +3,73 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
-import { LEAD_STATUS, corPedido, useEncomendas, type Lead, type LeadStatus } from "@/lib/encomendas";
+import { PEDIDO_STATUS, corPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus, type ResponsavelLead } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail, { RESP_COR, Seletor } from "../encomendas/LeadDetail";
 import { useApp } from "../store";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { useMudarStatusPedido } from "../encomendas/useStatusPedido";
 
-/** Encomendas → CRM: contatos pelo funil de atendimento até a venda (como o CRM do Cachorrão). */
+const RESPONSAVEIS: ResponsavelLead[] = ["I.A", "Humano"];
+
+/** Encomendas → CRM: um cartão por pedido, nas colunas do status do pedido (como o CRM do Cachorrão). */
 export default function EncCrm() {
   const { canEditPage } = useApp();
   const editavel = canEditPage("encomendas-crm");
-  const { leads, pedidos, produtoDe, setLeadStatus } = useEncomendas();
+  const { leads, pedidos, produtoDe, setResponsavel } = useEncomendas();
+  const setPedidoStatus = useMudarStatusPedido();
   const [busca, setBusca] = useState("");
-  const [aberto, setAberto] = useState<string | null>(null);
+  const [aberto, setAberto] = useState<{ lead: string; pedido: string } | null>(null);
   const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>({});
   const mobile = useIsMobile();
-  const [abaStatus, setAbaStatus] = useState<LeadStatus>("Novo contato");
+  const [abaStatus, setAbaStatus] = useState<PedidoStatus>("Verificar pagamento");
 
   const q = busca.trim().toLowerCase();
   const dig = normalizePhone(busca);
-  const visiveis = leads
-    .filter((l) => !q || l.nome.toLowerCase().includes(q) || (dig.length >= 3 && l.numero.includes(dig)))
-    .sort((a, b) => b.ultimoContato.localeCompare(a.ultimoContato));
-  const proximo = (s: LeadStatus): LeadStatus | null => {
-    const i = LEAD_STATUS.findIndex((x) => x.key === s);
-    return i >= 0 && i < 3 ? LEAD_STATUS[i + 1].key : null; // avança até "Venda"; Desqualificado/Perdido só pelo menu
-  };
+  const leadDe = (id: string) => leads.find((l) => l.id === id);
+  const visiveis = pedidos.filter((p) => {
+    if (!q) return true;
+    const l = leadDe(p.leadId);
+    return !!l && (l.nome.toLowerCase().includes(q) || (dig.length >= 3 && l.numero.includes(dig)));
+  });
+  // Abertos: o mais próximo da data de entrega primeiro. Entregues: o mais recente primeiro.
+  const daColuna = (st: PedidoStatus) =>
+    visiveis
+      .filter((p) => p.status === st)
+      .sort((a, b) => {
+        const c = `${a.data} ${a.hora}`.localeCompare(`${b.data} ${b.hora}`);
+        return st === "Entregue" ? -c : c;
+      });
 
-  const cartao = (l: Lead) => {
-    const ultimo = pedidos.filter((p) => p.leadId === l.id).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))[0];
-    const prod = ultimo && produtoDe(ultimo.produtoId);
-    const prox = proximo(l.status);
+  const chip = (conteudo: React.ReactNode) => (
+    <span style={css("display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:#3A3F4C; background:#F2F3F6; border-radius:7px; padding:4px 8px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;")}>{conteudo}</span>
+  );
+
+  const cartao = (p: PedidoEncomenda) => {
+    const l = leadDe(p.leadId);
+    const prod = produtoDe(p.produtoId);
+    const nomeProd = (prod?.nome ?? p.produtoNome ?? "Produto removido").replace(/^Torta de /, "");
+    const local = p.tipo === "Retirada" ? p.unidadeNome : p.endereco?.bairro;
+    const cor = corPedido(p.status);
     return (
-      <Hoverable key={l.id} onClick={() => setAberto(l.id)} s={css("background:#fff; border:1px solid #ECEDF1; border-radius:12px; padding:12px 13px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer;")} hover="box-shadow:0 2px 8px rgba(16,24,40,.08)">
+      <Hoverable key={p.id} onClick={() => setAberto({ lead: p.leadId, pedido: p.id })} s={css(`background:#fff; border:1px solid #ECEDF1; border-left:3px solid ${cor}; border-radius:12px; padding:12px 13px; box-shadow:0 1px 2px rgba(16,24,40,.04); cursor:pointer;`)} hover="box-shadow:0 2px 8px rgba(16,24,40,.08)">
         <div style={css("display:flex; align-items:flex-start; gap:8px;")}>
           <div style={css("flex:1; min-width:0;")}>
-            <div style={css("font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{l.nome || foneBR(l.numero)}</div>
-            <div style={css("font-size:12.5px; color:#7A8090; margin-top:2px;")}>{foneBR(l.numero)}</div>
+            <div style={css("font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{l?.nome || (l ? foneBR(l.numero) : "Contato removido")}</div>
+            {l && <div style={css("font-size:12.5px; color:#7A8090; margin-top:2px;")}>{foneBR(l.numero)}</div>}
           </div>
-          <span style={css(`flex:none; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:${RESP_COR[l.responsavel].bg}; color:${RESP_COR[l.responsavel].fg};`)}>{l.responsavel}</span>
+          <span style={css("flex:none; font-size:13.5px; font-weight:800;")}>{brl(p.total)}</span>
         </div>
-        {ultimo && (
-          <div style={css(`margin-top:9px; display:flex; align-items:center; gap:7px; font-size:12px; color:#3A3F4C; background:#FAFAFB; border-left:3px solid ${corPedido(ultimo.status)}; border-radius:7px; padding:6px 8px;`)}>
-            <span style={css("flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600;")}>{ultimo.quantidade}× {(prod?.nome ?? ultimo.produtoNome ?? "Produto removido").replace(/^Torta de /, "")}</span>
-            <span style={css("font-weight:800; flex:none;")}>{brl(ultimo.total)}</span>
-          </div>
-        )}
-        {editavel && (
-          <div style={css("display:flex; align-items:center; gap:6px; margin-top:10px;")}>
-            <Seletor valor={l.status} cor={LEAD_STATUS.find((s) => s.key === l.status)!.cor} opcoes={LEAD_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setLeadStatus(l.id, v as LeadStatus)} />
-            <span style={{ flex: 1 }} />
-            {prox && (
-              <Hoverable as="button" title={`Passar para "${prox}"`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); setLeadStatus(l.id, prox); }} s={css("width:30px; height:30px; flex:none; border:1px solid #E2E3E9; background:#fff; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F4F4F7; color:#1B1B28">
-                <Svg size={15} sw={2.4}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>
-              </Hoverable>
-            )}
-          </div>
-        )}
+        <div style={css("display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;")}>
+          {chip(<>{p.quantidade}× {nomeProd}</>)}
+          {chip(<><Svg size={12} sw={2.2}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>{dataBR(p.data)} · {p.hora}</>)}
+          {chip(<>{p.tipo === "Retirada" ? "📍" : "🛵"} {p.tipo}{local ? ` · ${local}` : ""}</>)}
+        </div>
+        <div style={css("display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #F0F1F4; flex-wrap:wrap;")}>
+          <Seletor disabled={!editavel} valor={p.status} cor={cor} opcoes={PEDIDO_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
+          {l && <Seletor disabled={!editavel} valor={l.responsavel} cor={RESP_COR[l.responsavel].fg} opcoes={RESPONSAVEIS.map((r) => ({ v: r, cor: RESP_COR[r].fg }))} onChange={(v) => setResponsavel(l.id, v as ResponsavelLead)} />}
+        </div>
       </Hoverable>
     );
   };
@@ -70,7 +79,7 @@ export default function EncCrm() {
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 14px; flex:none;")}>
         <div>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>CRM</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>Contatos pelo funil de atendimento, até a venda</p>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>Pedidos de encomenda, do pagamento à entrega</p>
         </div>
       </div>
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:12px; padding:0 30px 12px; flex:none;")}>
@@ -78,15 +87,15 @@ export default function EncCrm() {
           <Svg size={15} stroke="#9398A6" style={css("position:absolute; left:11px; top:50%; transform:translateY(-50%);")}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Svg>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone…" style={css("width:100%; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:10px; padding:9px 12px 9px 33px; font-size:13px; outline:none; background:#fff;")} />
         </div>
-        <span style={css("font-size:12.5px; font-weight:700; color:#9398A6;")}>{visiveis.length} contato{visiveis.length === 1 ? "" : "s"}</span>
+        <span style={css("font-size:12.5px; font-weight:700; color:#9398A6;")}>{visiveis.length} pedido{visiveis.length === 1 ? "" : "s"}</span>
       </div>
 
       {/* Celular: as colunas de 290px não cabem — vira abas por status + lista vertical. */}
       {mobile && (
         <div style={css("flex:1; min-height:0; display:flex; flex-direction:column;")}>
           <div className="m-pad" style={css("flex:none; display:flex; gap:7px; overflow-x:auto; padding:0 30px 10px; scrollbar-width:none;")}>
-            {LEAD_STATUS.map((st) => {
-              const n = visiveis.filter((l) => l.status === st.key).length;
+            {PEDIDO_STATUS.map((st) => {
+              const n = visiveis.filter((p) => p.status === st.key).length;
               const ativo = st.key === abaStatus;
               return (
                 <button key={st.key} onClick={() => setAbaStatus(st.key)} style={css(`flex:none; display:inline-flex; align-items:center; gap:6px; border:1px solid ${ativo ? st.cor : "#E2E3E9"}; background:${ativo ? `${st.cor}1A` : "#fff"}; color:${ativo ? "#1B1B28" : "#5B6472"}; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;`)}>
@@ -97,17 +106,17 @@ export default function EncCrm() {
             })}
           </div>
           <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:2px 30px 24px; display:flex; flex-direction:column; gap:10px;")}>
-            {visiveis.filter((l) => l.status === abaStatus).map(cartao)}
-            {!visiveis.some((l) => l.status === abaStatus) && <div style={css("padding:26px 8px; text-align:center; color:#B6BAC4; font-size:13px;")}>Sem contatos em “{abaStatus}”.</div>}
+            {daColuna(abaStatus).map(cartao)}
+            {!visiveis.some((p) => p.status === abaStatus) && <div style={css("padding:26px 8px; text-align:center; color:#B6BAC4; font-size:13px;")}>Sem pedidos em “{abaStatus}”.</div>}
           </div>
         </div>
       )}
 
       {!mobile && <div className="m-pad" style={css("flex:1; min-height:0; padding:0 30px 24px; display:flex; flex-direction:column;")}>
         <div style={css("flex:1; min-height:0; overflow-x:auto; overflow-y:hidden; padding:8px 0 8px;")}>
-          <div style={css("display:flex; gap:16px; height:100%; align-items:stretch;")}>
-            {LEAD_STATUS.map((st) => {
-              const col = visiveis.filter((l) => l.status === st.key);
+          <div style={css("display:flex; gap:16px; height:100%; align-items:flex-start;")}>
+            {PEDIDO_STATUS.map((st) => {
+              const col = daColuna(st.key);
               if (recolhidas[st.key]) {
                 return (
                   <Hoverable key={st.key} onClick={() => setRecolhidas((r) => ({ ...r, [st.key]: false }))} title="Expandir coluna" s={css("align-self:stretch; display:flex; flex-direction:column; align-items:center; gap:11px; background:#F4F5F7; border-radius:14px; width:46px; flex:none; padding:14px 0 16px; cursor:pointer;")} hover="background:#EDEEF2">
@@ -118,15 +127,16 @@ export default function EncCrm() {
                 );
               }
               return (
-                <div key={st.key} style={css("width:290px; flex:none; display:flex; flex-direction:column; min-height:0; background:#F4F5F7; border-radius:14px;")}>
+                <div key={st.key} style={css("width:300px; flex:none; display:flex; flex-direction:column; max-height:100%; background:#F4F5F7; border-radius:14px;")}>
                   <Hoverable onClick={() => setRecolhidas((r) => ({ ...r, [st.key]: true }))} title="Recolher coluna" s={css("flex:none; display:flex; align-items:center; gap:9px; margin:6px 6px 0; padding:12px 12px 11px; cursor:pointer; border-radius:10px;")} hover="background:#EDEEF2">
                     <span style={css(`width:9px; height:9px; border-radius:50%; background:${st.cor};`)} />
                     <span style={css("font-weight:700; font-size:13.5px; color:#3A3F4C;")}>{st.key}</span>
+                    <span style={{ flex: 1 }} />
                     <span style={css("font-size:12.5px; font-weight:700; color:#9398A6;")}>{col.length}</span>
                   </Hoverable>
-                  <div style={css("flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 12px 10px;")}>
+                  <div style={css("flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 12px 12px;")}>
                     {col.map(cartao)}
-                    {col.length === 0 && <div style={css("padding:16px 8px; text-align:center; color:#B6BAC4; font-size:12.5px;")}>Sem contatos</div>}
+                    {col.length === 0 && <div style={css("padding:16px 8px 20px; text-align:center; color:#B6BAC4; font-size:12.5px;")}>Sem pedidos</div>}
                   </div>
                 </div>
               );
@@ -135,7 +145,7 @@ export default function EncCrm() {
         </div>
       </div>}
 
-      {aberto && <LeadDetail leadId={aberto} canEdit={editavel} onClose={() => setAberto(null)} />}
+      {aberto && <LeadDetail leadId={aberto.lead} pedidoAberto={aberto.pedido} canEdit={editavel} onClose={() => setAberto(null)} />}
     </div>
   );
 }

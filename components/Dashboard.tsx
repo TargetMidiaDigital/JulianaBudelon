@@ -37,6 +37,7 @@ function Screens() {
       {screen === "listaview" && <ListaView selectable page="listaview" />}
       {screen === "expedicao" && <ListaView selectable page="expedicao" />}
       {screen === "unidades" && <ListaView selectable page="unidades" />}
+      {screen === "lojas-encomendas" && <ListaView selectable page="lojas-encomendas" />}
       {screen === "pedidos" && <Pedidos />}
       {screen === "estoque" && <Estoque />}
       {screen === "recrutamento-talentos" && <BancoTalentos />}

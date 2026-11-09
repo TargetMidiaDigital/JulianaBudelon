@@ -201,7 +201,7 @@ export type Sector = {
   children: { label: string; page: ScreenPage }[];
 };
 
-export type ScreenPage = "indicadores" | "listaview" | "pedidos" | "expedicao" | "unidades" | "estoque" | "recrutamento-talentos" | "recrutamento-vagas" | "recrutamento-agente" | "contas-pagar" | "encomendas-autoatendimento" | "encomendas-crm" | "encomendas-contatos" | "encomendas-agenda" | "treinamentos" | "config";
+export type ScreenPage = "indicadores" | "listaview" | "pedidos" | "expedicao" | "unidades" | "lojas-encomendas" | "estoque" | "recrutamento-talentos" | "recrutamento-vagas" | "recrutamento-agente" | "contas-pagar" | "encomendas-autoatendimento" | "encomendas-crm" | "encomendas-contatos" | "encomendas-agenda" | "treinamentos" | "config";
 
 /** Nível de acesso de um cargo a uma tela do menu. */
 export type NivelAcesso = "nenhum" | "ver" | "editar";

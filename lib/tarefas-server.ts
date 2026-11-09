@@ -55,7 +55,7 @@ async function logNaTarefa(sb: SupabaseClient, id: string, message: string) {
  */
 export async function aplicarEstoqueProducao(sb: SupabaseClient, t: TarefaEstoque, novoStatus: TaskStatus): Promise<void> {
   try {
-    if (t.categoria === "expedicao" || t.categoria === "unidade") return;
+    if (t.categoria === "expedicao" || t.categoria === "unidade" || t.categoria === "encomenda") return;
     const antes = feita(t.status ?? ""), depois = feita(novoStatus);
     if (antes === depois) return;
     const agora = new Date().toISOString(); const resumo: string[] = [];

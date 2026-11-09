@@ -1,5 +1,5 @@
 import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Sector, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
-import { diasAPartirDeHoje, formatBR, TODAY } from "./format";
+import { TODAY } from "./format";
 
 /**
  * DADOS DE EXEMPLO (fase sem backend). Tudo aqui é fictício e serve para validar
@@ -22,7 +22,10 @@ export const spacesTree: Sector[] = [
   {
     id: "lojas",
     label: "Lojas",
-    children: [{ label: "Unidades", page: "unidades" }], // conferência do recebimento em cada loja (categoria "unidade")
+    children: [
+      { label: "Unidades", page: "unidades" }, // conferência do recebimento em cada loja (categoria "unidade")
+      { label: "Encomendas", page: "lojas-encomendas" }, // encomendas de clientes a entregar na loja (categoria "encomenda")
+    ],
   },
   {
     // Primeira versão sem banco (lib/encomendas.ts): funil do cliente → CRM → contatos → agenda.
@@ -89,32 +92,9 @@ const iso = (diasAtras: number, hora = "10:00") => {
   return d.toISOString();
 };
 
-export const seedTasks: Task[] = [
-  {
-    id: "t1", titulo: "Revisar campanha de agendamentos", gestor: "carlos", status: "atrasada", prio: "urgente", tipo: "Otimização", categoria: "operacional",
-    criada: diasAPartirDeHoje(-6), criadaHora: "08:15", atualizada: diasAPartirDeHoje(-1), atualizadaHora: "17:40", venc: diasAPartirDeHoje(-2), vencHora: "18:00",
-    desc: "<p>O custo por agendamento subiu 40% na última semana.</p><ul><li>Revisar públicos</li><li>Pausar criativos com CTR baixo</li><li>Testar novo texto de anúncio</li></ul>",
-    comentarios: [
-      { id: "c1", message: "Já pausei dois criativos, mas o custo continua alto. Vou testar um público novo amanhã.", html: "<p>Já pausei dois criativos, mas o custo continua alto. Vou testar um público novo amanhã.</p>", author: "carlos", created_at: iso(2, "16:20") },
-      { id: "c2", message: "Marina Lopes mudou a prioridade para \"Urgente\"", author: "marina", created_at: iso(1, "09:05"), tipo: "log" },
-    ],
-  },
-  { id: "t2", titulo: "Subir coleção de inverno nos anúncios", gestor: "ana", status: "atrasada", prio: "alta", tipo: "Criativo", categoria: "operacional", criada: diasAPartirDeHoje(-5), criadaHora: "09:40", venc: diasAPartirDeHoje(-1), vencHora: "12:00", desc: "<p>Cliente enviou 12 fotos novas. Montar 3 variações de carrossel.</p>" },
-  { id: "t3", titulo: "Otimizar campanha de captação de leads", gestor: "carlos", status: "em andamento", prio: "alta", tipo: "Otimização", categoria: "operacional", criada: diasAPartirDeHoje(-3), criadaHora: "10:05", atualizada: diasAPartirDeHoje(0), atualizadaHora: "08:30", venc: diasAPartirDeHoje(1), vencHora: "18:00",
-    comentarios: [{ id: "c3", message: "Formulário novo publicado, aguardando os primeiros leads.", html: "<p>Formulário novo publicado, aguardando os primeiros leads.</p>", author: "carlos", created_at: iso(0, "08:30") }] },
-  { id: "t4", titulo: "Configurar cardápio no WhatsApp", gestor: "ana", status: "em andamento", prio: "normal", tipo: "Configuração", categoria: "operacional", criada: diasAPartirDeHoje(-4), criadaHora: "11:20", venc: diasAPartirDeHoje(2), vencHora: "18:00" },
-  { id: "t5", titulo: "Montar relatório mensal", gestor: "marina", status: "em andamento", prio: "normal", tipo: "Relatório", categoria: "operacional", criada: diasAPartirDeHoje(-2), criadaHora: "13:35", venc: diasAPartirDeHoje(5), vencHora: "18:00", desc: "<p>Comparar com o mês anterior e destacar os 3 melhores anúncios.</p>" },
-  { id: "t6", titulo: "Validar pixel de conversão", gestor: "carlos", status: "verificar", prio: "alta", tipo: "Configuração", categoria: "operacional", criada: diasAPartirDeHoje(-1), criadaHora: "14:10", venc: diasAPartirDeHoje(3), vencHora: "18:00" },
-  { id: "t7", titulo: "Recarregar saldo da conta", gestor: "marina", status: "verificar", prio: "urgente", tipo: "Financeiro", categoria: "operacional", criada: diasAPartirDeHoje(0), criadaHora: "08:50", venc: diasAPartirDeHoje(0), vencHora: "18:00" },
-  { id: "t8", titulo: "Ajustar criativos do feed", gestor: "ana", status: "verificar", prio: "normal", tipo: "Criativo", categoria: "operacional", criada: diasAPartirDeHoje(0), criadaHora: "09:15", venc: diasAPartirDeHoje(4), vencHora: "18:00" },
-  { id: "t9", titulo: "Organizar pasta de referências", gestor: "ana", status: "verificar", prio: "baixa", tipo: "Interno", categoria: "operacional", criada: diasAPartirDeHoje(-1), criadaHora: "10:45", venc: diasAPartirDeHoje(7), vencHora: "18:00" },
-  { id: "t10", titulo: "Alinhar retomada das campanhas", gestor: "ana", status: "verificar", prio: "baixa", tipo: "Reunião", categoria: "operacional", criada: diasAPartirDeHoje(-1), criadaHora: "11:55", venc: diasAPartirDeHoje(9), vencHora: "15:00" },
-  { id: "t11", titulo: "Enviar relatório semanal", gestor: "carlos", status: "concluida", prio: "normal", tipo: "Relatório", categoria: "operacional", criada: diasAPartirDeHoje(-7), criadaHora: "13:05", atualizada: diasAPartirDeHoje(-3), atualizadaHora: "18:10", venc: diasAPartirDeHoje(-3), vencHora: "18:00",
-    comentarios: [{ id: "c4", message: "Enviado por e-mail e no grupo do cliente.", html: "<p>Enviado por e-mail e no grupo do cliente.</p>", author: "carlos", created_at: iso(3, "18:10") }, { id: "c5", message: "Carlos Andrade mudou o status para \"Concluída\"", author: "carlos", created_at: iso(3, "18:11"), tipo: "log" }] },
-  { id: "t12", titulo: "Trocar imagem da campanha de matrícula", gestor: "marina", status: "concluida", prio: "normal", tipo: "Criativo", categoria: "operacional", criada: diasAPartirDeHoje(-8), criadaHora: "14:40", venc: diasAPartirDeHoje(-4), vencHora: "18:00" },
-  { id: "t13", titulo: "Revisar segmentação por região", gestor: "carlos", status: "validada", prio: "baixa", tipo: "Otimização", categoria: "operacional", criada: diasAPartirDeHoje(-12), criadaHora: "15:20", venc: diasAPartirDeHoje(-6), vencHora: "18:00",
-    comentarios: [{ id: "c6", message: "Marina Lopes mudou o status para \"Validada\"", author: "marina", created_at: iso(5, "10:00"), tipo: "log" }] },
-];
+/** Sem tarefas de exemplo: Produção, Expedição e Lojas começam vazias (as tarefas nascem da
+ *  Ordem de Serviço e das Encomendas). As antigas de exemplo (t1…t13) são removidas em loadDb (v4). */
+export const seedTasks: Task[] = [];
 
 export const seedUnidades: Unidade[] = [
   { id: "u-centro", slug: "florianopolis-centro", cidade: "Florianópolis", nome: "Centro", ativa: true, criada: iso(60) },

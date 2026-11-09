@@ -13,6 +13,7 @@ const TITLES: Record<ScreenPage, string> = {
   listaview: "Produção",
   expedicao: "Expedição",
   unidades: "Unidades",
+  "lojas-encomendas": "Encomendas",
   pedidos: "Ordem de Serviço",
   estoque: "Estoque",
   "recrutamento-talentos": "Banco de Talentos",

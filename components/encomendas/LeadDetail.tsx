@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMudarStatusPedido } from "./useStatusPedido";
 import { css } from "@/lib/css";
 import { brl, foneBR } from "@/lib/format";
 import { Svg } from "../ui/Svg";
@@ -27,7 +28,8 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
   onClose: () => void;
 }) {
   useFecharComEsc(true, onClose);
-  const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus, setResponsavel, setPedidoStatus } = useEncomendas();
+  const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus, setResponsavel } = useEncomendas();
+  const setPedidoStatus = useMudarStatusPedido();
   const lead = leads.find((l) => l.id === leadId);
   const meus = pedidos.filter((p) => p.leadId === leadId).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
   const [aberto, setAberto] = useState<string | null>(pedidoAberto ?? (meus.length === 1 ? meus[0].id : null));

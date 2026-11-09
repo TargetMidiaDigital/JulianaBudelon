@@ -80,11 +80,16 @@ export type ConfigEncomendas = {
 const dia = (inicio: string, fim: string): JanelaDia => ({ ativo: true, intervalos: [{ inicio, fim }] });
 const CONFIG_PADRAO: ConfigEncomendas = {
   retiradaAtiva: true,
+  // Lojas da Ju Budelon (as mesmas do estoque, sem a Fábrica). Por ora só retirada, sem entrega.
   unidades: [
-    { id: "u-centro", nome: "Florianópolis · Centro", endereco: "", ativo: true },
-    { id: "u-kobrasol", nome: "São José · Kobrasol", endereco: "", ativo: true },
+    { id: "u-centro", nome: "Centro", endereco: "", ativo: true },
+    { id: "u-santa-monica", nome: "Santa Mônica", endereco: "", ativo: true },
+    { id: "u-coqueiros", nome: "Coqueiros", endereco: "", ativo: true },
+    { id: "u-areias", nome: "Areias", endereco: "", ativo: true },
+    { id: "u-rocado", nome: "Roçado", endereco: "", ativo: true },
+    { id: "u-pagani", nome: "Pagani", endereco: "", ativo: true },
   ],
-  entregaAtiva: true,
+  entregaAtiva: false,
   taxaEntrega: 15,
   antecedenciaHoras: 48,
   intervaloMin: 60,
@@ -199,6 +204,8 @@ export type PedidoEncomenda = {
   status: PedidoStatus;
   criadoEm: string; // ISO
   origem: "autoatendimento" | "manual";
+  /** Tarefas da loja (Lojas → Encomendas) e da produção já criadas — evita duplicar se o status voltar e avançar de novo. */
+  tarefasCriadas?: boolean;
 };
 
 export type Compromisso = { id: string; titulo: string; data: string; hora: string; horaFim: string; contato?: string; notas?: string };
@@ -232,9 +239,9 @@ function seed() {
   };
   const pedidos: PedidoEncomenda[] = [
     ped("p-0a1b2c3d-1", "l1", "morango", 1, "Retirada", diaRel(2), "10:00", "Verificar pagamento", ts(-1, "15:20"), { unidadeId: "u-centro", mensagem: "Escrever: Feliz aniversário, Lu!" }),
-    ped("p-4e5f6a7b-2", "l2", "brigadeiro", 2, "Entrega", diaRel(1), "15:00", "Em fila", ts(-2, "11:05"), { endereco: { cidade: "São José", bairro: "Kobrasol", rua: "Rua Koesa", numero: "430", complemento: "Apto 302" } }),
-    ped("p-8c9d0e1f-3", "l3", "bem-casado", 1, "Retirada", diaRel(0), "16:00", "Em produção", ts(-4, "09:40"), { unidadeId: "u-kobrasol" }),
-    ped("p-2a3b4c5d-4", "l8", "pudim", 1, "Entrega", diaRel(-3), "11:00", "Entregue", ts(-18, "10:30"), { endereco: { cidade: "Florianópolis", bairro: "Trindade", rua: "Rua Lauro Linhares", numero: "1200" } }),
+    ped("p-4e5f6a7b-2", "l2", "brigadeiro", 2, "Retirada", diaRel(1), "15:00", "Em fila", ts(-2, "11:05"), { unidadeId: "u-coqueiros" }),
+    ped("p-8c9d0e1f-3", "l3", "bem-casado", 1, "Retirada", diaRel(0), "16:00", "Em produção", ts(-4, "09:40"), { unidadeId: "u-santa-monica" }),
+    ped("p-2a3b4c5d-4", "l8", "pudim", 1, "Retirada", diaRel(-3), "11:00", "Entregue", ts(-18, "10:30"), { unidadeId: "u-pagani" }),
     ped("p-6e7f8a9b-5", "l3", "prestigio", 1, "Retirada", diaRel(-8), "14:00", "Entregue", ts(-12, "09:00"), { unidadeId: "u-centro" }),
   ];
   const compromissos: Compromisso[] = [
@@ -264,6 +271,17 @@ function carregar(): Estado {
     const salvo = raw ? (JSON.parse(raw) as Partial<Estado>) : null;
     estado = salvo ? { ...base, ...salvo, config: { ...base.config, ...(salvo.config ?? {}) } } : base;
     // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
+    // Configuração ainda com as 2 unidades do primeiro exemplo (com entrega): troca pelas 6 lojas,
+    // só retirada, e os pedidos de exemplo pela versão nova (pedidos criados no teste ficam).
+    const ids = estado.config.unidades.map((u) => u.id).join(",");
+    if (ids === "u-centro,u-kobrasol") {
+      const novos = base.pedidos;
+      estado = {
+        ...estado,
+        config: { ...estado.config, unidades: base.config.unidades, entregaAtiva: false },
+        pedidos: estado.pedidos.map((p) => novos.find((n) => n.id === p.id) ?? p),
+      };
+    }
     estado = { ...estado, produtos: estado.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
   } catch {
     estado = base;
@@ -297,7 +315,7 @@ export function useEncomendas() {
     unidadeDe: (id?: string) => s.config.unidades.find((u) => u.id === id),
     setLeadStatus: (id: string, status: LeadStatus) => muda((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, status } : l)) })),
     setResponsavel: (id: string, responsavel: ResponsavelLead) => muda((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, responsavel } : l)) })),
-    setPedidoStatus: (id: string, status: PedidoStatus) => muda((e) => ({ pedidos: e.pedidos.map((p) => (p.id === id ? { ...p, status } : p)) })),
+    setPedidoStatus: (id: string, status: PedidoStatus, extra: Partial<PedidoEncomenda> = {}) => muda((e) => ({ pedidos: e.pedidos.map((p) => (p.id === id ? { ...p, ...extra, status } : p)) })),
     addCompromisso: (c: Omit<Compromisso, "id">) => muda((e) => ({ compromissos: [...e.compromissos, { ...c, id: crypto.randomUUID() }] })),
     removeCompromisso: (id: string) => muda((e) => ({ compromissos: e.compromissos.filter((c) => c.id !== id) })),
     /** Cria (sem id existente) ou atualiza um produto. */

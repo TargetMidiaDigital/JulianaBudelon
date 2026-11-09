@@ -6,7 +6,7 @@ import { BRAND, BRAND_SOFT } from "@/lib/theme";
 import type { ScreenPage } from "@/lib/types";
 import { css } from "@/lib/css";
 import { pedidoAtivo } from "@/lib/pedido";
-import { ehExpedicao, ehProducao, ehUnidade } from "@/lib/tarefas";
+import { ehEncomendaLoja, ehExpedicao, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Svg } from "./ui/Svg";
 import Hoverable from "./ui/Hoverable";
@@ -123,6 +123,7 @@ export default function Sidebar() {
   const minhasPendentes = minhas.filter(ehProducao).length;
   const minhasExpedicao = minhas.filter(ehExpedicao).length;
   const minhasUnidades = minhas.filter(ehUnidade).length;
+  const minhasEncomendas = minhas.filter(ehEncomendaLoja).length;
   // Candidatos em andamento (fora do arquivo: desqualificado/contratado/antigos).
   const talentosAtivos = talentos.filter((t) => !["desqualificado", "contratado", "antigos"].includes(t.status)).length;
 
@@ -130,6 +131,7 @@ export default function Sidebar() {
     listaview: minhasPendentes,
     expedicao: minhasExpedicao,
     unidades: minhasUnidades,
+    "lojas-encomendas": minhasEncomendas,
     pedidos: pedidos.filter(pedidoAtivo).length,
     estoque: produtos.length,
     "recrutamento-talentos": talentosAtivos,

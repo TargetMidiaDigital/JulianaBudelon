@@ -52,6 +52,13 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const total = subtotal + taxa;
   const endOk = end.cidade.trim().length >= 3 && end.bairro.trim().length >= 2 && end.rua.trim().length >= 3 && end.numero.trim().length >= 1;
   const unidade = unidades.find((u) => u.id === unidadeId);
+  // Só uma forma ligada (ex.: só retirada): já vem escolhida, sem a pergunta "Entrega ou retirada?".
+  const soRetirada = unidades.length > 0 && !cfg.entregaAtiva;
+  const soEntrega = unidades.length === 0 && cfg.entregaAtiva;
+  useEffect(() => {
+    if (soRetirada && tipo !== "Retirada") setTipo("Retirada");
+    else if (soEntrega && tipo !== "Entrega") { setTipo("Entrega"); setUnidadeId(null); }
+  }, [soRetirada, soEntrega, tipo]);
   const unidadeNome = unidade?.nome;
 
   const pode: Record<Passo, boolean> = {
@@ -182,9 +189,10 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
           {passo === 3 && (
             <>
-              <h1 style={css("margin:0 0 14px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>Entrega ou retirada?</h1>
-              {/* Dois botões grandes lado a lado (um só, em largura total, se só uma forma estiver ligada). */}
-              <div style={css(`display:grid; grid-template-columns:repeat(${unidades.length > 0 && cfg.entregaAtiva ? 2 : 1}, minmax(0,1fr)); gap:12px;`)}>
+              <h1 style={css("margin:0 0 14px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>{soRetirada ? "Em qual loja você vai retirar?" : soEntrega ? "Onde vamos entregar?" : "Entrega ou retirada?"}</h1>
+              {soRetirada && <p style={css(`margin:-6px 0 14px; font-size:14px; color:${FRACA};`)}>A encomenda é retirada na loja, sem taxa.</p>}
+              {/* Dois botões grandes lado a lado; some quando só uma forma está ligada. */}
+              <div style={css(`display:${soRetirada || soEntrega ? "none" : "grid"}; grid-template-columns:repeat(${unidades.length > 0 && cfg.entregaAtiva ? 2 : 1}, minmax(0,1fr)); gap:12px;`)}>
                 {unidades.length > 0 && (
                   <OpcaoGrande sel={tipo === "Retirada"} onClick={() => setTipo("Retirada")} titulo="Retirada" sub="Busco na loja" detalhe="Sem taxa"
                     icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>} />
@@ -196,7 +204,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               </div>
               {tipo === "Retirada" && unidades.length > 0 && (
                 <>
-                  <div style={css("margin:20px 0 8px; font-size:14px; font-weight:800;")}>Em qual unidade você vai retirar?</div>
+                  {!soRetirada && <div style={css("margin:20px 0 8px; font-size:14px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
                   <div style={css("display:flex; flex-direction:column; gap:8px;")}>
                     {unidades.map((u) => (
                       <Opcao key={u.id} sel={unidadeId === u.id} onClick={() => setUnidadeId(u.id)} titulo={u.nome} sub={u.endereco || "Retire no horário escolhido"}
@@ -484,7 +492,7 @@ export function Foto({ src: original, alt, proporcao, cortar, alturaMax, miniatu
   if (proporcao === "auto") {
     return <img src={src} alt={alt} {...extra} style={css(`display:block; width:100%; height:auto; ${alturaMax ? `max-height:${alturaMax}; object-fit:contain;` : ""} background:${FUNDO_FOTO};`)} />;
   }
-  return <img src={src} alt={alt} {...extra} style={css(`display:block; width:100%; aspect-ratio:${proporcao}; object-fit:${cortar ? "cover" : "contain"}; ${cortar && flyer ? `object-position:${FOTO_POSICAO};` : ""} background:${FUNDO_FOTO};`)} />;
+  return <img src={src} alt={alt} {...extra} style={css(`display:block; width:100%; height:auto; aspect-ratio:${proporcao}; object-fit:${cortar ? "cover" : "contain"}; ${cortar && flyer ? `object-position:${FOTO_POSICAO};` : ""} background:${FUNDO_FOTO};`)} />;
 }
 
 /** Rosa de fundo dos flyers: as sobras do "contain" somem na arte. */

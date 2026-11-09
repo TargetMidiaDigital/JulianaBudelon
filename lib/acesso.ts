@@ -32,7 +32,7 @@ export const ACESSO_PADRAO: Record<string, { setores?: string[]; pages?: ScreenP
   "Gerente": { setores: ["operacional", "lojas", "encomendas"] },
   "Produção": { pages: ["pedidos", "listaview", "estoque"] },
   "Expedição": { pages: ["pedidos", "listaview", "expedicao", "estoque"] },
-  "Líder (Loja)": { pages: ["unidades", "estoque"] },
+  "Líder (Loja)": { pages: ["unidades", "lojas-encomendas", "estoque"] },
   "Recursos Humanos": { setores: ["recrutamento"] },
 };
 

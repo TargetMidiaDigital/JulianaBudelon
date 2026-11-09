@@ -16,7 +16,7 @@ import { requireSession, nivelNaTela } from "@/lib/auth-admin";
  *  - PATCH  { id, patch }   → atualiza (só os campos enviados)
  *  - DELETE { id }          → exclui (subtarefas caem em cascata)
  * Autorização: nível "editar" na tela da tarefa — Produção ("listaview") ou Expedição
- * ("expedicao") ou Unidades ("unidades"), pela `categoria`. Cargos sem acesso total (Operacional) só mexem nas
+ * ("expedicao") ou Unidades ("unidades") ou Encomendas ("lojas-encomendas"), pela `categoria`. Cargos sem acesso total (Operacional) só mexem nas
  * PRÓPRIAS tarefas e não trocam o responsável.
  */
 export const dynamic = "force-dynamic";

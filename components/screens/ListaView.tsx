@@ -67,7 +67,7 @@ export default function ListaView({
   /** Liga a seleção múltipla + barra de edição em lote. */
   selectable?: boolean;
   /** Qual lista: Produção ("listaview") ou Expedição ("expedicao") — mesma tabela, separada pela categoria. */
-  page?: "listaview" | "expedicao" | "unidades";
+  page?: "listaview" | "expedicao" | "unidades" | "lojas-encomendas";
 } = {}) {
   const {
     tasks: todasTasks,
@@ -95,7 +95,7 @@ export default function ListaView({
   const scope = "operacional";
   const editavel = canEditPage(page);
   const tasks = tarefasDaPage(todasTasks, page);
-  const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Unidades" : "Produção";
+  const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Unidades" : page === "lojas-encomendas" ? "Encomendas" : "Produção";
   const abrir = setTaskDetailOpen;
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});

@@ -31,7 +31,7 @@ export type Db = {
 
 export const DB_KEY = "jb.db.v1";
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 export function seedDb(): Db {
   return {
@@ -41,6 +41,13 @@ export function seedDb(): Db {
     gruposInternos: seedGrupos, workspace: seedWorkspace, acessos: seedAcessos, escopoProprio: seedEscopoProprio,
   };
 }
+
+const TITULOS_EXEMPLO_ANTIGOS = [
+  "Revisar campanha de agendamentos", "Subir coleção de inverno nos anúncios", "Otimizar campanha de captação de leads",
+  "Configurar cardápio no WhatsApp", "Montar relatório mensal", "Validar pixel de conversão", "Recarregar saldo da conta",
+  "Ajustar criativos do feed", "Organizar pasta de referências", "Alinhar retomada das campanhas", "Enviar relatório semanal",
+  "Trocar imagem da campanha de matrícula", "Revisar segmentação por região",
+];
 
 export function loadDb(): Db {
   try {
@@ -65,6 +72,12 @@ export function loadDb(): Db {
         const c = cargoDoCatalogo(v.titulo);
         return c ? { ...v, descricao: c.descricao, requisitos: c.requisitos, diferenciais: c.diferenciais } : v;
       });
+    }
+    // v4 (09/11/2026): saem as tarefas de exemplo de outro projeto ("Validar pixel de conversão"…).
+    // Só as do exemplo (ids t1…t13 com o título original); as criadas pela equipe ficam.
+    if ((d.seedVersion ?? 1) < 4) {
+      const antigas = new Set(TITULOS_EXEMPLO_ANTIGOS);
+      out.tasks = out.tasks.filter((t) => !(/^t([1-9]|1[0-3])$/.test(t.id) && antigas.has(t.titulo)));
     }
     out.seedVersion = SEED_VERSION;
     return out;

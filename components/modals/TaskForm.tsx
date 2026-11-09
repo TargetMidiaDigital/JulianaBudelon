@@ -66,7 +66,7 @@ export default function TaskForm() {
   const submit = () => {
     if (!valido || !prio || !resp) return;
     const categoria = categoriaDaPage(screen); // Produção ou Expedição, conforme a tela aberta
-    const tipoFinal = tipo || (screen === "expedicao" ? "Expedição" : screen === "unidades" ? "Recebimento" : undefined);
+    const tipoFinal = tipo || (screen === "expedicao" ? "Expedição" : screen === "unidades" ? "Recebimento" : screen === "lojas-encomendas" ? "Encomenda" : undefined);
 
     const t: Task = {
       id: `t-${Date.now()}`,

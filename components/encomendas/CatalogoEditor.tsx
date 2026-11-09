@@ -71,10 +71,10 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
                 )}
               </div>
             )}
-            <div className="m-grid-2" style={css("display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:14px;")}>
+            <div className="m-grid-2" style={css("display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:14px; align-items:start;")}>
               {g.produtos.map((p) => (
                 <Hoverable key={p.id} onClick={() => editavel && setEditando(p)} s={css(`background:#fff; border:1px solid #ECEDF1; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; cursor:${editavel ? "pointer" : "default"}; opacity:${p.ativo ? 1 : 0.6};`)} hover={editavel ? "box-shadow:0 4px 14px rgba(16,24,40,.08)" : undefined}>
-                  <Foto src={p.foto} alt={p.nome} proporcao="3/4" miniatura />
+                  <Foto src={p.foto} alt={p.nome} proporcao="auto" miniatura />
                   <div style={css("padding:10px 12px 12px; display:flex; flex-direction:column; gap:6px;")}>
                     <div style={css("font-size:14px; font-weight:800; line-height:1.3;")}>{p.nome}</div>
                     <div style={css(`font-size:14px; font-weight:800; color:${BRAND};`)}>{brl(p.preco)}</div>
