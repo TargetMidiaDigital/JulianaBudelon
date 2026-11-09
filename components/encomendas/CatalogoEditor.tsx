@@ -11,6 +11,8 @@ import Menu, { MenuItem } from "../ui/Menu";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Foto } from "./FunilEncomenda";
+import { useApp } from "../store";
+import { CATEGORIAS_ESTOQUE } from "@/lib/estoque";
 
 /**
  * Autoatendimento → Produtos: categorias (criar, renomear, ordenar, excluir) e produtos
@@ -133,7 +135,15 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
     camadas: (produto?.camadas ?? []).join("\n"),
     foto: produto?.foto ?? null as string | null,
     ativo: produto?.ativo ?? true,
+    produtoEstoqueId: produto?.produtoEstoqueId ?? null,
   }));
+  const { produtos: estoque } = useApp();
+  // Itens do Estoque agrupados por categoria — "Encomendas" primeiro (é onde ficam as tortas inteiras).
+  const gruposEstoque = [...CATEGORIAS_ESTOQUE.map((c) => c.v), ...estoque.map((p) => p.categoria)]
+    .filter((c, i, a) => a.indexOf(c) === i)
+    .sort((a, b) => (a === "Encomendas" ? -1 : b === "Encomendas" ? 1 : 0))
+    .map((c) => ({ categoria: c, itens: estoque.filter((p) => p.categoria === c).sort((a, b) => a.nome.localeCompare(b.nome, "pt")) }))
+    .filter((g) => g.itens.length);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -149,6 +159,7 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
       nome: f.nome.trim(), categoriaId: f.categoriaId, preco: Math.round(preco * 100) / 100,
       porcoes: f.porcoes.trim(), peso: f.peso.trim(), descricao: f.descricao.trim() || undefined,
       camadas: f.camadas.split("\n").map((s) => s.trim()).filter(Boolean), foto: f.foto, ativo: f.ativo,
+      produtoEstoqueId: f.produtoEstoqueId,
     });
   };
   const enviarFoto = async (arq?: File) => {
@@ -232,6 +243,18 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
 
           <label style={css(rot)}>Camadas <span style={css("font-weight:500; color:#9398A6;")}>(uma por linha, de cima para baixo — opcional)</span>
             <textarea value={f.camadas} onChange={(e) => setF({ ...f, camadas: e.target.value })} rows={6} placeholder={"Suspiros\nButtercreme\nPão de ló"} style={css(campo + " resize:vertical;")} />
+          </label>
+
+          <label style={css(rot)}>Produto no estoque <span style={css("font-weight:500; color:#9398A6;")}>(a produção soma na Fábrica, a loja recebe e o “Entregue” dá baixa)</span>
+            <select value={f.produtoEstoqueId ?? ""} onChange={(e) => setF({ ...f, produtoEstoqueId: e.target.value || null })} style={css(campo + " cursor:pointer;")}>
+              <option value="">Não movimentar o estoque</option>
+              {gruposEstoque.map((g) => (
+                <optgroup key={g.categoria} label={g.categoria}>
+                  {g.itens.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </optgroup>
+              ))}
+              {f.produtoEstoqueId && !estoque.some((p) => p.id === f.produtoEstoqueId) && <option value={f.produtoEstoqueId}>(item fora do estoque)</option>}
+            </select>
           </label>
 
           <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>

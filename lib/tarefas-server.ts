@@ -85,7 +85,7 @@ export async function aplicarEstoqueProducao(sb: SupabaseClient, t: TarefaEstoqu
  */
 export async function aplicarEstoqueRecebimento(sb: SupabaseClient, t: TarefaEstoque, novoStatus: TaskStatus): Promise<void> {
   try {
-    if (t.categoria !== "unidade" || !t.local || t.local === "fabrica") return;
+    if ((t.categoria !== "unidade" && t.categoria !== "encomenda") || !t.local || t.local === "fabrica") return;
     const antes = feita(t.status ?? ""), depois = feita(novoStatus);
     if (antes === depois) return;
     const local = t.local;

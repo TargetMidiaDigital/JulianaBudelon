@@ -6,7 +6,7 @@ import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
   FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
-  numeroPedido, respeitaAntecedencia, useEncomendas, type ConfigEncomendas, type PedidoEncomenda, type TipoEntrega,
+  numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, type ConfigEncomendas, type PedidoEncomenda, type TipoEntrega,
 } from "@/lib/encomendas";
 
 /**
@@ -25,7 +25,7 @@ const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julh
 type Passo = 1 | 2 | 3 | 4 | 5 | 6;
 
 export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) {
-  const { config: cfg, categorias, produtos, produtoDe } = useEncomendas();
+  const { config: cfg, categorias, produtos, produtoDe, carregado, erroCarga } = useEncomendas();
   const unidades = cfg.retiradaAtiva ? cfg.unidades.filter((u) => u.ativo && u.nome.trim()) : [];
   const grupos = catalogoPorCategoria(categorias, produtos);
   const [passo, setPasso] = useState<Passo>(1);
@@ -45,6 +45,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const [pedido, setPedido] = useState<PedidoEncomenda | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [pago, setPago] = useState(false);
+  const pix = pedido ? pixCopiaECola(cfg, pedido.total, `JB${numeroPedido(pedido.id)}`) : null;
 
   const produto = produtoId ? produtoDe(produtoId) : undefined;
   const subtotal = (produto?.preco ?? 0) * qtd;
@@ -70,19 +71,30 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     6: true,
   };
 
-  const confirmar = () => {
-    if (!produto || !tipo || !data || !hora) return;
-    const p = criarPedidoAutoatendimento({
-      produtoId: produto.id, quantidade: qtd, mensagem: mensagem.trim() || undefined, tipo,
-      unidadeId: tipo === "Retirada" ? unidadeId ?? undefined : undefined,
-      endereco: tipo === "Entrega" ? { ...end, complemento: end.complemento.trim() || undefined } : undefined,
-      data, hora, nome: nome.trim(), whatsapp: whats,
-    });
-    setPedido(p);
-    setPasso(6);
+  const [enviando, setEnviando] = useState(false);
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
+  useEffect(() => { setErroEnvio(null); }, [passo]);
+  const confirmar = async () => {
+    if (!produto || !tipo || !data || !hora || enviando) return;
+    setEnviando(true); setErroEnvio(null);
+    try {
+      const p = await criarPedidoAutoatendimento({
+        produtoId: produto.id, quantidade: qtd, mensagem: mensagem.trim() || undefined, tipo,
+        unidadeId: tipo === "Retirada" ? unidadeId ?? undefined : undefined,
+        endereco: tipo === "Entrega" ? { ...end, complemento: end.complemento.trim() || undefined } : undefined,
+        data, hora, nome: nome.trim(), whatsapp: whats,
+      });
+      setPedido(p);
+      setPasso(6);
+    } catch (e) {
+      // Ex.: o horário deixou de respeitar a antecedência, a loja foi desativada… — mostra e deixa corrigir.
+      setErroEnvio(e instanceof Error ? e.message : "Não foi possível enviar o pedido. Tente de novo.");
+    } finally {
+      setEnviando(false);
+    }
   };
   const avancar = () => {
-    if (!pode[passo]) return;
+    if (!pode[passo] || enviando) return;
     if (passo === 5) confirmar();
     else if (passo < 5) setPasso((passo + 1) as Passo);
   };
@@ -92,7 +104,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     setNome(""); setWhats(""); setPedido(null); setPago(false);
   };
 
-  const botao = passo === 5 ? "Confirmar pedido" : "Continuar";
+  const botao = passo === 5 ? (enviando ? "Enviando…" : "Confirmar pedido") : "Continuar";
 
   return (
     <div style={css(`${emTela ? "height:100dvh;" : "height:100%;"} background:linear-gradient(135deg, ${COR}, ${COR_ESCURA}); display:flex; justify-content:center; font-family:inherit; color:${TINTA};`)}>
@@ -122,6 +134,9 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             <>
               <h1 style={css("margin:0 0 4px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>O que você vai querer?</h1>
               <p style={css(`margin:0 0 6px; font-size:13.5px; color:${FRACA};`)}>Escolha um produto para continuar.</p>
+              {!carregado && <div style={css(`padding:40px 0; text-align:center; color:${FRACA}; font-size:14px;`)}>Carregando o cardápio…</div>}
+              {carregado && erroCarga && <div role="alert" style={css("margin-top:14px; font-size:13.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:11px 13px;")}>Não foi possível carregar o cardápio agora. Atualize a página em instantes.</div>}
+              {carregado && !erroCarga && grupos.length === 0 && <div style={css(`padding:30px 0; text-align:center; color:${FRACA}; font-size:14px;`)}>Nenhum produto disponível para encomenda no momento.</div>}
               {grupos.length > 1 && (
                 <div style={css("display:flex; gap:7px; overflow-x:auto; padding:8px 0 4px; scrollbar-width:none;")}>
                   {grupos.map((g) => (
@@ -259,14 +274,21 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <div style={css("width:56px; height:56px; border-radius:50%; background:#E7F6EE; color:#1B7F4D; display:flex; align-items:center; justify-content:center; margin:8px auto 12px;")}><Svg size={28} sw={2.6}><path d="M20 6 9 17l-5-5" /></Svg></div>
                 <h1 style={css("margin:0; font-size:22px; font-weight:800;")}>Pedido registrado!</h1>
                 <p style={css(`margin:6px 0 16px; font-size:13.5px; color:${FRACA};`)}>Agora é só pagar com PIX para entrar na fila de produção.</p>
-                {!cfg.pixChave && <div style={css("font-size:12.5px; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:9px 12px; margin-bottom:12px;")}>PIX de <b>exemplo</b> — a chave real ainda não foi configurada.</div>}
-                <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:16px;`)}>
-                  <div style={css("font-size:30px; font-weight:800; letter-spacing:-.6px;")}>{brl(pedido.total)}</div>
-                  <QrFalso seed={pedido.id} />
-                  <div style={css(`font-size:12.5px; color:${FRACA}; margin-bottom:8px;`)}>Escaneie no app do seu banco ou use o código abaixo.</div>
-                  <div style={css(`font-family:ui-monospace,monospace; font-size:11px; color:#5B6472; background:${CAMPO}; border-radius:9px; padding:8px; word-break:break-all;`)}>00020126580014BR.GOV.BCB.PIX0136exemplo-ju-budelon5204000053039865802BR5925JU BUDELON6013FLORIANOPOLIS62{numeroPedido(pedido.id)}</div>
-                  <button onClick={() => { setCopiado(true); setTimeout(() => setCopiado(false), 2000); }} style={css(`margin-top:10px; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:9px 18px; font-size:13.5px; font-weight:800; cursor:pointer;`)}>{copiado ? "Copiado!" : "Copiar código PIX"}</button>
-                </div>
+                {pix ? (
+                  <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:16px;`)}>
+                    <div style={css("font-size:30px; font-weight:800; letter-spacing:-.6px;")}>{brl(pedido.total)}</div>
+                    <QrPix codigo={pix} />
+                    <div style={css(`font-size:12.5px; color:${FRACA}; margin-bottom:8px;`)}>Escaneie no app do seu banco ou use o código abaixo.</div>
+                    <div style={css(`font-family:ui-monospace,monospace; font-size:11px; color:#5B6472; background:${CAMPO}; border-radius:9px; padding:8px; word-break:break-all; user-select:all;`)}>{pix}</div>
+                    <button onClick={() => { void navigator.clipboard?.writeText(pix).catch(() => {}); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }} style={css(`margin-top:10px; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:9px 18px; font-size:13.5px; font-weight:800; cursor:pointer;`)}>{copiado ? "Copiado!" : "Copiar código PIX"}</button>
+                  </div>
+                ) : (
+                  // Chave PIX ainda não cadastrada em Autoatendimento → Configurações: nada de PIX falso.
+                  <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:16px;`)}>
+                    <div style={css("font-size:30px; font-weight:800; letter-spacing:-.6px;")}>{brl(pedido.total)}</div>
+                    <div style={css("margin-top:10px; font-size:13.5px; color:#1E3A8A; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:12px; padding:10px 12px;")}>Nossa equipe vai te enviar a chave PIX pelo WhatsApp <b>{foneBR(normalizePhone(whats))}</b> para você pagar.</div>
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -292,7 +314,8 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
         </div>
 
         {/* Rodapé — no passo 1 não tem: tocar no produto já avança. */}
-        {passo > 1 && <div style={css(`flex:none; position:sticky; bottom:0; background:#fff; border-top:1px solid ${BORDA}; padding:12px 16px ${emTela ? "calc(env(safe-area-inset-bottom) + 12px)" : "12px"}; display:flex; align-items:center; gap:12px;`)}>
+        {passo > 1 && <div style={css(`flex:none; position:sticky; bottom:0; background:#fff; border-top:1px solid ${BORDA}; padding:12px 16px ${emTela ? "calc(env(safe-area-inset-bottom) + 12px)" : "12px"}; display:flex; align-items:center; gap:12px; flex-wrap:wrap;`)}>
+          {erroEnvio && passo === 5 && <div role="alert" style={css("flex-basis:100%; font-size:13px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:9px 12px;")}>{erroEnvio}</div>}
           {passo < 6 ? (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -450,23 +473,17 @@ function mascara(v: string) {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-/** QR "de mentira" (PIX de exemplo): grade determinística a partir do id, com os 3 marcadores de canto. */
-function QrFalso({ seed }: { seed: string }) {
-  const n = 25;
-  let h = 0;
-  for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const rnd = () => ((h = (h * 1103515245 + 12345) >>> 0) >>> 16) & 1;
-  const canto = (x: number, y: number) => (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
-  const marca = (x: number, y: number) => {
-    const lx = x < 7 ? x : x - (n - 7), ly = y < 7 ? y : y - (n - 7);
-    return lx === 0 || lx === 6 || ly === 0 || ly === 6 || (lx >= 2 && lx <= 4 && ly >= 2 && ly <= 4);
-  };
-  const cels: React.ReactNode[] = [];
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    const on = canto(x, y) ? marca(x, y) : rnd() === 1;
-    if (on) cels.push(<rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} />);
-  }
-  return <svg viewBox={`-1 -1 ${n + 2} ${n + 2}`} width={168} height={168} style={{ display: "block", margin: "12px auto", background: "#fff" }} fill={TINTA}>{cels}</svg>;
+/** QR Code do PIX copia-e-cola (gerado no navegador, sem serviço externo). */
+function QrPix({ codigo }: { codigo: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void import("qrcode").then((q) => q.toDataURL(codigo, { margin: 1, width: 360, color: { dark: TINTA, light: "#ffffff" } })).then((u) => { if (vivo) setSrc(u); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [codigo]);
+  return src
+    ? <img src={src} alt="QR Code do PIX" width={180} height={180} style={{ display: "block", margin: "12px auto" }} />
+    : <div style={{ width: 180, height: 180, margin: "12px auto", background: CAMPO, borderRadius: 8 }} />;
 }
 
 /**

@@ -22,7 +22,7 @@ export default function Conferencia({ t }: { t: Task }) {
   const linhas = linhasDaTarefa(t);
   const feita = t.status === "concluida" || t.status === "validada";
   const rot = rotuloRealizado(t.categoria);
-  const avulsa = !t.pedidoId && t.categoria !== "expedicao" && t.categoria !== "unidade";
+  const avulsa = !t.pedidoId && t.categoria !== "expedicao" && t.categoria !== "unidade" && t.categoria !== "encomenda";
   const travada = feita;
   const mobile = useIsMobile();
   const salvar = (novas: LinhaConferencia[]) => updateTask(t.id, { conferencia: novas });

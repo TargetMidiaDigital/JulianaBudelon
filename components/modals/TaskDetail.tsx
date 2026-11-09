@@ -18,7 +18,7 @@ import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
-import { ehEncomendaLoja, ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
+import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
 import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
 import Conferencia from "../ui/Conferencia";
 import { UnidadePill } from "../screens/ListaView";
@@ -170,7 +170,7 @@ function TaskDetailBody({ t }: { t: Task }) {
               </Row>
             </div>
             {/* `min-height` (e não `min-height:0`) é o que garante a Descrição legível. */}
-            {!ehEncomendaLoja(t) && <Conferencia t={t} />}
+            <Conferencia t={t} />
             <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4; flex:1; min-height:300px; display:flex; flex-direction:column;")}>
               <CampoExpansivel
                 titulo="Descrição"

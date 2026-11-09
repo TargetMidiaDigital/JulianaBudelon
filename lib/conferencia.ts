@@ -34,4 +34,4 @@ export const qtdEfetiva = (l: LinhaConferencia): number => l.feito ?? l.pedido;
 
 /** Rótulo da coluna "realizado" conforme o setor. */
 export const rotuloRealizado = (categoria?: string | null): string =>
-  categoria === "expedicao" ? "Separado" : categoria === "unidade" ? "Recebido" : "Produzido";
+  categoria === "expedicao" ? "Separado" : categoria === "unidade" || categoria === "encomenda" ? "Recebido" : "Produzido";

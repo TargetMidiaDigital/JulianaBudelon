@@ -14,7 +14,7 @@ import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/ac
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
-import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehProducao, ehUnidade } from "@/lib/tarefas";
+import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehEncomendaLoja, ehProducao, ehUnidade } from "@/lib/tarefas";
 import { faltamPreencher, linhasDaTarefa, qtdEfetiva, rotuloRealizado } from "@/lib/conferencia";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
@@ -974,7 +974,7 @@ function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, d
 /** Espelho local de aplicarEstoqueRecebimento: concluir o recebimento move Fábrica → unidade. */
 function aplicarRecebimentoLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
   const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
-  if (!ehUnidade(t) || !t.local || t.local === "fabrica" || feita(de) === feita(para)) return d;
+  if ((!ehUnidade(t) && !ehEncomendaLoja(t)) || !t.local || t.local === "fabrica" || feita(de) === feita(para)) return d;
   const ped = t.pedidoId ? d.pedidos.find((p) => p.id === t.pedidoId) : undefined;
   const local = t.local, ida = feita(para);
   const linhas = linhasDaTarefa(t);

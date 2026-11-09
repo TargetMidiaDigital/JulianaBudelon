@@ -114,12 +114,12 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
 
       <Cartao titulo="Pagamento e contato" sub="PIX mostrado no fim do pedido e WhatsApp da página" icone={<><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM17 20h4v-3" /></>}>
         <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:10px;")}>
-          <Rotulo t="Chave PIX"><input disabled={ro} value={c.pixChave} onChange={(e) => mudar({ pixChave: e.target.value })} placeholder="CPF/CNPJ, e-mail, telefone ou aleatória" style={css(campo("width:100%;"))} /></Rotulo>
+          <Rotulo t="Chave PIX"><input disabled={ro} value={c.pixChave} onChange={(e) => mudar({ pixChave: e.target.value })} placeholder="CPF/CNPJ, e-mail, +55 celular ou aleatória" style={css(campo("width:100%;"))} /></Rotulo>
           <Rotulo t="Nome do recebedor"><input disabled={ro} maxLength={25} value={c.pixNome} onChange={(e) => mudar({ pixNome: e.target.value })} placeholder="Ju Budelon" style={css(campo("width:100%;"))} /></Rotulo>
           <Rotulo t="Cidade do recebedor"><input disabled={ro} maxLength={15} value={c.pixCidade} onChange={(e) => mudar({ pixCidade: e.target.value })} placeholder="Florianópolis" style={css(campo("width:100%;"))} /></Rotulo>
           <Rotulo t="WhatsApp de contato"><input disabled={ro} value={c.whatsappContato} onChange={(e) => mudar({ whatsappContato: e.target.value.replace(/\D/g, "") })} placeholder="5548999999999" style={css(campo("width:100%;"))} /></Rotulo>
         </div>
-        {!c.pixChave && <div style={css("font-size:12px; color:#92400E; margin-top:8px;")}>Sem chave PIX, a página mostra um PIX de exemplo.</div>}
+        {!c.pixChave && <div style={css("font-size:12px; color:#92400E; margin-top:8px;")}>Sem chave PIX, a página não mostra QR Code: avisa o cliente que a equipe vai mandar o PIX pelo WhatsApp. Celular como chave: use +55 e o DDD (ex.: +5548999999999).</div>}
       </Cartao>
 
       {/* Barra de salvar só quando há o que salvar (ou um aviso a mostrar): no celular ela ocupava a tela à toa. */}

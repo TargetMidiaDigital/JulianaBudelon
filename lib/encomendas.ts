@@ -1,218 +1,21 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { normalizePhone } from "./format";
+import {
+  CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_PADRAO, isoDia, validarNovoPedido,
+  type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
+} from "./encomendas-base";
+
+export * from "./encomendas-base";
 
 /**
- * Setor Encomendas — PRIMEIRA VERSÃO, SEM BANCO: tudo no navegador (localStorage), com
- * dados de exemplo. Espelha o fluxo do Cachorrão HD (totem /encomendar → CRM de contatos →
- * pedidos → agenda), trocando a caixa de mini dogs por um catálogo de produtos em
- * categorias (começa com as tortas "Camadas de Felicidade" do PDF Encomendas - Juliana
- * Budelon): o cliente ESCOLHE O PRODUTO e depois percorre o funil. Catálogo, unidades de
- * retirada, entrega e horários são editáveis em Encomendas → Autoatendimento.
+ * Store das Encomendas (Autoatendimento, CRM, Contatos, Agenda e a página pública /encomendar).
+ *  - COM Supabase ("banco"): lê de /api/encomendas (painel) ou /api/encomendas/publico (página do
+ *    cliente) e grava por ações em /api/encomendas — otimista, recarrega se o servidor recusar.
+ *    O realtime_ping (enc_*) faz o painel recarregar quando outra pessoa (ou um cliente) muda algo.
+ *    Pagamento confirmado (tarefas) e Entregue (baixa no estoque) são feitos NO SERVIDOR.
+ *  - SEM Supabase ("demo"): tudo no localStorage, com dados de exemplo (como na primeira versão).
  */
-
-// ── Catálogo ────────────────────────────────────────────────────────────────
-
-export type Categoria = { id: string; nome: string };
-
-export type ProdutoEncomenda = {
-  id: string;
-  nome: string; // "Torta de Morango"
-  categoriaId: string | null; // null = sem categoria
-  preco: number;
-  porcoes: string; // "8 a 10 porções"
-  peso: string; // "1,2 kg"
-  descricao?: string;
-  camadas: string[]; // ordem de camadas, de cima para baixo (como no PDF)
-  foto: string | null; // /encomendas/torta-*.webp (flyer do PDF; há também a versão -card.webp) ou data URL enviada na tela
-  ativo: boolean;
-};
-
-export const CATEGORIA_PADRAO: Categoria = { id: "camadas-de-felicidade", nome: "Camadas de Felicidade" };
-
-const torta = (id: string, nome: string, preco: number, peso: string, camadas: string[]): ProdutoEncomenda => ({
-  id, nome: `Torta de ${nome}`, categoriaId: CATEGORIA_PADRAO.id, preco, porcoes: "8 a 10 porções", peso, camadas, foto: `/encomendas/torta-${id}.webp`, ativo: true,
-});
-
-const PRODUTOS_PADRAO: ProdutoEncomenda[] = [
-  torta("morango", "Morango", 169.9, "1,2 kg", ["Suspiros", "Buttercreme", "Pão de ló", "Morangos", "Pão de ló", "Creme belga"]),
-  torta("pudim", "Pudim", 169.9, "1,2 kg", ["Creme", "Pão de ló", "Pudim de leite", "Doce de leite", "Pão de ló", "Creme"]),
-  torta("duo", "Duo", 159.9, "1,3 kg", ["Creme belga branco", "Massa de chocolate fofinha", "Creme belga de chocolate", "Finalizada com brigadeiros branco e tradicional"]),
-  torta("maracuja-chocolate", "Maracujá com Chocolate", 159.9, "1,3 kg", ["Creme de maracujá", "Massa de chocolate fofinha", "Creme de chocolate belga", "Bem molhadinha"]),
-  torta("brigadeiro", "Brigadeiro", 159.9, "1,3 kg", ["Creme de brigadeiro", "Massa de chocolate", "Brigadeiro de panela", "Massa de chocolate", "Creme de brigadeiro", "Brigadeiro de panela"]),
-  torta("bem-casado", "Bem Casado", 169.9, "1,3 kg", ["Creme de ninho", "Massa de bolo fofinha", "Doce de leite caseiro", "Finalizado com bem casado"]),
-  torta("mineira", "Mineira", 159.9, "1,3 kg", ["Abacaxi", "Buttercreme", "Creme belga", "Pão de ló", "Creme belga com abacaxi", "Pão de ló", "Creme belga com abacaxi", "Pão de ló", "Creme belga com abacaxi"]),
-  torta("prestigio", "Prestígio", 159.9, "1,3 kg", ["Massa de chocolate fofinha", "Creme de coco fresco com belga", "Creme de chocolate", "Finalizado com coco e chocolate prestígio"]),
-  torta("marta-rocha", "Marta Rocha", 159.9, "1,3 kg", ["Creme de ameixa & nozes", "Baba de moça", "Pão de ló", "Creme de nozes", "Creme de ameixa", "Massa de chocolate", "Creme de nozes", "Creme de ameixa", "Pão de ló", "Creme belga"]),
-];
-
-/** Recorte da foto do flyer que mostra a torta (o topo do flyer é título/preço). */
-export const FOTO_POSICAO = "center 72%";
-
-// ── Configuração do autoatendimento (editável em Autoatendimento → Configurações) ──
-
-export type DiaKey = "dom" | "seg" | "ter" | "qua" | "qui" | "sex" | "sab";
-export const DIAS: { key: DiaKey; label: string; curto: string }[] = [
-  { key: "dom", label: "Domingo", curto: "Dom" }, { key: "seg", label: "Segunda", curto: "Seg" }, { key: "ter", label: "Terça", curto: "Ter" },
-  { key: "qua", label: "Quarta", curto: "Qua" }, { key: "qui", label: "Quinta", curto: "Qui" }, { key: "sex", label: "Sexta", curto: "Sex" }, { key: "sab", label: "Sábado", curto: "Sáb" },
-];
-
-export type Intervalo = { inicio: string; fim: string }; // "HH:MM"
-export type JanelaDia = { ativo: boolean; intervalos: Intervalo[] };
-export type UnidadeRetirada = { id: string; nome: string; endereco: string; ativo: boolean };
-
-export type ConfigEncomendas = {
-  retiradaAtiva: boolean;
-  unidades: UnidadeRetirada[];
-  entregaAtiva: boolean;
-  taxaEntrega: number;
-  antecedenciaHoras: number;
-  intervaloMin: number;
-  maxPorPedido: number;
-  janelas: Record<DiaKey, JanelaDia>;
-  pixChave: string; // vazio = PIX de exemplo
-  pixNome: string;
-  pixCidade: string;
-  whatsappContato: string;
-};
-
-const dia = (inicio: string, fim: string): JanelaDia => ({ ativo: true, intervalos: [{ inicio, fim }] });
-const CONFIG_PADRAO: ConfigEncomendas = {
-  retiradaAtiva: true,
-  // Lojas da Ju Budelon (as mesmas do estoque, sem a Fábrica). Por ora só retirada, sem entrega.
-  unidades: [
-    { id: "u-centro", nome: "Centro", endereco: "", ativo: true },
-    { id: "u-santa-monica", nome: "Santa Mônica", endereco: "", ativo: true },
-    { id: "u-coqueiros", nome: "Coqueiros", endereco: "", ativo: true },
-    { id: "u-areias", nome: "Areias", endereco: "", ativo: true },
-    { id: "u-rocado", nome: "Roçado", endereco: "", ativo: true },
-    { id: "u-pagani", nome: "Pagani", endereco: "", ativo: true },
-  ],
-  entregaAtiva: false,
-  taxaEntrega: 15,
-  antecedenciaHoras: 48,
-  intervaloMin: 60,
-  maxPorPedido: 5,
-  janelas: { dom: { ativo: false, intervalos: [] }, seg: dia("09:00", "18:00"), ter: dia("09:00", "18:00"), qua: dia("09:00", "18:00"), qui: dia("09:00", "18:00"), sex: dia("09:00", "18:00"), sab: dia("09:00", "14:00") },
-  pixChave: "",
-  pixNome: "",
-  pixCidade: "",
-  whatsappContato: "5548999990001",
-};
-
-const pad = (n: number) => String(n).padStart(2, "0");
-export const isoDia = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-export const diaKeyDe = (iso: string): DiaKey => DIAS[new Date(`${iso}T12:00:00`).getDay()].key;
-export const paraMin = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
-export const deMin = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-
-/** Horários de uma janela: cada bloco fatiado a cada `intervaloMin` (fim incluso), sem repetir. */
-export function horariosDaJanela(j: JanelaDia, intervaloMin: number): string[] {
-  if (!j.ativo) return [];
-  const passo = Math.max(5, intervaloMin || 60);
-  const set = new Set<number>();
-  for (const b of j.intervalos) for (let m = paraMin(b.inicio); m <= paraMin(b.fim); m += passo) set.add(m);
-  return [...set].sort((a, b) => a - b).map(deMin);
-}
-export const horariosDoDia = (cfg: ConfigEncomendas, iso: string) => horariosDaJanela(cfg.janelas[diaKeyDe(iso)], cfg.intervaloMin);
-
-/** O horário respeita a antecedência mínima? */
-export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date()) =>
-  new Date(`${iso}T${hora}:00`).getTime() - agora.getTime() >= cfg.antecedenciaHoras * 3600_000;
-
-/** Problemas que impedem salvar a configuração (mensagens para a tela). */
-export function validarConfig(c: ConfigEncomendas): string | null {
-  if (!c.retiradaAtiva && !c.entregaAtiva) return "Ligue pelo menos uma forma de receber: retirada ou entrega.";
-  if (c.retiradaAtiva && !c.unidades.some((u) => u.ativo && u.nome.trim())) return "A retirada está ligada, mas não há nenhuma unidade ativa. Adicione uma unidade ou desligue a retirada.";
-  if (c.unidades.some((u) => !u.nome.trim())) return "Toda unidade precisa de um nome.";
-  if (c.entregaAtiva && !(c.taxaEntrega >= 0)) return "A taxa de entrega não pode ser negativa.";
-  if (!(c.maxPorPedido >= 1)) return "O máximo por pedido precisa ser pelo menos 1.";
-  if (!(c.antecedenciaHoras >= 0)) return "A antecedência não pode ser negativa.";
-  if (!(c.intervaloMin >= 5)) return "O intervalo entre horários precisa ser de pelo menos 5 minutos.";
-  for (const d of DIAS) {
-    const j = c.janelas[d.key];
-    if (j.ativo && j.intervalos.some((b) => paraMin(b.fim) <= paraMin(b.inicio))) return `Horário inválido na ${d.label.toLowerCase()}: o fim precisa ser depois do início.`;
-  }
-  if (!DIAS.some((d) => horariosDaJanela(c.janelas[d.key], c.intervaloMin).length)) return "Nenhum horário disponível: ligue pelo menos um dia da semana.";
-  return null;
-}
-
-export const PERIODOS = [
-  { label: "Manhã", de: 0, ate: 12 },
-  { label: "Tarde", de: 12, ate: 18 },
-  { label: "Noite", de: 18, ate: 24 },
-];
-
-export const dataBR = (iso?: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
-
-// ── Contatos (leads) e pedidos ──────────────────────────────────────────────
-
-export type ResponsavelLead = "I.A" | "Humano";
-
-/** Funil do CRM (mesmos estágios e cores do Cachorrão). */
-export const LEAD_STATUS = [
-  { key: "Novo contato", cor: "#5B6FD6" },
-  { key: "Followup", cor: "#8B5CF6" },
-  { key: "Em atendimento", cor: "#F5B942" },
-  { key: "Venda", cor: "#16A34A" },
-  { key: "Desqualificado", cor: "#94A3B8" },
-  { key: "Perdido", cor: "#EF4444" },
-] as const;
-export type LeadStatus = (typeof LEAD_STATUS)[number]["key"];
-export const corLead = (s: string) => LEAD_STATUS.find((x) => x.key === s)?.cor ?? "#94A3B8";
-
-/** Status do pedido (o funil do contato e o do pedido são independentes). */
-export const PEDIDO_STATUS = [
-  { key: "Verificar pagamento", cor: "#EAB308", agenda: "#2563EB" },
-  { key: "Em fila", cor: "#F5B942", agenda: "#A16207" },
-  { key: "Em produção", cor: "#F97316", agenda: "#D97706" },
-  { key: "Entregue", cor: "#10B981", agenda: "#16A34A" },
-] as const;
-export type PedidoStatus = (typeof PEDIDO_STATUS)[number]["key"];
-export const corPedido = (s: string) => PEDIDO_STATUS.find((x) => x.key === s)?.cor ?? "#94A3B8";
-
-export type Lead = {
-  id: string;
-  numero: string; // WhatsApp canônico (55 + DDD + número)
-  nome: string;
-  status: LeadStatus;
-  responsavel: ResponsavelLead;
-  criadoEm: string; // ISO
-  ultimoContato: string; // ISO
-  resumo?: string;
-};
-
-export type TipoEntrega = "Entrega" | "Retirada";
-
-export type PedidoEncomenda = {
-  id: string;
-  leadId: string;
-  produtoId: string;
-  produtoNome?: string; // retrato do nome no pedido (o produto pode ser editado/excluído depois)
-  quantidade: number;
-  mensagem?: string; // escrita na torta / observação do cliente
-  tipo: TipoEntrega;
-  unidadeId?: string;
-  unidadeNome?: string; // retrato da unidade no pedido
-  endereco?: { cidade: string; bairro: string; rua: string; numero: string; complemento?: string };
-  data: string; // AAAA-MM-DD
-  hora: string; // HH:MM
-  subtotal: number;
-  taxa: number;
-  total: number;
-  status: PedidoStatus;
-  criadoEm: string; // ISO
-  origem: "autoatendimento" | "manual";
-  /** Tarefas da loja (Lojas → Encomendas) e da produção já criadas — evita duplicar se o status voltar e avançar de novo. */
-  tarefasCriadas?: boolean;
-};
-
-export type Compromisso = { id: string; titulo: string; data: string; hora: string; horaFim: string; contato?: string; notas?: string };
-
-export const numeroPedido = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase();
-export const enderecoLinha = (e?: PedidoEncomenda["endereco"]) =>
-  e ? [`${e.rua}, ${e.numero}`, e.bairro, e.cidade, e.complemento].filter(Boolean).join(" · ") : "";
 
 // ── Dados de exemplo (datas relativas a hoje) ───────────────────────────────
 
@@ -255,133 +58,227 @@ function seed() {
   };
 }
 
-// ── Store local (localStorage, compartilhado entre telas e com a página /encomendar) ──
+// ── Store ────────────────────────────────────────────────────────────────────
 
-type Estado = ReturnType<typeof seed>;
+export type EstadoEncomendas = ReturnType<typeof seed>;
+type Estado = EstadoEncomendas;
+export type ModoEncomendas = "demo" | "banco";
+type Meta = { modo: ModoEncomendas; carregado: boolean; erro: string | null };
+type Snap = { s: Estado; meta: Meta };
+
 const KEY = "jb-encomendas-demo-v1";
-let estado: Estado | null = null;
+const VAZIO: Estado = { leads: [], pedidos: [], compromissos: [], categorias: [], produtos: [], config: CONFIG_PADRAO };
 const ouvintes = new Set<() => void>();
+let estado: Estado | null = null;
+let meta: Meta = { modo: "demo", carregado: false, erro: null };
+let snap: Snap | null = null;
+const SNAP_SERVIDOR: Snap = { s: VAZIO, meta: { modo: "demo", carregado: false, erro: null } };
+
+const noNavegador = () => typeof window !== "undefined";
+// Mesmo critério de supabase-browser (variáveis públicas presentes = banco), sem carregar o cliente
+// do Supabase na página do cliente: lá só há fetch simples para /api/encomendas/publico.
+const modoAtual = (): ModoEncomendas => (noNavegador() && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "banco" : "demo");
+/** Chamada JSON: autenticada no painel (supabase-browser, carregado sob demanda); simples na página pública. */
+async function api<T>(url: string, method: "GET" | "POST", body?: unknown): Promise<T> {
+  if (!paginaPublica()) return (await import("./supabase-browser")).apiJson<T>(url, method, body);
+  const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(j?.error || `Falha (${res.status})`);
+  return j;
+}
+/** Página pública do cliente (sem login): só o catálogo e a configuração públicos. */
+const paginaPublica = () => noNavegador() && window.location.pathname.startsWith("/encomendar");
+
+function avisar() { snap = null; ouvintes.forEach((f) => f()); }
+
+function lerDemo(): Estado {
+  const base = seed();
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    // Dados salvos por uma versão anterior (sem catálogo/configuração) ganham os padrões.
+    const salvo = raw ? (JSON.parse(raw) as Partial<Estado>) : null;
+    let e: Estado = salvo ? { ...base, ...salvo, config: { ...base.config, ...(salvo.config ?? {}) } } : base;
+    // Configuração ainda com as 2 unidades do primeiro exemplo (com entrega): troca pelas 6 lojas,
+    // só retirada, e os pedidos de exemplo pela versão nova (pedidos criados no teste ficam).
+    if (e.config.unidades.map((u) => u.id).join(",") === "u-centro,u-kobrasol") {
+      e = { ...e, config: { ...e.config, unidades: base.config.unidades, entregaAtiva: false }, pedidos: e.pedidos.map((p) => base.pedidos.find((n) => n.id === p.id) ?? p) };
+    }
+    // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
+    return { ...e, produtos: e.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
+  } catch {
+    return base;
+  }
+}
 
 function carregar(): Estado {
   if (estado) return estado;
-  const base = seed();
-  try {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
-    // Dados salvos por uma versão anterior (sem catálogo/configuração) ganham os padrões.
-    const salvo = raw ? (JSON.parse(raw) as Partial<Estado>) : null;
-    estado = salvo ? { ...base, ...salvo, config: { ...base.config, ...(salvo.config ?? {}) } } : base;
-    // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
-    // Configuração ainda com as 2 unidades do primeiro exemplo (com entrega): troca pelas 6 lojas,
-    // só retirada, e os pedidos de exemplo pela versão nova (pedidos criados no teste ficam).
-    const ids = estado.config.unidades.map((u) => u.id).join(",");
-    if (ids === "u-centro,u-kobrasol") {
-      const novos = base.pedidos;
-      estado = {
-        ...estado,
-        config: { ...estado.config, unidades: base.config.unidades, entregaAtiva: false },
-        pedidos: estado.pedidos.map((p) => novos.find((n) => n.id === p.id) ?? p),
-      };
-    }
-    estado = { ...estado, produtos: estado.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
-  } catch {
-    estado = base;
-  }
+  meta = { ...meta, modo: modoAtual() };
+  if (meta.modo === "banco") { estado = VAZIO; void buscar(); return estado; }
+  estado = noNavegador() ? lerDemo() : seed();
+  meta = { ...meta, carregado: true };
   return estado;
 }
+
+function snapshot(): Snap {
+  if (snap) return snap;
+  const s = carregar();
+  snap = { s, meta };
+  return snap;
+}
+
+// ── Banco: leitura, realtime e ações ─────────────────────────────────────────
+
+let buscando = false;
+let deNovo = false;
+let canal = false;
+async function buscar() {
+  if (buscando) { deNovo = true; return; }
+  buscando = true;
+  try {
+    const j = await api<Partial<Estado>>(paginaPublica() ? "/api/encomendas/publico" : "/api/encomendas", "GET");
+    estado = { ...VAZIO, ...j, config: { ...CONFIG_PADRAO, ...(j.config ?? {}) } };
+    meta = { ...meta, carregado: true, erro: null };
+  } catch (e) {
+    meta = { ...meta, carregado: true, erro: e instanceof Error ? e.message : "Falha ao carregar as encomendas." };
+  } finally {
+    buscando = false;
+    avisar();
+    if (deNovo) { deNovo = false; void buscar(); }
+  }
+  void ligarRealtime();
+}
+
+let espera: ReturnType<typeof setTimeout> | null = null;
+async function ligarRealtime() {
+  if (canal || paginaPublica()) return;
+  canal = true;
+  const sb = (await import("./supabase-browser")).getSupabaseBrowser();
+  if (!sb) return;
+  // Outra pessoa (ou um cliente na página de encomendas) mudou algo → recarrega. O sinal não traz dado.
+  sb.channel("enc-ping").on("postgres_changes", { event: "*", schema: "public", table: "realtime_ping" }, (msg) => {
+    const dom = (msg.new as { dominio?: string } | null)?.dominio ?? "";
+    if (!dom.startsWith("enc_")) return;
+    if (espera) clearTimeout(espera);
+    espera = setTimeout(() => { void buscar(); }, 700);
+  }).subscribe();
+}
+
+/** Recarrega do servidor (banco) — ex.: depois de uma ação cujo efeito o servidor completa. */
+export const recarregarEncomendas = () => { if (meta.modo === "banco") void buscar(); };
+
+/** Ação no servidor. Erro → avisa e recarrega (desfaz o otimista). Devolve a resposta ou null. */
+async function acao<T = unknown>(nome: string, dados: Record<string, unknown>, recarregarDepois = false): Promise<T | null> {
+  try {
+    const r = await api<T>("/api/encomendas", "POST", { acao: nome, ...dados });
+    if (recarregarDepois) void buscar();
+    return r;
+  } catch (e) {
+    if (noNavegador()) window.alert(e instanceof Error ? e.message : "Não foi possível salvar.");
+    void buscar();
+    return null;
+  }
+}
+
+/** Atualiza o estado na tela (e no localStorage, no demo). */
 function salvar(novo: Estado): string | null {
   estado = novo;
   let erro: string | null = null;
-  try { window.localStorage.setItem(KEY, JSON.stringify(novo)); } catch { erro = "Não foi possível guardar no navegador (espaço cheio?). A alteração vale só até recarregar a página."; }
-  ouvintes.forEach((f) => f());
+  if (meta.modo === "demo") {
+    try { window.localStorage.setItem(KEY, JSON.stringify(novo)); } catch { erro = "Não foi possível guardar no navegador (espaço cheio?). A alteração vale só até recarregar a página."; }
+  }
+  avisar();
   return erro;
 }
-if (typeof window !== "undefined") {
-  // Pedido feito na página /encomendar (outra aba) aparece no painel sem recarregar.
-  window.addEventListener("storage", (e) => { if (e.key === KEY) { estado = null; ouvintes.forEach((f) => f()); } });
-}
-const VAZIO: Estado = { leads: [], pedidos: [], compromissos: [], categorias: [], produtos: [], config: CONFIG_PADRAO };
-
 const muda = (f: (s: Estado) => Partial<Estado>) => { const s = carregar(); return salvar({ ...s, ...f(s) }); };
+/** Aplica na tela já e, com banco, manda a ação ao servidor. */
+const fazer = (f: (s: Estado) => Partial<Estado>, nome: string, dados: Record<string, unknown>, recarregarDepois = false): string | null => {
+  const erro = muda(f);
+  if (meta.modo === "banco") void acao(nome, dados, recarregarDepois);
+  return erro;
+};
+
+if (noNavegador()) {
+  // Demo: pedido feito na página /encomendar (outra aba) aparece no painel sem recarregar.
+  window.addEventListener("storage", (e) => { if (e.key === KEY && meta.modo === "demo") { estado = null; avisar(); } });
+}
 
 export function useEncomendas() {
-  const s = useSyncExternalStore(
+  const { s, meta: m } = useSyncExternalStore(
     (f) => { ouvintes.add(f); return () => { ouvintes.delete(f); }; },
-    carregar,
-    () => VAZIO,
+    snapshot,
+    () => SNAP_SERVIDOR,
   );
   return {
     ...s,
+    modo: m.modo,
+    carregado: m.carregado,
+    erroCarga: m.erro,
     produtoDe: (id: string) => s.produtos.find((p) => p.id === id),
     unidadeDe: (id?: string) => s.config.unidades.find((u) => u.id === id),
-    setLeadStatus: (id: string, status: LeadStatus) => muda((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, status } : l)) })),
-    setResponsavel: (id: string, responsavel: ResponsavelLead) => muda((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, responsavel } : l)) })),
-    setPedidoStatus: (id: string, status: PedidoStatus, extra: Partial<PedidoEncomenda> = {}) => muda((e) => ({ pedidos: e.pedidos.map((p) => (p.id === id ? { ...p, ...extra, status } : p)) })),
-    addCompromisso: (c: Omit<Compromisso, "id">) => muda((e) => ({ compromissos: [...e.compromissos, { ...c, id: crypto.randomUUID() }] })),
-    removeCompromisso: (id: string) => muda((e) => ({ compromissos: e.compromissos.filter((c) => c.id !== id) })),
-    /** Cria (sem id existente) ou atualiza um produto. */
-    salvarProduto: (p: ProdutoEncomenda) => muda((e) => ({ produtos: e.produtos.some((x) => x.id === p.id) ? e.produtos.map((x) => (x.id === p.id ? p : x)) : [...e.produtos, p] })),
-    excluirProduto: (id: string) => muda((e) => ({ produtos: e.produtos.filter((p) => p.id !== id) })),
-    salvarCategoria: (c: Categoria) => muda((e) => ({ categorias: e.categorias.some((x) => x.id === c.id) ? e.categorias.map((x) => (x.id === c.id ? c : x)) : [...e.categorias, c] })),
+    setLeadStatus: (id: string, status: LeadStatus) =>
+      fazer((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, status } : l)) }), "leadStatus", { id, status }),
+    setResponsavel: (id: string, responsavel: ResponsavelLead) =>
+      fazer((e) => ({ leads: e.leads.map((l) => (l.id === id ? { ...l, responsavel } : l)) }), "responsavel", { id, responsavel }),
+    /** Com banco, o servidor cria as tarefas (pagamento confirmado) e dá/devolve a baixa no estoque (Entregue). */
+    setPedidoStatus: (id: string, status: PedidoStatus, extra: Partial<PedidoEncomenda> = {}) =>
+      fazer((e) => ({ pedidos: e.pedidos.map((p) => (p.id === id ? { ...p, ...extra, status } : p)) }), "pedidoStatus", { id, status }, true),
+    addCompromisso: (c: Omit<Compromisso, "id">) => {
+      const novo = { ...c, id: crypto.randomUUID() };
+      fazer((e) => ({ compromissos: [...e.compromissos, novo] }), "compromisso", { compromisso: novo });
+    },
+    removeCompromisso: (id: string) => fazer((e) => ({ compromissos: e.compromissos.filter((c) => c.id !== id) }), "excluirCompromisso", { id }),
+    /** Cria (sem id existente) ou atualiza um produto. Foto nova (data URL) vai para o storage no servidor. */
+    salvarProduto: (p: ProdutoEncomenda) =>
+      fazer((e) => ({ produtos: e.produtos.some((x) => x.id === p.id) ? e.produtos.map((x) => (x.id === p.id ? p : x)) : [...e.produtos, p] }), "produto", { produto: p }, !!p.foto?.startsWith("data:")),
+    excluirProduto: (id: string) => fazer((e) => ({ produtos: e.produtos.filter((p) => p.id !== id) }), "excluirProduto", { id }),
+    salvarCategoria: (c: Categoria) =>
+      fazer((e) => ({ categorias: e.categorias.some((x) => x.id === c.id) ? e.categorias.map((x) => (x.id === c.id ? c : x)) : [...e.categorias, c] }), "categoria", { categoria: c, ordem: carregar().categorias.findIndex((x) => x.id === c.id) }),
     /** Exclui a categoria; os produtos dela ficam "Sem categoria" (não somem do catálogo). */
-    excluirCategoria: (id: string) => muda((e) => ({ categorias: e.categorias.filter((c) => c.id !== id), produtos: e.produtos.map((p) => (p.categoriaId === id ? { ...p, categoriaId: null } : p)) })),
-    moverCategoria: (id: string, dir: -1 | 1) => muda((e) => {
-      const i = e.categorias.findIndex((c) => c.id === id), j = i + dir;
-      if (i < 0 || j < 0 || j >= e.categorias.length) return {};
-      const cs = [...e.categorias]; [cs[i], cs[j]] = [cs[j], cs[i]];
-      return { categorias: cs };
-    }),
-    salvarConfig: (config: ConfigEncomendas) => muda(() => ({ config })),
-    restaurarExemplo: () => salvar(seed()),
+    excluirCategoria: (id: string) =>
+      fazer((e) => ({ categorias: e.categorias.filter((c) => c.id !== id), produtos: e.produtos.map((p) => (p.categoriaId === id ? { ...p, categoriaId: null } : p)) }), "excluirCategoria", { id }),
+    moverCategoria: (id: string, dir: -1 | 1) => {
+      const cs = [...carregar().categorias];
+      const i = cs.findIndex((c) => c.id === id), j = i + dir;
+      if (i < 0 || j < 0 || j >= cs.length) return;
+      [cs[i], cs[j]] = [cs[j], cs[i]];
+      fazer(() => ({ categorias: cs }), "ordemCategorias", { ids: cs.map((c) => c.id) });
+    },
+    salvarConfig: (config: ConfigEncomendas) => fazer(() => ({ config }), "config", { config }),
+    /** Só no demo: volta aos dados de exemplo. */
+    restaurarExemplo: () => (meta.modo === "demo" ? salvar(seed()) : null),
   };
 }
 
-/** Produtos ativos agrupados pelas categorias, na ordem das categorias ("Sem categoria" por último). */
-export function catalogoPorCategoria(categorias: Categoria[], produtos: ProdutoEncomenda[], soAtivos = true) {
-  const lista = soAtivos ? produtos.filter((p) => p.ativo) : produtos;
-  const grupos = categorias.map((c) => ({ categoria: c as Categoria | null, produtos: lista.filter((p) => p.categoriaId === c.id) }));
-  const sem = lista.filter((p) => !p.categoriaId || !categorias.some((c) => c.id === p.categoriaId));
-  if (sem.length) grupos.push({ categoria: null, produtos: sem });
-  return soAtivos ? grupos.filter((g) => g.produtos.length) : grupos;
-}
-
-export type NovoPedido = Pick<PedidoEncomenda, "produtoId" | "quantidade" | "mensagem" | "tipo" | "unidadeId" | "endereco" | "data" | "hora"> & { nome: string; whatsapp: string };
-
 /**
- * Cria o pedido do autoatendimento (como o POST /api/totem/pedido do Cachorrão): acha ou
- * cria o contato pelo WhatsApp, move para "Venda" e registra o pedido em "Verificar pagamento".
- * O total é recalculado aqui a partir do catálogo e da configuração, nunca vem pronto da tela.
+ * Cria o pedido do autoatendimento (como o POST /api/totem/pedido do Cachorrão): acha ou cria o
+ * contato pelo WhatsApp, move para "Venda" e registra o pedido em "Verificar pagamento". O total
+ * é recalculado (validarNovoPedido) a partir do catálogo e da configuração — com banco, no servidor.
+ * Lança Error com a mensagem para o cliente quando o pedido não pode ser feito.
  */
-export function criarPedidoAutoatendimento(n: NovoPedido): PedidoEncomenda {
+export async function criarPedidoAutoatendimento(n: NovoPedido): Promise<PedidoEncomenda> {
+  carregar();
+  if (meta.modo === "banco") {
+    const r = await api<{ pedido: PedidoEncomenda }>("/api/encomendas/publico", "POST", { pedido: n });
+    return r.pedido;
+  }
   const s = carregar();
+  const v = validarNovoPedido(n, s.produtos, s.config);
+  if ("erro" in v) throw new Error(v.erro);
   const agora = new Date().toISOString();
-  const numero = normalizePhone(n.whatsapp).replace(/^(?!55)/, "55");
-  const produto = s.produtos.find((p) => p.id === n.produtoId)!;
-  const subtotal = produto.preco * n.quantidade;
-  const taxa = n.tipo === "Entrega" ? s.config.taxaEntrega : 0;
-  const unidade = n.tipo === "Retirada" ? s.config.unidades.find((u) => u.id === n.unidadeId) : undefined;
-  let lead = s.leads.find((l) => l.numero === numero);
-  const resumo = [
-    `Cliente: ${n.nome}`,
-    `Itens: ${n.quantidade}× ${produto.nome}`,
-    n.mensagem ? `Observação: ${n.mensagem}` : "",
-    `Valor: R$ ${(subtotal + taxa).toFixed(2).replace(".", ",")}`,
-    "Pagamento: PIX",
-    `${n.tipo}: ${dataBR(n.data)} às ${n.hora}`,
-    unidade ? `Unidade: ${unidade.nome}` : "",
-  ].filter(Boolean).join("\n");
+  let lead = s.leads.find((l) => l.numero === v.numero);
   const leads = lead
-    ? s.leads.map((l) => (l.id === lead!.id ? { ...l, nome: n.nome || l.nome, status: "Venda" as const, ultimoContato: agora, resumo } : l))
-    : [...s.leads, (lead = { id: crypto.randomUUID(), numero, nome: n.nome, status: "Venda", responsavel: "I.A", criadoEm: agora, ultimoContato: agora, resumo })];
+    ? s.leads.map((l) => (l.id === lead!.id ? { ...l, nome: v.nome || l.nome, status: "Venda" as const, ultimoContato: agora, resumo: v.resumo } : l))
+    : [...s.leads, (lead = { id: crypto.randomUUID(), numero: v.numero, nome: v.nome, status: "Venda", responsavel: "I.A", criadoEm: agora, ultimoContato: agora, resumo: v.resumo })];
   const pedido: PedidoEncomenda = {
-    id: crypto.randomUUID(), leadId: lead.id, produtoId: produto.id, produtoNome: produto.nome, quantidade: n.quantidade, mensagem: n.mensagem,
-    tipo: n.tipo, unidadeId: unidade?.id, unidadeNome: unidade?.nome, endereco: n.tipo === "Entrega" ? n.endereco : undefined, data: n.data, hora: n.hora,
-    subtotal, taxa, total: subtotal + taxa, status: "Verificar pagamento", criadoEm: agora, origem: "autoatendimento",
+    id: crypto.randomUUID(), leadId: lead.id, produtoId: v.produto.id, produtoNome: v.produto.nome, quantidade: v.quantidade, mensagem: v.mensagem,
+    tipo: n.tipo, unidadeId: v.unidade?.id, unidadeNome: v.unidade?.nome, endereco: n.tipo === "Entrega" ? n.endereco : undefined, data: n.data, hora: n.hora,
+    subtotal: v.subtotal, taxa: v.taxa, total: v.total, status: "Verificar pagamento", criadoEm: agora, origem: "autoatendimento",
   };
   salvar({ ...s, leads, pedidos: [...s.pedidos, pedido] });
   return pedido;
 }
 
-/** Foto enviada pela tela → JPEG reduzido (máx. 900px) em data URL, para caber no navegador. */
+/** Foto enviada pela tela → JPEG reduzido (máx. 900px) em data URL (com banco, o servidor sobe para o storage). */
 export function reduzirFoto(arquivo: File): Promise<string> {
   return new Promise((ok, falha) => {
     const img = new Image();

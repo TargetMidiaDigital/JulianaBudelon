@@ -28,7 +28,7 @@ export default function EncAutoatendimento() {
   const { canEditPage } = useApp();
   const editavel = canEditPage("encomendas-autoatendimento");
   const mobile = useIsMobile();
-  const { config, produtos, categorias, restaurarExemplo } = useEncomendas();
+  const { config, produtos, categorias, restaurarExemplo, modo, carregado, erroCarga } = useEncomendas();
   const [aba, setAba] = useState<(typeof ABAS)[number]["id"]>("pagina");
   const [copiado, setCopiado] = useState(false);
   const [chave, setChave] = useState(0); // remonta o funil da prévia (volta ao passo 1) e o editor de configurações
@@ -50,11 +50,17 @@ export default function EncAutoatendimento() {
       </div>
 
       <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:22px 30px 30px;")}>
-        <div style={css("display:flex; align-items:center; gap:10px; font-size:12.5px; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:11px; padding:9px 12px; margin-bottom:18px;")}>
-          <Svg size={15} sw={2.2} style={css("flex:none;")}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></Svg>
-          <span style={{ flex: 1, minWidth: 0 }}>{mobile ? <><b>Demonstração:</b> dados só neste aparelho.</> : <><b>Versão de demonstração:</b> sem banco de dados. Produtos, configurações e pedidos ficam só neste navegador.</>}</span>
-          {editavel && <Hoverable as="button" onClick={() => { if (window.confirm("Voltar tudo ao exemplo? Isso apaga os pedidos de teste e desfaz as mudanças em produtos, categorias e configurações.")) { restaurarExemplo(); setChave((k) => k + 1); } }} s={css("flex:none; border:1px solid #FDE68A; background:#fff; color:#92400E; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer;")} hover="background:#FEF3C7">Restaurar exemplo</Hoverable>}
-        </div>
+        {modo === "demo" && (
+          <div style={css("display:flex; align-items:center; gap:10px; font-size:12.5px; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:11px; padding:9px 12px; margin-bottom:18px;")}>
+            <Svg size={15} sw={2.2} style={css("flex:none;")}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></Svg>
+            <span style={{ flex: 1, minWidth: 0 }}>{mobile ? <><b>Demonstração:</b> dados só neste aparelho.</> : <><b>Versão de demonstração:</b> sem banco de dados. Produtos, configurações e pedidos ficam só neste navegador.</>}</span>
+            {editavel && <Hoverable as="button" onClick={() => { if (window.confirm("Voltar tudo ao exemplo? Isso apaga os pedidos de teste e desfaz as mudanças em produtos, categorias e configurações.")) { restaurarExemplo(); setChave((k) => k + 1); } }} s={css("flex:none; border:1px solid #FDE68A; background:#fff; color:#92400E; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer;")} hover="background:#FEF3C7">Restaurar exemplo</Hoverable>}
+          </div>
+        )}
+        {modo === "banco" && erroCarga && (
+          <div role="alert" style={css("font-size:13px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:11px; padding:10px 12px; margin-bottom:18px;")}>Não foi possível carregar as encomendas: {erroCarga}</div>
+        )}
+        {modo === "banco" && !carregado && <div style={css("padding:30px 0; text-align:center; color:#9398A6; font-size:13px;")}>Carregando…</div>}
 
         {aba === "pagina" && (
           <div className="m-stack" style={css("display:flex; gap:26px; align-items:flex-start;")}>
@@ -107,7 +113,7 @@ export default function EncAutoatendimento() {
         )}
 
         {aba === "produtos" && <CatalogoEditor editavel={editavel} />}
-        {aba === "config" && <ConfigEditor key={chave} editavel={editavel} />}
+        {aba === "config" && carregado && <ConfigEditor key={`${chave}-${modo}`} editavel={editavel} />}
       </div>
     </div>
   );
