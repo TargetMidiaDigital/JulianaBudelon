@@ -493,7 +493,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     patchDb((d) => {
       const comTarefa = { ...d, tasks: d.tasks.map((t) => (t.id === id ? { ...t, ...fp } : t)) };
       const comEstoque = patch.status ? aplicarRecebimentoLocal(aplicarEstoqueLocal(comTarefa, { ...old, ...fp }, old.status, patch.status, demo), { ...old, ...fp }, old.status, patch.status) : comTarefa;
-      return sincronizarPedidoLocal(comEstoque, old.pedidoId, demo);
+      // sincronizarPedidoLocal devolve só tarefas/ordens: os produtos (estoque) vão junto, senão
+      // a soma da produção e a transferência do recebimento se perdiam no modo demo.
+      return { ...sincronizarPedidoLocal(comEstoque, old.pedidoId, demo), produtos: comEstoque.produtos };
     });
     void persist("/api/tarefas", "PATCH", { id, patch: fp });
   };

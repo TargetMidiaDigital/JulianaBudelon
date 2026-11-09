@@ -67,7 +67,7 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
     <div class="inst"><b>Na unidade:</b>
       <ol>
         <li>Confira cada produto e anote a quantidade recebida na coluna “Recebido”.</li>
-        <li>No sistema, abra <b>Operacional → Unidades → Recebimento - ${esc(unidade)}</b>.</li>
+        <li>No sistema, abra <b>Lojas → Unidades → Recebimento - ${esc(unidade)}</b>.</li>
         <li>Registre os mesmos números na Conferência e conclua a tarefa.</li>
       </ol>
       <p>Diferenças aparecem no relatório da ordem.</p>

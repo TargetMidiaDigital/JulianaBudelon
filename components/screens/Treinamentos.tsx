@@ -68,6 +68,7 @@ export default function Treinamentos() {
                   return (
                     <Hoverable key={g.id} as="button" onClick={() => escolher(g.id)} s={css(`display:block; width:100%; text-align:left; border:none; cursor:pointer; font-size:13px; font-weight:${on ? 800 : 600}; color:${on ? ACCENT : "#3A3F4C"}; background:${on ? "#FDF1F4" : "transparent"}; padding:8px 10px; border-radius:8px; line-height:1.35;`)} hover={on ? undefined : "background:#F6F7F9"}>
                       {g.titulo}
+                      {g.blocos.some((b) => b.tipo === "video") && <Svg size={13} stroke={on ? ACCENT : "#9398A6"} style={{ display: "inline-block", marginLeft: 6, verticalAlign: "-2px" }}><circle cx="12" cy="12" r="10" /><path d="m10 8 6 4-6 4z" /></Svg>}
                     </Hoverable>
                   );
                 })}
@@ -120,6 +121,18 @@ function Navega({ lado, g, onClick }: { lado: "ant" | "prox"; g: Guia; onClick: 
 const Titulo = ({ children }: { children: ReactNode }) => <h3 style={css("margin:0 0 10px; font-size:15px; font-weight:800; color:#1B1B28; letter-spacing:-0.2px;")}>{children}</h3>;
 
 function BlocoView({ b }: { b: Bloco }) {
+  if (b.tipo === "video") {
+    return (
+      <section>
+        <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:10px;")}>
+          <Svg size={17} stroke={ACCENT}><circle cx="12" cy="12" r="10" /><path d="m10 8 6 4-6 4z" fill={ACCENT} /></Svg>
+          <span style={css("font-size:15px; font-weight:800; color:#1B1B28;")}>Vídeo do processo</span>
+          {b.duracao && <span style={css("font-size:12.5px; font-weight:600; color:#9398A6;")}>· {b.duracao}</span>}
+        </div>
+        <video src={b.src} poster={b.poster} controls playsInline preload="metadata" style={css("display:block; width:100%; aspect-ratio:16/9; background:#1B1B28; border-radius:14px;")} />
+      </section>
+    );
+  }
   if (b.tipo === "diagrama") {
     return (
       <section>

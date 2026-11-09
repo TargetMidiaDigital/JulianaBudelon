@@ -13,6 +13,8 @@ export type Seta = { de: string; para: string; rotulo?: string; tracejada?: bool
 export type Diagrama = { tipo: "diagrama"; titulo?: string; raias: Raia[]; nos: No[]; setas: Seta[] };
 
 export type Bloco =
+  /** Vídeo narrado do processo (MP4 em public/treinamentos). Fica no topo do guia. */
+  | { tipo: "video"; src: string; poster?: string; duracao?: string }
   | Diagrama
   | { tipo: "fluxo"; titulo?: string; itens: { rotulo: string; texto: string }[] }
   | { tipo: "passos"; titulo: string; itens: string[] }
@@ -82,6 +84,7 @@ const BASE: Guia[] = [
     page: "pedidos",
     quem: "Administrador e Gerente (os demais só visualizam)",
     blocos: [
+      { tipo: "video", src: "/treinamentos/ordem-de-servico.mp4", poster: "/treinamentos/ordem-de-servico.jpg", duracao: "3min04" },
       {
         tipo: "passos",
         titulo: "Criar uma ordem",
@@ -91,7 +94,7 @@ const BASE: Guia[] = [
           "Escolha a data de Entrega — é obrigatória e vira o prazo de todas as tarefas.",
           "Na tabela de produtos, digite a quantidade de cada produto em cada unidade (Fábrica, Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani). Use a busca para achar o produto.",
           "Confira o rodapé: ele mostra quantos produtos e unidades entram e quantas tarefas serão criadas.",
-          "Salve. As tarefas de Produção, Expedição e Unidades aparecem na hora nas listas de cada setor.",
+          "Clique em “Criar ordem”. As tarefas de Produção, Expedição e Unidades aparecem na hora nas listas de cada setor.",
         ],
       },
       {
@@ -108,6 +111,7 @@ const BASE: Guia[] = [
         tipo: "passos",
         titulo: "Fechar a ordem",
         itens: [
+          "Para acompanhar no meio do caminho, abra a ordem e clique em “Relatório” a qualquer momento: o traço (—) indica etapa ainda sem registro.",
           "Quando todas as tarefas forem concluídas, a ordem fica “Concluída” sozinha.",
           "Abra a ordem e clique em “Relatório”: ele compara o pedido com o produzido, o separado e o recebido, e destaca as diferenças.",
           "Conferido, mude o status para “Validada”. Se precisar, imprima ou salve o relatório em PDF (A4).",
@@ -614,5 +618,8 @@ const DIAGRAMAS: Record<string, Diagrama> = {
 /** Guias com o fluxograma na frente (no lugar da lista "fluxo", quando houver). */
 export const GUIAS: Guia[] = BASE.map((g) => {
   const d = DIAGRAMAS[g.id];
-  return d ? { ...g, blocos: [d, ...g.blocos.filter((b) => b.tipo !== "fluxo")] } : g;
+  if (!d) return g;
+  // Ordem: vídeo (se houver) → fluxograma → o resto do guia.
+  const videos = g.blocos.filter((b) => b.tipo === "video");
+  return { ...g, blocos: [...videos, d, ...g.blocos.filter((b) => b.tipo !== "fluxo" && b.tipo !== "video")] };
 });
