@@ -18,7 +18,7 @@ type SB = SupabaseClient;
 
 // ── Linhas do banco → tipos do app ──────────────────────────────────────────
 
-type RowCategoria = { id: string; nome: string; ordem: number; descricao: string | null; foto: string | null; ativa: boolean };
+type RowCategoria = { id: string; nome: string; ordem: number; descricao: string | null; foto: string | null; ativa: boolean; destaque: boolean };
 type RowProduto = {
   id: string; nome: string; categoria_id: string | null; preco: number | string; porcoes: string; peso: string; descricao: string | null;
   camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number;
@@ -62,10 +62,10 @@ export async function lerConfig(sb: SB): Promise<ConfigEncomendas> {
 export async function lerCatalogo(sb: SB, soAtivos: boolean): Promise<{ categorias: Categoria[]; produtos: ProdutoEncomenda[] }> {
   let qp = sb.from("enc_produto").select("*").order("ordem").order("nome");
   if (soAtivos) qp = qp.eq("ativo", true);
-  const [c, p] = await Promise.all([sb.from("enc_categoria").select("id, nome, ordem, descricao, foto, ativa").order("ordem").order("nome"), qp]);
+  const [c, p] = await Promise.all([sb.from("enc_categoria").select("id, nome, ordem, descricao, foto, ativa, destaque").order("ordem").order("nome"), qp]);
   if (c.error) throw new Error(c.error.message);
   if (p.error) throw new Error(p.error.message);
-  const categorias: Categoria[] = (c.data as RowCategoria[]).map((r) => ({ id: r.id, nome: r.nome, descricao: r.descricao ?? undefined, foto: r.foto, ativa: r.ativa }));
+  const categorias: Categoria[] = (c.data as RowCategoria[]).map((r) => ({ id: r.id, nome: r.nome, descricao: r.descricao ?? undefined, foto: r.foto, ativa: r.ativa, destaque: r.destaque }));
   const produtos = (p.data as RowProduto[]).map(paraProduto);
   if (!soAtivos) return { categorias, produtos };
   // Página pública: categoria oculta some com os produtos dela (e o pedido deles é recusado),
@@ -145,7 +145,7 @@ export function colunasCategoria(c: Categoria, ordem: number): Record<string, un
   if (!idValido(c?.id)) return "Categoria inválida.";
   const nome = txt(c.nome, 80);
   if (!nome) return "Informe o nome da categoria.";
-  return { id: c.id, nome, ordem, descricao: txt(c.descricao, 120) || null, foto: typeof c.foto === "string" && c.foto ? c.foto.slice(0, 2000) : null, ativa: c.ativa !== false };
+  return { id: c.id, nome, ordem, descricao: txt(c.descricao, 120) || null, foto: typeof c.foto === "string" && c.foto ? c.foto.slice(0, 2000) : null, ativa: c.ativa !== false, destaque: c.destaque === true };
 }
 
 export function colunasCompromisso(c: Compromisso): Record<string, unknown> | string {

@@ -24,6 +24,8 @@ export type Categoria = {
   foto?: string | null;
   /** false = escondida da página do cliente (com os produtos dela). */
   ativa?: boolean;
+  /** Card em destaque na vitrine: ocupa a largura de dois cards. */
+  destaque?: boolean;
 };
 export const categoriaAtiva = (c: Categoria) => c.ativa !== false;
 
@@ -41,6 +43,33 @@ export type ProdutoEncomenda = {
   /** Produto do Estoque que esta encomenda movimenta (produção soma na Fábrica → loja recebe → entregue dá baixa). */
   produtoEstoqueId?: string | null;
 };
+
+/**
+ * Descrição em itens, um abaixo do outro: cada linha é um item (aceita "- " ou "• " no começo,
+ * como lista de markdown). Texto de uma linha só vira um item.
+ */
+export const itensDescricao = (d?: string | null) =>
+  (d ?? "").split(/\r?\n/).map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim()).filter(Boolean);
+
+/** Frase corrida do catálogo ("A, B e C, finalizado com D.") → um item por linha. */
+function emLinhas(frase: string): string {
+  if (frase.includes("\n")) return frase; // já em itens
+  return frase.trim().replace(/\.$/, "").split(/\.\s+/).map(frasePorItens).join("\n");
+}
+function frasePorItens(limpa: string): string {
+  const maiuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  if (/^finalizad[oa]\s/i.test(limpa)) return maiuscula(limpa); // "Finalizado com A e B" fica inteiro
+  const i = limpa.search(/,\s+finalizad[oa]/i);
+  const corpo = i >= 0 ? limpa.slice(0, i) : limpa;
+  const fim = i >= 0 ? limpa.slice(i).replace(/^,\s+/, "") : "";
+  const partes = corpo.split(/,\s+/);
+  const ultima = partes.pop()!;
+  const k = ultima.lastIndexOf(" e ");
+  // "A e B" no último item vira dois — menos quando o segundo começa com "de" ("branco e de chocolate").
+  if (k > 0 && !/^de\s/.test(ultima.slice(k + 3))) partes.push(ultima.slice(0, k), ultima.slice(k + 3));
+  else partes.push(ultima);
+  return [...partes, ...(fim ? [fim] : [])].map(maiuscula).join("\n");
+}
 
 export const CATEGORIA_PADRAO: Categoria = { id: "camadas-de-felicidade", nome: "Camadas de Felicidade" };
 
@@ -67,7 +96,7 @@ export const FOTO_POSICAO = "center 72%";
 // Fotos recortadas do PDF em /public/encomendas/natal/. Encomendas com 48 h de antecedência.
 
 export const CATEGORIAS_NATAL: Categoria[] = [
-  { id: "natal-cheesecakes", nome: "Cheesecakes", descricao: "Servem de 15 a 20 fatias" },
+  { id: "natal-cheesecakes", nome: "Cheesecakes", descricao: "Servem de 15 a 20 fatias", destaque: true },
   { id: "natal-sobremesas", nome: "Sobremesas", descricao: "Para a mesa da ceia" },
   { id: "natal-cake-box-especial", nome: "Cake Box Especial Fatias", descricao: "As maiores, para a família toda" },
   { id: "natal-cake-box", nome: "Cake Box", descricao: "Tortas de 1,2 a 1,3 kg" },
@@ -76,7 +105,7 @@ export const CATEGORIAS_NATAL: Categoria[] = [
 ];
 
 const natal = (categoriaId: string, id: string, nome: string, preco: number, peso: string, descricao: string, foto = id, porcoes = ""): ProdutoEncomenda => ({
-  id: `natal-${id}`, nome, categoriaId, preco, porcoes, peso, descricao, camadas: [], foto: `/encomendas/natal/${foto}.webp`, ativo: true,
+  id: `natal-${id}`, nome, categoriaId, preco, porcoes, peso, descricao: emLinhas(descricao), camadas: [], foto: `/encomendas/natal/${foto}.webp`, ativo: true,
 });
 const cheese = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-cheesecakes", id, nome, preco, peso, d, id, "15 a 20 fatias");
 const sobre = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-sobremesas", `sobremesa-${id}`, nome, preco, peso, d);
@@ -94,7 +123,7 @@ export const PRODUTOS_NATAL: ProdutoEncomenda[] = [
   sobre("folhata-de-morango", "Folhata de Morango", 129, "800 g", "Creme de cinco leites, biscoito folhado crocante e morangos frescos."),
   sobre("bombom-de-uva", "Bombom de Uva", 110, "1 kg", "Creme belga e uvas sem sementes, finalizado com ganache meio amarga, uvas e raspas de chocolate branco."),
   sobre("pavetonne", "Pavetonne", 129, "900 g", "Creme de Ninho, pedaços de chocotone e creme de três leites, finalizado com nuvem de Nutella e barrinhas de Kinder."),
-  sobre("raffaello", "Raffaello", 125, "900 g", "Creme de Raffaello com chocolate branco, amêndoas e coco, massa branca e mousse de Raffaello com pedaços de bombom e coco, finalizado com bombons Raffaello."),
+  sobre("raffaello", "Raffaello", 125, "900 g", "Creme de Raffaello com chocolate branco, amêndoas e coco\nMassa branca\nMousse de Raffaello com pedaços de bombom e coco\nFinalizado com bombons Raffaello"),
   sobre("morango-com-suspiro", "Morango com Suspiro", 110, "900 g", "Creme belga, massa branca fofinha, morangos picados e buttercreme. Finalizado com suspiros e morangos."),
   sobre("ferrero", "Ferrero", 129, "900 g", "Mousse de Ferrero meio amargo, pedaços de Ferrero, massa de chocolate fofinha e creme de avelã crocante com amendoim, finalizado com avelãs e Ferrero."),
   sobre("mineira", "Mineira", 105, "900 g", "Creme de abacaxi com coco fresco e massa branca fofinha, finalizado com buttercreme, abacaxi e coco em flocos."),

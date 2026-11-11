@@ -110,7 +110,9 @@ function lerDemo(): Estado {
       e = { ...e, categorias: [...CATEGORIAS_NATAL, ...e.categorias], produtos: [...PRODUTOS_NATAL.filter((p) => !e.produtos.some((x) => x.id === p.id)), ...e.produtos] };
     }
     // Vitrine (primeira tela): categorias de Natal salvas antes ganham a frase do card.
-    e = { ...e, config: { ...e.config, vitrine: vitrineDe(e.config) }, categorias: e.categorias.map((c) => (c.descricao === undefined ? { ...c, descricao: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.descricao } : c)) };
+    e = { ...e, config: { ...e.config, vitrine: vitrineDe(e.config) }, categorias: e.categorias.map((c) => (c.descricao === undefined ? { ...c, descricao: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.descricao, destaque: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.destaque } : c)) };
+    // Descrições do Natal em itens (uma por linha): troca as salvas na versão antiga, de uma linha só.
+    e = { ...e, produtos: e.produtos.map((p) => { const n = PRODUTOS_NATAL.find((x) => x.id === p.id); return n && p.descricao && !p.descricao.includes("\n") && n.descricao?.includes("\n") ? { ...p, descricao: n.descricao } : p; }) };
     // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
     return { ...e, produtos: e.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
   } catch {

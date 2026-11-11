@@ -14,6 +14,7 @@ create table if not exists enc_categoria (
   descricao   text,                          -- frase curta no card da vitrine
   foto        text,                          -- capa do card (vazio = foto do 1º produto)
   ativa       boolean not null default true, -- false = escondida da página do cliente
+  destaque    boolean not null default false, -- card largo (dois cards) na vitrine
   created_at  timestamptz not null default now()
 );
 

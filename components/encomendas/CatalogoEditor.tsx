@@ -60,6 +60,7 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
                 <h3 style={css(`margin:0; font-size:15px; font-weight:800; color:${cat ? "#1B1B28" : "#7A8090"};`)}>{cat?.nome ?? "Sem categoria"}</h3>
                 <span style={css("font-size:12px; font-weight:700; color:#9398A6; background:#F2F3F6; border-radius:999px; padding:2px 8px;")}>{g.produtos.length}</span>
                 {cat && !categoriaAtiva(cat) && <Tag cor="#92400E" bg="#FFFBEB">Oculta da página</Tag>}
+                {cat?.destaque && <Tag cor={BRAND} bg="#FDF1F4">Destaque</Tag>}
                 {cat?.descricao && <span style={css("font-size:12.5px; color:#9398A6;")}>{cat.descricao}</span>}
                 {!cat && <span style={css("font-size:12px; color:#9398A6;")}>— aparecem no fim do catálogo como "Outros"</span>}
                 <span style={{ flex: 1 }} />
@@ -241,8 +242,8 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
             <label style={css(rot)}>Peso<input value={f.peso} onChange={(e) => setF({ ...f, peso: e.target.value })} placeholder="1,3 kg" style={css(campo)} /></label>
           </div>
 
-          <label style={css(rot)}>Descrição <span style={css("font-weight:500; color:#9398A6;")}>(opcional — o cliente lê antes de escolher)</span>
-            <textarea value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} rows={3} style={css(campo + " resize:vertical;")} />
+          <label style={css(rot)}>Descrição <span style={css("font-weight:500; color:#9398A6;")}>(opcional — um item por linha; o cliente vê em lista, um abaixo do outro)</span>
+            <textarea value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} rows={6} placeholder={"Creme belga\nPão de ló\nMorangos frescos\nFinalizado com suspiros"} style={css(campo + " resize:vertical;")} />
           </label>
 
           <label style={css(rot)}>Camadas <span style={css("font-weight:500; color:#9398A6;")}>(uma por linha, de cima para baixo — opcional)</span>
@@ -293,7 +294,7 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
 /** Editar categoria: nome, frase e capa do card da vitrine, e se aparece na página do cliente. */
 function CategoriaForm({ categoria, capaAuto, onClose, onSalvar }: { categoria: Categoria; capaAuto: string | null; onClose: () => void; onSalvar: (c: Categoria) => void }) {
   useFecharComEsc(true, onClose);
-  const [f, setF] = useState({ nome: categoria.nome, descricao: categoria.descricao ?? "", foto: categoria.foto ?? null as string | null, ativa: categoriaAtiva(categoria) });
+  const [f, setF] = useState({ nome: categoria.nome, descricao: categoria.descricao ?? "", foto: categoria.foto ?? null as string | null, ativa: categoriaAtiva(categoria), destaque: !!categoria.destaque });
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -306,7 +307,7 @@ function CategoriaForm({ categoria, capaAuto, onClose, onSalvar }: { categoria: 
   };
   const salvar = () => {
     if (!f.nome.trim()) return setErro("Dê um nome à categoria.");
-    onSalvar({ ...categoria, nome: f.nome.trim(), descricao: f.descricao.trim() || undefined, foto: f.foto, ativa: f.ativa });
+    onSalvar({ ...categoria, nome: f.nome.trim(), descricao: f.descricao.trim() || undefined, foto: f.foto, ativa: f.ativa, destaque: f.destaque });
   };
   const campo = "width:100%; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:9px; padding:9px 11px; font-size:13.5px; outline:none; font-family:inherit; margin-top:5px; background:#fff;";
   const rot = "display:block; font-size:12.5px; font-weight:700; color:#5B6472;";
@@ -343,6 +344,13 @@ function CategoriaForm({ categoria, capaAuto, onClose, onSalvar }: { categoria: 
             <Chave ligado={f.ativa} onChange={(v) => setF({ ...f, ativa: v })} />
             {f.ativa ? "Aparece na página de encomendas" : "Oculta — a categoria e os produtos dela somem da página"}
           </label>
+          <div>
+            <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>
+              <Chave ligado={f.destaque} onChange={(v) => setF({ ...f, destaque: v })} />
+              Card em destaque — ocupa a largura de dois cards
+            </label>
+            <div style={css("font-size:11.5px; color:#9398A6; margin:6px 0 0 54px; line-height:1.4;")}>A posição segue a ordem das categorias (setas ↑ ↓ em Produtos): suba a categoria para ela abrir a vitrine. Sem nenhuma em destaque, a primeira fica grande quando o número de categorias é ímpar.</div>
+          </div>
           {erro && <div style={css("font-size:12.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:10px; padding:9px 12px;")}>{erro}</div>}
         </div>
         <div style={css("flex:none; display:flex; align-items:center; gap:8px; padding:14px 22px; border-top:1px solid #ECEDF1;")}>

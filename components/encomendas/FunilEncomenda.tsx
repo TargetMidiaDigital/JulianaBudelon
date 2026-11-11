@@ -6,7 +6,7 @@ import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
   CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
-  numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, vitrineDe,
+  itensDescricao, numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, vitrineDe,
   type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type Vitrine,
 } from "@/lib/encomendas";
 
@@ -40,12 +40,14 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const [catAberta, setCatAberta] = useState<string | null>(null);
   const grupoAberto = grupos.length === 1 ? grupos[0] : grupos.find((g) => (g.categoria?.id ?? SEM) === catAberta);
   const naVitrine = grupos.length !== 1 && !grupoAberto;
+  const algumDestaque = grupos.some((g) => g.categoria?.destaque);
   // Cada tela abre no topo (sem isto, tocar num produto no fim da lista abria o passo 2 rolado).
   const rolagem = useRef<HTMLDivElement>(null);
   useEffect(() => { rolagem.current?.scrollTo(0, 0); }, [passo, catAberta]);
   const [produtoId, setProdutoId] = useState<string | null>(null);
   const [qtd, setQtd] = useState(1);
   const [mensagem, setMensagem] = useState("");
+  const [obsAberta, setObsAberta] = useState(false);
   const [tipo, setTipo] = useState<TipoEntrega | null>(null);
   const [unidadeId, setUnidadeId] = useState<string | null>(null);
   const [end, setEnd] = useState({ cidade: "", bairro: "", rua: "", numero: "", complemento: "" });
@@ -59,6 +61,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const pix = pedido ? pixCopiaECola(cfg, pedido.total, `JB${numeroPedido(pedido.id)}`) : null;
 
   const produto = produtoId ? produtoDe(produtoId) : undefined;
+  const categoriaDoProduto = grupos.length > 1 ? categorias.find((c) => c.id === produto?.categoriaId)?.nome : undefined;
   const subtotal = (produto?.preco ?? 0) * qtd;
   const taxa = tipo === "Entrega" ? cfg.taxaEntrega : 0;
   const total = subtotal + taxa;
@@ -112,7 +115,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const recomecar = () => {
     setPasso(1); setCatAberta(null); setProdutoId(null); setQtd(1); setMensagem(""); setTipo(null); setUnidadeId(null);
     setEnd({ cidade: "", bairro: "", rua: "", numero: "", complemento: "" }); setData(null); setHora(null);
-    setNome(""); setWhats(""); setPedido(null); setPago(false);
+    setNome(""); setWhats(""); setPedido(null); setPago(false); setObsAberta(false);
   };
 
   const botao = passo === 5 ? (enviando ? "Enviando…" : "Confirmar pedido") : "Continuar";
@@ -149,10 +152,11 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               {!carregado && <div style={css(`padding:40px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Carregando o cardápio…</div>}
               {carregado && erroCarga && <div role="alert" style={css("margin-top:14px; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:12px 14px;")}>Não foi possível carregar o cardápio agora. Atualize a página em instantes.</div>}
               {carregado && !erroCarga && grupos.length === 0 && <div style={css(`padding:30px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Nenhum produto disponível para encomenda no momento.</div>}
-              {/* Vitrine: um card grande por categoria. Com número ímpar, a primeira ocupa a linha toda. */}
+              {/* Vitrine: um card por categoria. As marcadas como destaque ocupam a linha toda; sem nenhuma
+                  marcada e com número ímpar, a primeira ocupa (para não sobrar um card sozinho no fim). */}
               <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:16px;")}>
                 {grupos.map((g, i) => (
-                  <CardCategoria key={g.categoria?.id ?? "sem"} grupo={g} largo={grupos.length % 2 === 1 && i === 0} vitrine={vit}
+                  <CardCategoria key={g.categoria?.id ?? "sem"} grupo={g} largo={algumDestaque ? !!g.categoria?.destaque : grupos.length % 2 === 1 && i === 0} vitrine={vit}
                     onClick={() => setCatAberta(g.categoria?.id ?? SEM)} />
                 ))}
               </div>
@@ -186,34 +190,59 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
           {passo === 2 && produto && (
             <>
-              <div style={css(`border-radius:16px; overflow:hidden; margin-bottom:14px; background:#F6D3DA;`)}><Foto src={produto.foto} alt={produto.nome} proporcao="auto" alturaMax="72vh" /></div>
-              <h1 style={css("margin:0; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>{produto.nome}</h1>
-              <div style={css(`font-size:15.5px; color:${FRACA}; margin-top:3px;`)}>{[produto.porcoes && `Serve ${produto.porcoes}`, produto.peso && `peso médio ${produto.peso}`].filter(Boolean).join(" · ")}{produto.porcoes || produto.peso ? " · " : ""}<b style={{ color: COR }}>{brl(produto.preco)}</b></div>
-              {produto.descricao && <p style={css("margin:10px 0 0; font-size:15.5px; color:#3A3F4C; line-height:1.55;")}>{produto.descricao}</p>}
-              {produto.camadas.length > 0 && (
-                <div style={css(`margin-top:14px; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px;`)}>
-                  <div style={css(`font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:${COR}; margin-bottom:8px;`)}>Ordem das camadas</div>
-                  <ol style={css("margin:0; padding-left:18px; display:flex; flex-direction:column; gap:3px;")}>
-                    {produto.camadas.map((c, i) => <li key={i} style={css("font-size:15px; color:#3A3F4C;")}>{c}</li>)}
-                  </ol>
+              {/* Foto de ponta a ponta, como no totem. */}
+              <div style={css(`margin:-18px -16px 0; background:${FUNDO_FOTO}; overflow:hidden;`)}>
+                <Foto src={produto.foto} alt={produto.nome} proporcao="auto" alturaMax="52vh" />
+              </div>
+              <div style={css("position:relative; margin:-18px -16px 0; background:#fff; border-radius:22px 22px 0 0; padding:20px 16px 0;")}>
+                {categoriaDoProduto && <div style={css(`font-size:13.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:${COR};`)}>{categoriaDoProduto}</div>}
+                <h1 style={css("margin:4px 0 0; font-size:27px; font-weight:800; letter-spacing:-.5px; line-height:1.15;")}>{produto.nome}</h1>
+                <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px;")}>
+                  <span style={css(`font-size:26px; font-weight:800; color:${COR}; letter-spacing:-.3px; margin-right:4px;`)}>{brl(produto.preco)}</span>
+                  {produto.peso && <Etiqueta icone={<><path d="M6 8h12l2 12H4z" /><circle cx="12" cy="5.5" r="2.2" /></>}>{produto.peso}</Etiqueta>}
+                  {produto.porcoes && <Etiqueta icone={<><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5V12l6 6" /></>}>{produto.porcoes}</Etiqueta>}
                 </div>
-              )}
-              {/* Quantidade em destaque e centralizada: alvo grande para o dedo e a conta do valor logo abaixo. */}
-              <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:16px; padding:16px 14px 14px; text-align:center;`)}>
-                <div style={css("font-size:17px; font-weight:800;")}>Quantas unidades?</div>
-                <div style={css("display:flex; align-items:center; justify-content:center; gap:22px; margin-top:12px;")}>
+
+                {itensDescricao(produto.descricao).length > 0 && (
+                  <Secao titulo={itensDescricao(produto.descricao).length > 1 ? "O que vai" : "Sobre"}>
+                    <ListaItens itens={itensDescricao(produto.descricao)} />
+                  </Secao>
+                )}
+                {produto.camadas.length > 0 && (
+                  <Secao titulo="Ordem das camadas">
+                    <ListaItens itens={produto.camadas} numerada />
+                  </Secao>
+                )}
+
+                {/* Quantidade numa linha só: rótulo à esquerda, − n + à direita. */}
+                <div style={css(`margin-top:20px; border:1.5px solid ${BORDA}; border-radius:18px; padding:14px 14px 14px 16px; display:flex; align-items:center; gap:10px;`)}>
+                  <div style={css("flex:1; min-width:0;")}>
+                    <div style={css("font-size:17px; font-weight:800;")}>Quantidade</div>
+                    <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:2px;`)}>até {cfg.maxPorPedido} por pedido</div>
+                  </div>
                   <Passador onClick={() => setQtd((q) => Math.max(1, q - 1))} disabled={qtd <= 1}>−</Passador>
-                  <span style={css("font-size:38px; font-weight:800; min-width:48px; text-align:center; font-variant-numeric:tabular-nums; line-height:1;")}>{qtd}</span>
+                  <span style={css("font-size:28px; font-weight:800; min-width:34px; text-align:center; font-variant-numeric:tabular-nums; line-height:1;")}>{qtd}</span>
                   <Passador onClick={() => setQtd((q) => Math.min(cfg.maxPorPedido, q + 1))} disabled={qtd >= cfg.maxPorPedido} cheio>+</Passador>
                 </div>
-                <div style={css("font-size:15.5px; font-weight:700; color:#3A3F4C; margin-top:12px; font-variant-numeric:tabular-nums;")}>
-                  {qtd} × {brl(produto.preco)} = <span style={{ color: COR }}>{brl(subtotal)}</span>
-                </div>
-                <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:3px;`)}>até {cfg.maxPorPedido} por pedido</div>
+
+                {/* Observação recolhida: só abre se o cliente quiser. */}
+                {obsAberta || mensagem ? (
+                  <div style={css("margin-top:14px;")}>
+                    <label style={css("display:block; font-size:16.5px; font-weight:800;")}>Observação <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span></label>
+                    <textarea autoFocus={!mensagem} value={mensagem} maxLength={300} onChange={(e) => setMensagem(e.target.value)} rows={3} placeholder="Ex.: escrever “Feliz aniversário, Ana!”" style={css(campo("margin-top:8px; resize:none;"))} />
+                    <div style={css(`text-align:right; font-size:13px; color:${FRACA}; margin-top:3px;`)}>{mensagem.length}/300</div>
+                  </div>
+                ) : (
+                  <button onClick={() => setObsAberta(true)} style={css(`margin-top:12px; width:100%; display:flex; align-items:center; gap:12px; border:1.5px dashed #D9C6CC; background:#fff; border-radius:18px; padding:15px 16px; cursor:pointer; color:${TINTA}; text-align:left;`)}>
+                    <span style={css(`flex:none; width:40px; height:40px; border-radius:12px; background:#FDF1F4; color:${COR}; display:flex; align-items:center; justify-content:center;`)}><Svg size={20} sw={2.2}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></Svg></span>
+                    <span style={{ flex: 1 }}>
+                      <span style={css("display:block; font-size:16.5px; font-weight:800;")}>Adicionar observação</span>
+                      <span style={css(`display:block; font-size:14px; color:${FRACA}; margin-top:1px;`)}>Mensagem no bolo, pedido especial…</span>
+                    </span>
+                    <Svg size={20} sw={2.4} stroke={COR}><path d="M12 5v14M5 12h14" /></Svg>
+                  </button>
+                )}
               </div>
-              <label style={css("display:block; margin-top:18px; font-size:16.5px; font-weight:800;")}>Alguma observação? <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span></label>
-              <textarea value={mensagem} maxLength={300} onChange={(e) => setMensagem(e.target.value)} rows={3} placeholder="Ex.: escrever “Feliz aniversário, Ana!”, embalar para presente…" style={css(campo("margin-top:8px; resize:none;"))} />
-              <div style={css(`text-align:right; font-size:13px; color:${FRACA}; margin-top:3px;`)}>{mensagem.length}/300</div>
             </>
           )}
 
@@ -235,11 +264,8 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               {tipo === "Retirada" && unidades.length > 0 && (
                 <>
                   {!soRetirada && <div style={css("margin:20px 0 8px; font-size:16.5px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
-                  <div style={css("display:flex; flex-direction:column; gap:8px;")}>
-                    {unidades.map((u) => (
-                      <Opcao key={u.id} sel={unidadeId === u.id} onClick={() => setUnidadeId(u.id)} titulo={u.nome} sub={u.endereco || "Retire no horário escolhido"}
-                        icone={<><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></>} />
-                    ))}
+                  <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;")}>
+                    {unidades.map((u) => <Loja key={u.id} sel={unidadeId === u.id} onClick={() => setUnidadeId(u.id)} nome={u.nome} endereco={u.endereco} />)}
                   </div>
                 </>
               )}
@@ -273,7 +299,13 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <Campo rotulo="WhatsApp" valor={whats} onChange={(v) => setWhats(mascara(v))} ph="(48) 99999-9999" tipo="tel" dica="É por aqui que confirmamos seu pedido." />
               </div>
               <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; font-size:15px;`)}>
-                <Linha k={`${qtd}× ${produto.nome}`} v={brl(subtotal)} forte />
+                <div style={css(`display:flex; align-items:center; gap:12px; padding-bottom:10px; border-bottom:1px dashed ${BORDA};`)}>
+                  <div style={css("width:58px; height:58px; flex:none; border-radius:12px; overflow:hidden;")}><Foto src={produto.foto} alt="" proporcao="1/1" cortar miniatura /></div>
+                  <div style={css("flex:1; min-width:0;")}>
+                    <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{qtd}× {produto.nome}</div>
+                    <div style={css(`font-size:15px; font-weight:800; color:${COR}; margin-top:2px;`)}>{brl(subtotal)}</div>
+                  </div>
+                </div>
                 {mensagem.trim() && <Linha k="Observação" v={mensagem.trim()} />}
                 <Linha k={tipo === "Entrega" ? "Taxa de entrega" : "Retirada no local"} v={tipo === "Entrega" ? brl(taxa) : "Sem taxa"} />
                 {unidadeNome && <Linha k="Unidade" v={unidadeNome} />}
@@ -512,6 +544,52 @@ function SetaMes({ dir, off, onClick }: { dir: 1 | -1; off: boolean; onClick: ()
   return (
     <button onClick={onClick} disabled={off} style={css(`width:44px; height:44px; border:none; background:transparent; border-radius:11px; cursor:${off ? "default" : "pointer"}; color:${off ? "#CDD0D8" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}>
       <Svg size={21} sw={2.4}>{dir < 0 ? <path d="m15 18-6-6 6-6" /> : <path d="m9 6 6 6-6 6" />}</Svg>
+    </button>
+  );
+}
+
+/** Etiqueta (peso, porções) ao lado do preço. */
+function Etiqueta({ icone, children }: { icone: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span style={css(`display:inline-flex; align-items:center; gap:6px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:999px; padding:6px 12px; font-size:14.5px; font-weight:700; color:#3A3F4C;`)}>
+      <Svg size={15} sw={2} stroke={FRACA}>{icone}</Svg>{children}
+    </span>
+  );
+}
+
+function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div style={css("margin-top:20px;")}>
+      <div style={css(`font-size:13.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:${COR}; margin-bottom:10px;`)}>{titulo}</div>
+      {children}
+    </div>
+  );
+}
+
+/** Lista um abaixo do outro: marcador na cor da marca (ou número, nas camadas). */
+function ListaItens({ itens, numerada }: { itens: string[]; numerada?: boolean }) {
+  return (
+    <ul style={css("margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px;")}>
+      {itens.map((t, i) => (
+        <li key={i} style={css("display:flex; align-items:flex-start; gap:11px; font-size:16px; color:#3A3F4C; line-height:1.4;")}>
+          {numerada
+            ? <span style={css(`flex:none; width:24px; height:24px; border-radius:50%; background:#FDF1F4; color:${COR}; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center;`)}>{i + 1}</span>
+            : <span style={css(`flex:none; width:8px; height:8px; border-radius:50%; background:${COR}; margin:8px 8px 0 8px;`)} />}
+          <span style={{ flex: 1, minWidth: 0 }}>{t}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Loja de retirada em quadrado grande (2 por linha). */
+function Loja({ sel, onClick, nome, endereco }: { sel: boolean; onClick: () => void; nome: string; endereco: string }) {
+  return (
+    <button onClick={onClick} style={css(`position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left; min-height:112px; border:2px solid ${sel ? COR : BORDA}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:18px; padding:14px; cursor:pointer; color:${TINTA}; box-shadow:${sel ? `0 6px 18px ${COR}2E` : "none"};`)}>
+      <span style={css(`width:42px; height:42px; border-radius:13px; background:${sel ? COR : CAMPO}; color:${sel ? "#fff" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}><Svg size={21} sw={2}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
+      {sel && <span style={css(`position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={15} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
+      <span style={css("font-size:18px; font-weight:800; line-height:1.2;")}>{nome}</span>
+      {endereco && <span style={css(`font-size:13.5px; color:${FRACA}; line-height:1.3; margin-top:-4px;`)}>{endereco}</span>}
     </button>
   );
 }
