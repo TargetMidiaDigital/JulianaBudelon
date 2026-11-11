@@ -471,7 +471,8 @@ export function tarefasDaEncomenda(
   const fone = x.numero ? ` · ${foneBR(x.numero)}` : "";
   const producao: Task = {
     ...comum,
-    id: `t-${x.base}-encp`,
+    // O id do pedido vai no id da tarefa: quando a Produção coloca "Em produção", o pedido acompanha no CRM.
+    id: `t-${x.base}-encp-${p.id}`,
     titulo: `Encomenda - ${itens} - ${x.cliente} - ${venc}`,
     categoria: "operacional",
     produtoId: x.produtoEstoqueId || undefined,

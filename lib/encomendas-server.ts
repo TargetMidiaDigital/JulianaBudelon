@@ -217,6 +217,34 @@ async function logNoProduto(sb: SB, produtoId: string, estoque: Record<string, n
 }
 
 /**
+ * Tarefa da Produção de uma encomenda foi para "Em produção" (status "em andamento") → o pedido
+ * no CRM de Encomendas sai de "Em fila" e vai para "Em produção". Só avança (nunca volta nem
+ * pula "Verificar pagamento"/"Entregue"). O pedido vem do id da tarefa (`…-encp-<pedido>`) ou,
+ * nas tarefas criadas antes disso, do "Encomenda #XXXXXXXX" da descrição. Nunca lança.
+ */
+export async function sincronizarEncomendaPelaProducao(sb: SB, tarefaId: string): Promise<void> {
+  try {
+    const { data } = await sb.from("tarefas").select("id, status, categoria, tipo, descricao").eq("id", tarefaId).maybeSingle();
+    const t = data as { id: string; status: string; categoria: string | null; tipo: string | null; descricao: string | null } | null;
+    if (!t || t.status !== "em andamento" || t.tipo !== "Encomenda" || (t.categoria ?? "operacional") !== "operacional") return;
+    let pedidoId = /-encp-(.+)$/.exec(t.id)?.[1];
+    if (!pedidoId) {
+      const num = /Encomenda #([0-9A-F]{8})\b/.exec(t.descricao ?? "")?.[1];
+      if (!num) return;
+      const { data: achados } = await sb.from("enc_pedido").select("id").ilike("id", `${num.toLowerCase()}%`).limit(2);
+      if (achados?.length !== 1) return;
+      pedidoId = (achados[0] as { id: string }).id;
+    }
+    const { data: ped } = await sb.from("enc_pedido").select("status").eq("id", pedidoId).maybeSingle();
+    if ((ped as { status: PedidoStatus } | null)?.status !== "Em fila") return;
+    const erro = await mudarStatusPedido(sb, pedidoId, "Em produção", "sistema");
+    if (erro) console.error("[encomendas] falha ao mover pedido para Em produção:", erro);
+  } catch (e) {
+    console.error("[encomendas] falha ao sincronizar pela produção:", e);
+  }
+}
+
+/**
  * Muda o status do pedido e aplica os efeitos (uma vez só, mesmo com cliques repetidos):
  *  - pagamento confirmado (Verificar pagamento → Em fila/Em produção): cria a tarefa da Produção e a
  *    da loja (Lojas → Encomendas), com o produto do estoque quando a torta está ligada a um;

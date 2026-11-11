@@ -4,6 +4,7 @@ import { isCargoFull } from "@/lib/acesso";
 import { toISO } from "@/lib/data";
 import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
+import { sincronizarEncomendaPelaProducao } from "@/lib/encomendas-server";
 import { aplicarEstoqueProducao, aplicarEstoqueRecebimento } from "@/lib/tarefas-server";
 import { parseQuantidade } from "@/lib/estoque";
 import { conferenciaCompleta, parseConferencia, rotuloRealizado } from "@/lib/conferencia";
@@ -120,6 +121,8 @@ export async function PATCH(req: Request) {
   // Tarefa de uma ordem de serviço mudou de status → a ordem acompanha (em produção / concluída).
   const pedidoId = (salva as { pedido_id?: string | null } | null)?.pedido_id;
   if (pedidoId && "status" in cols) await sincronizarStatusPedido(sb, pedidoId);
+  // Tarefa da Produção de uma encomenda foi para "Em produção" → o pedido acompanha no CRM de Encomendas.
+  if (cols.status === "em andamento") await sincronizarEncomendaPelaProducao(sb, id);
   // Produção concluída → soma a quantidade no estoque da Fábrica (reaberta → estorna).
   const comLinhas = { ...atual, conferencia: linhasFinais };
   if ("status" in cols) await aplicarEstoqueProducao(sb, comLinhas, cols.status as TaskStatus);
