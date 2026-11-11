@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_PADRAO, isoDia, validarNovoPedido,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, validarNovoPedido,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
 
@@ -52,8 +52,9 @@ function seed() {
   ];
   return {
     leads, pedidos, compromissos,
-    categorias: [CATEGORIA_PADRAO] as Categoria[],
-    produtos: PRODUTOS_PADRAO,
+    // Catálogo de Natal 2026 primeiro; as tortas "Camadas de Felicidade" no fim.
+    categorias: [...CATEGORIAS_NATAL, CATEGORIA_PADRAO] as Categoria[],
+    produtos: [...PRODUTOS_NATAL, ...PRODUTOS_PADRAO],
     config: CONFIG_PADRAO,
   };
 }
@@ -102,6 +103,11 @@ function lerDemo(): Estado {
     // só retirada, e os pedidos de exemplo pela versão nova (pedidos criados no teste ficam).
     if (e.config.unidades.map((u) => u.id).join(",") === "u-centro,u-kobrasol") {
       e = { ...e, config: { ...e.config, unidades: base.config.unidades, entregaAtiva: false }, pedidos: e.pedidos.map((p) => base.pedidos.find((n) => n.id === p.id) ?? p) };
+    }
+    // Catálogo de Natal 2026: quem já tinha dados salvos ganha as categorias e os produtos novos
+    // (no começo do catálogo), sem perder o que já editou.
+    if (!e.categorias.some((c) => c.id === CATEGORIAS_NATAL[0].id)) {
+      e = { ...e, categorias: [...CATEGORIAS_NATAL, ...e.categorias], produtos: [...PRODUTOS_NATAL.filter((p) => !e.produtos.some((x) => x.id === p.id)), ...e.produtos] };
     }
     // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
     return { ...e, produtos: e.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };

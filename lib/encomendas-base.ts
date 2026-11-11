@@ -53,6 +53,85 @@ export const PRODUTOS_PADRAO: ProdutoEncomenda[] = [
 /** Recorte da foto do flyer que mostra a torta (o topo do flyer é título/preço). */
 export const FOTO_POSICAO = "center 72%";
 
+// ── Catálogo de Natal 2026 (PDF "CATALOGO-NATAL2026-JB") ────────────────────
+// Fotos recortadas do PDF em /public/encomendas/natal/. Encomendas com 48 h de antecedência.
+
+export const CATEGORIAS_NATAL: Categoria[] = [
+  { id: "natal-cheesecakes", nome: "Cheesecakes" },
+  { id: "natal-sobremesas", nome: "Sobremesas" },
+  { id: "natal-cake-box-especial", nome: "Cake Box Especial Fatias" },
+  { id: "natal-cake-box", nome: "Cake Box" },
+  { id: "natal-chocotones", nome: "Chocotones" },
+  { id: "natal-empadoes", nome: "Empadões" },
+];
+
+const natal = (categoriaId: string, id: string, nome: string, preco: number, peso: string, descricao: string, foto = id, porcoes = ""): ProdutoEncomenda => ({
+  id: `natal-${id}`, nome, categoriaId, preco, porcoes, peso, descricao, camadas: [], foto: `/encomendas/natal/${foto}.webp`, ativo: true,
+});
+const cheese = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-cheesecakes", id, nome, preco, peso, d, id, "15 a 20 fatias");
+const sobre = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-sobremesas", `sobremesa-${id}`, nome, preco, peso, d);
+const especial = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-cake-box-especial", `especial-${id}`, `Cake Box Especial ${nome}`, preco, peso, d);
+const cakebox = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-cake-box", `cakebox-${id}`, `Cake Box ${nome}`, preco, peso, d);
+const chocotone = (id: string, nome: string, preco: number, peso: string, d: string) => natal("natal-chocotones", `chocotone-${id}`, nome, preco, peso, d);
+const EMPADAO_INFO = "Produto vendido somente congelado. Peso aproximado de 1 kg. Verificar disponibilidade do sabor.";
+const empadao = (id: string, nome: string, preco: number) => natal("natal-empadoes", `empadao-${id}`, `Empadão de ${nome}`, preco, "1 kg", EMPADAO_INFO, "empadao", "4 a 6 porções");
+
+export const PRODUTOS_NATAL: ProdutoEncomenda[] = [
+  cheese("cheesecake-pistache", "Cheesecake Pistache", 230, "2,3 kg", "Massa amanteigada por fora, massa de cream cheese por dentro, creme de chocolate branco, creme de pistache JB e pistaches picados."),
+  cheese("cheesecake-frutas-vermelhas", "Cheesecake Frutas Vermelhas", 230, "2,3 kg", "Massa amanteigada por fora, massa de cream cheese por dentro, creme de chocolate branco, geleia de frutas vermelhas e frutas frescas."),
+  cheese("bolo-piscina-red-velvet", "Bolo Piscina Red Velvet", 190, "2 kg", "Massa Red Velvet fofinha e creme de cream cheese com chocolate branco, finalizado com frutas vermelhas."),
+
+  sobre("folhata-de-morango", "Folhata de Morango", 129, "800 g", "Creme de cinco leites, biscoito folhado crocante e morangos frescos."),
+  sobre("bombom-de-uva", "Bombom de Uva", 110, "1 kg", "Creme belga e uvas sem sementes, finalizado com ganache meio amarga, uvas e raspas de chocolate branco."),
+  sobre("pavetonne", "Pavetonne", 129, "900 g", "Creme de Ninho, pedaços de chocotone e creme de três leites, finalizado com nuvem de Nutella e barrinhas de Kinder."),
+  sobre("raffaello", "Raffaello", 125, "900 g", "Creme de Raffaello com chocolate branco, amêndoas e coco, massa branca e mousse de Raffaello com pedaços de bombom e coco, finalizado com bombons Raffaello."),
+  sobre("morango-com-suspiro", "Morango com Suspiro", 110, "900 g", "Creme belga, massa branca fofinha, morangos picados e buttercreme. Finalizado com suspiros e morangos."),
+  sobre("ferrero", "Ferrero", 129, "900 g", "Mousse de Ferrero meio amargo, pedaços de Ferrero, massa de chocolate fofinha e creme de avelã crocante com amendoim, finalizado com avelãs e Ferrero."),
+  sobre("mineira", "Mineira", 105, "900 g", "Creme de abacaxi com coco fresco e massa branca fofinha, finalizado com buttercreme, abacaxi e coco em flocos."),
+  sobre("quatro-leites", "Quatro Leites", 100, "900 g", "Creme de quatro leites e massa branca fofinha, finalizado com raspas de chocolate branco."),
+  sobre("kinder", "Kinder", 129, "900 g", "Creme de chocolate blend, massa de chocolate, creme de chocolate branco e camadas de Kinder Barrinha, finalizado com ganache de chocolate ao leite e Kinder Barrinha."),
+  sobre("banoffee", "Banoffee", 110, "900 g", "Farofa amanteigada crocante, creme de doce de leite e rodelas de banana, finalizado com buttercreme e farofa amanteigada."),
+  sobre("red-velvet", "Red Velvet", 110, "900 g", "Creme de cream cheese com chocolate branco e camadas de massa Red Velvet fofinha, finalizado com morangos e mirtilos."),
+  sobre("bombom-de-morango", "Bombom de Morango", 110, "1 kg", "Creme belga, massa de chocolate fofinha, morangos picados e ganache cremosa meio amarga, finalizado com flocos de chocolate e morangos."),
+  sobre("morango-com-nata", "Morango com Nata", 110, "900 g", "Creme belga, massa branca fofinha, morangos picados e buttercreme, finalizado com suspiros e morangos."),
+  sobre("pave-de-nozes", "Pavê de Nozes", 110, "900 g", "Creme de nata com nozes, bolacha de leite e creme de doce de leite, finalizado com nozes picadas."),
+  sobre("bueno", "Bueno", 129, "900 g", "Ganache meio amargo e mousse de Bueno White, finalizado com pedaços de Bueno White."),
+
+  especial("morango-com-nata", "Morango com Nata", 359.9, "2,3 kg", "Creme belga, pão de ló, morangos frescos, buttercreme e suspiros, finalizado com morangos frescos e suspiros."),
+  especial("pistache-nuvem", "Pistache Nuvem", 359.9, "2,35 kg", "Massa branca, creme de pistache, creme belga e creme nuvem de pistache, finalizado com creme nuvem de pistache e pistache triturado."),
+  especial("morango-cravejado", "Morango Cravejado", 369.6, "2,5 kg", "Massa branca, creme belga, morangos frescos, buttercreme e cobertura cravejada, finalizado com 8 mini morangos cravejados."),
+  especial("bem-casado", "Bem Casado", 359.9, "2,3 kg", "Massa branca, creme de Ninho e creme de doce de leite, finalizado com 11 brigadeiros de Ninho."),
+  especial("pudim", "Pudim", 359.9, "2,3 kg", "Creme belga, pão de ló, creme de doce de leite e pudim de leite, finalizado com 5 mini pudins."),
+  especial("marta-rocha", "Marta Rocha", 359.9, "2,5 kg", "Pão de ló branco, pão de ló de chocolate, creme de nozes e creme de ameixa, finalizado com creme de ovos."),
+  especial("mineira", "Mineira", 359.9, "2,5 kg", "Pão de ló, creme belga com abacaxi e coco e buttercreme, finalizado com pedaços de abacaxi e coco em flocos."),
+  especial("pistache-chocolate", "Pistache Chocolate", 359.9, "2,5 kg", "Pão de ló de chocolate, creme de chocolate e creme de pistache, finalizado com pistache."),
+
+  cakebox("morango-cravejado", "Morango Cravejado", 179.9, "1,3 kg", "Massa branca, creme belga, morangos frescos e buttercreme, com cobertura cravejada, finalizado com 5 mini morangos cravejados."),
+  cakebox("bem-casado", "Bem Casado", 169.9, "1,3 kg", "Creme de Ninho, massa de bolo fofinha e creme de doce de leite caseiro, finalizado com 5 mini brigadeiros de Ninho."),
+  cakebox("pudim", "Pudim", 169.9, "1,2 kg", "Camadas de creme, pão de ló, creme de doce de leite e pudim de leite, finalizado com 2 mini pudins."),
+  cakebox("pavetonne", "Pavêtonne", 169.9, "1,3 kg", "Creme de Ninho, pedaços de chocotone e creme de três leites, finalizado com nuvem de Nutella e barrinhas de Kinder."),
+  cakebox("duo-chocolates", "Duo Chocolates", 159.9, "1,3 kg", "Creme belga branco, massa de chocolate fofinha e creme belga de chocolate, finalizado com brigadeiros brancos e tradicionais."),
+  cakebox("pistache-nuvem", "Pistache Nuvem", 169.9, "1,3 kg", "Massa branca, creme de pistache, creme belga e creme nuvem de pistache, finalizado com creme nuvem de pistache e pistache triturado."),
+  cakebox("banoffee", "Banoffee", 169.9, "1,3 kg", "Farofa amanteigada, creme de doce de leite caseiro, bananas em rodelas e buttercreme."),
+  cakebox("pistache-chocolate", "Pistache Chocolate", 169.9, "1,3 kg", "Creme de chocolate, massa de chocolate molhadinha e creme de pistache, finalizado com pistache picado."),
+  cakebox("morango", "Morango", 159.9, "1,2 kg", "Creme belga, pão de ló, morangos frescos, buttercreme e suspiros, finalizado com buttercreme e suspiros."),
+  cakebox("mineira", "Mineira", 159.9, "1,3 kg", "Creme belga com abacaxi e coco fresco, pão de ló e buttercreme, finalizado com buttercreme, abacaxi e coco em flocos."),
+  cakebox("prestigio", "Prestígio", 169.9, "1,3 kg", "Massa de chocolate fofinha, creme de coco fresco e creme de chocolate, finalizado com coco e chocolate Prestígio."),
+  cakebox("marta-rocha", "Marta Rocha", 169.9, "1,3 kg", "Camadas de pão de ló branco e de chocolate, creme de nozes e creme de ameixa, finalizado com creme de ovos."),
+
+  chocotone("pistache", "Chocotone de Pistache", 129.9, "800 g", "Chocotone recheado com creme de chocolate branco e creme de pistache, finalizado com creme de pistache e pistache picado."),
+  chocotone("kinder-mix", "Chocotone de Kinder Mix", 139.9, "900 g", "Chocotone recheado com creme de chocolate branco, creme de chocolate blend e creme belga, finalizado com Kinder Bueno White, Kinder Bueno Black, Kinder Ovo, Kinder Barrinha e brigadeiros."),
+  chocotone("nutellinho", "Chocotone de Nutellinho", 129.9, "900 g", "Chocotone recheado com creme de Ninho, finalizado com creme belga, Ninho e um pote de Nutella de 140 g."),
+
+  empadao("camarao-com-requeijao", "Camarão com Requeijão", 105),
+  empadao("file-quatro-queijos", "Filé Quatro Queijos", 100),
+  empadao("frango-com-requeijao", "Frango com Requeijão", 90),
+  empadao("frango-sem-requeijao", "Frango sem Requeijão", 90),
+  empadao("frango-com-palmito", "Frango com Palmito", 90),
+  empadao("palmito-cremoso", "Palmito Cremoso", 90),
+  empadao("carne-de-panela-com-requeijao", "Carne de Panela com Requeijão", 90),
+];
+
 // ── Configuração do autoatendimento (editável em Autoatendimento → Configurações) ──
 
 export type DiaKey = "dom" | "seg" | "ter" | "qua" | "qui" | "sex" | "sab";
