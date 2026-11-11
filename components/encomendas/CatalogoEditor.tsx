@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
-import { catalogoPorCategoria, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
+import { catalogoPorCategoria, categoriaAtiva, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
@@ -25,7 +25,7 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
   const [editando, setEditando] = useState<ProdutoEncomenda | "novo" | null>(null);
   const [novoEm, setNovoEm] = useState<string | null>(null); // categoria pré-escolhida no "novo"
   const [criandoCat, setCriandoCat] = useState(false);
-  const [renomeando, setRenomeando] = useState<string | null>(null);
+  const [editandoCat, setEditandoCat] = useState<Categoria | null>(null);
   const [excluindoCat, setExcluindoCat] = useState<Categoria | null>(null);
 
   const novoProduto = (categoriaId: string | null) => { setNovoEm(categoriaId); setEditando("novo"); };
@@ -55,19 +55,19 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
         const idx = cat ? categorias.findIndex((c) => c.id === cat.id) : -1;
         return (
           <section key={cat?.id ?? "sem"} style={css("margin-bottom:22px;")}>
-            {cat && renomeando === cat.id ? (
-              <NomeInline titulo="Renomear categoria" inicial={cat.nome} onCancelar={() => setRenomeando(null)} onSalvar={(nome) => { salvarCategoria({ ...cat, nome }); setRenomeando(null); }} />
-            ) : (
+            {(
               <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;")}>
                 <h3 style={css(`margin:0; font-size:15px; font-weight:800; color:${cat ? "#1B1B28" : "#7A8090"};`)}>{cat?.nome ?? "Sem categoria"}</h3>
                 <span style={css("font-size:12px; font-weight:700; color:#9398A6; background:#F2F3F6; border-radius:999px; padding:2px 8px;")}>{g.produtos.length}</span>
+                {cat && !categoriaAtiva(cat) && <Tag cor="#92400E" bg="#FFFBEB">Oculta da página</Tag>}
+                {cat?.descricao && <span style={css("font-size:12.5px; color:#9398A6;")}>{cat.descricao}</span>}
                 {!cat && <span style={css("font-size:12px; color:#9398A6;")}>— aparecem no fim do catálogo como "Outros"</span>}
                 <span style={{ flex: 1 }} />
                 {editavel && cat && (
                   <div style={css("display:flex; gap:4px;")}>
                     <IconeBtn titulo="Subir" off={idx <= 0} onClick={() => moverCategoria(cat.id, -1)}><path d="m18 15-6-6-6 6" /></IconeBtn>
                     <IconeBtn titulo="Descer" off={idx >= categorias.length - 1} onClick={() => moverCategoria(cat.id, 1)}><path d="m6 9 6 6 6-6" /></IconeBtn>
-                    <IconeBtn titulo="Renomear" onClick={() => setRenomeando(cat.id)}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></IconeBtn>
+                    <IconeBtn titulo="Editar categoria (nome, frase, capa, mostrar/ocultar)" onClick={() => setEditandoCat(cat)}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></IconeBtn>
                     <IconeBtn titulo="Excluir categoria" perigo onClick={() => setExcluindoCat(cat)}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></IconeBtn>
                   </div>
                 )}
@@ -99,6 +99,10 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
         );
       })}
 
+      {editandoCat && (
+        <CategoriaForm categoria={editandoCat} capaAuto={produtos.find((p) => p.categoriaId === editandoCat.id && p.ativo && p.foto)?.foto ?? null}
+          onClose={() => setEditandoCat(null)} onSalvar={(c) => { salvarCategoria(c); setEditandoCat(null); }} />
+      )}
       {editando && (
         <ProdutoForm
           produto={editando === "novo" ? null : editando}
@@ -282,6 +286,71 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
           onClose={() => setConfirmDel(false)}
         />
       )}
+    </>
+  );
+}
+
+/** Editar categoria: nome, frase e capa do card da vitrine, e se aparece na página do cliente. */
+function CategoriaForm({ categoria, capaAuto, onClose, onSalvar }: { categoria: Categoria; capaAuto: string | null; onClose: () => void; onSalvar: (c: Categoria) => void }) {
+  useFecharComEsc(true, onClose);
+  const [f, setF] = useState({ nome: categoria.nome, descricao: categoria.descricao ?? "", foto: categoria.foto ?? null as string | null, ativa: categoriaAtiva(categoria) });
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const enviarFoto = async (arq?: File) => {
+    if (!arq) return;
+    setEnviando(true); setErro(null);
+    try { const url = await reduzirFoto(arq); setF((x) => ({ ...x, foto: url })); }
+    catch (e) { setErro(e instanceof Error ? e.message : "Falha ao ler a imagem."); }
+    finally { setEnviando(false); if (fileRef.current) fileRef.current.value = ""; }
+  };
+  const salvar = () => {
+    if (!f.nome.trim()) return setErro("Dê um nome à categoria.");
+    onSalvar({ ...categoria, nome: f.nome.trim(), descricao: f.descricao.trim() || undefined, foto: f.foto, ativa: f.ativa });
+  };
+  const campo = "width:100%; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:9px; padding:9px 11px; font-size:13.5px; outline:none; font-family:inherit; margin-top:5px; background:#fff;";
+  const rot = "display:block; font-size:12.5px; font-weight:700; color:#5B6472;";
+  return (
+    <>
+      <div onClick={onClose} style={css("position:fixed; inset:0; z-index:64; background:rgba(20,24,40,.32);")} />
+      <div className="m-drawer" style={css("position:fixed; top:0; right:0; bottom:0; z-index:65; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:460px; max-width:96vw; display:flex; flex-direction:column;")}>
+        <div style={css("flex:none; display:flex; align-items:center; gap:10px; padding:18px 22px; border-bottom:1px solid #ECEDF1;")}>
+          <span style={css("flex:1; font-size:18px; font-weight:800;")}>Editar categoria</span>
+          <Hoverable as="button" onClick={onClose} title="Fechar" s={css("width:32px; height:32px; flex:none; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={15} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
+        </div>
+        <div style={css("flex:1; min-height:0; overflow-y:auto; padding:18px 22px; display:flex; flex-direction:column; gap:14px;")}>
+          <label style={css(rot)}>Nome *<input value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} maxLength={80} placeholder="Ex.: Cheesecakes" style={css(campo)} /></label>
+          <label style={css(rot)}>Frase do card <span style={css("font-weight:500; color:#9398A6;")}>(opcional — ex.: “Servem de 15 a 20 fatias”)</span>
+            <input value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} maxLength={120} style={css(campo)} />
+          </label>
+          <div>
+            <span style={css(rot)}>Foto de capa</span>
+            <div style={css("display:flex; gap:14px; align-items:center; margin-top:6px;")}>
+              <div style={css("width:120px; flex:none; border-radius:12px; overflow:hidden; border:1px solid #ECEDF1;")}>
+                {enviando ? <div style={css("aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; font-size:12px; color:#9398A6;")}>Enviando…</div> : <Foto src={f.foto || capaAuto} alt="" proporcao="1/1" cortar miniatura />}
+              </div>
+              <div style={css("display:flex; flex-direction:column; gap:7px;")}>
+                <div style={css("display:flex; gap:7px; flex-wrap:wrap;")}>
+                  <Botao onClick={() => fileRef.current?.click()}>{f.foto ? "Trocar capa" : "Enviar capa"}</Botao>
+                  {f.foto && <Botao onClick={() => setF({ ...f, foto: null })}>Usar automática</Botao>}
+                </div>
+                <span style={css("font-size:11.5px; color:#9398A6; line-height:1.4;")}>{f.foto ? "Capa própria da categoria." : "Automática: foto do primeiro produto da categoria."}</span>
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" onChange={(e) => enviarFoto(e.target.files?.[0])} style={{ display: "none" }} />
+            </div>
+          </div>
+          <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>
+            <Chave ligado={f.ativa} onChange={(v) => setF({ ...f, ativa: v })} />
+            {f.ativa ? "Aparece na página de encomendas" : "Oculta — a categoria e os produtos dela somem da página"}
+          </label>
+          {erro && <div style={css("font-size:12.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:10px; padding:9px 12px;")}>{erro}</div>}
+        </div>
+        <div style={css("flex:none; display:flex; align-items:center; gap:8px; padding:14px 22px; border-top:1px solid #ECEDF1;")}>
+          <span style={{ flex: 1 }} />
+          <Botao onClick={onClose}>Cancelar</Botao>
+          <Hoverable as="button" onClick={salvar} {...{ disabled: enviando }} s={css(`border:none; background:${BRAND}; color:#fff; border-radius:10px; padding:9px 18px; font-size:13.5px; font-weight:700; cursor:pointer; opacity:${enviando ? 0.5 : 1};`)} hover="filter:brightness(1.1)">Salvar</Hoverable>
+        </div>
+      </div>
     </>
   );
 }

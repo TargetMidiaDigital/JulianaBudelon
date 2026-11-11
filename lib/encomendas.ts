@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, validarNovoPedido,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, validarNovoPedido, vitrineDe,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
 
@@ -109,6 +109,8 @@ function lerDemo(): Estado {
     if (!e.categorias.some((c) => c.id === CATEGORIAS_NATAL[0].id)) {
       e = { ...e, categorias: [...CATEGORIAS_NATAL, ...e.categorias], produtos: [...PRODUTOS_NATAL.filter((p) => !e.produtos.some((x) => x.id === p.id)), ...e.produtos] };
     }
+    // Vitrine (primeira tela): categorias de Natal salvas antes ganham a frase do card.
+    e = { ...e, config: { ...e.config, vitrine: vitrineDe(e.config) }, categorias: e.categorias.map((c) => (c.descricao === undefined ? { ...c, descricao: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.descricao } : c)) };
     // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
     return { ...e, produtos: e.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
   } catch {
@@ -142,7 +144,7 @@ async function buscar() {
   buscando = true;
   try {
     const j = await api<Partial<Estado>>(paginaPublica() ? "/api/encomendas/publico" : "/api/encomendas", "GET");
-    estado = { ...VAZIO, ...j, config: { ...CONFIG_PADRAO, ...(j.config ?? {}) } };
+    estado = { ...VAZIO, ...j, config: { ...CONFIG_PADRAO, ...(j.config ?? {}), vitrine: vitrineDe(j.config) } };
     meta = { ...meta, carregado: true, erro: null };
   } catch (e) {
     meta = { ...meta, carregado: true, erro: e instanceof Error ? e.message : "Falha ao carregar as encomendas." };

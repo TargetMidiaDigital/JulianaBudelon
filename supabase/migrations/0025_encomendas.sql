@@ -11,6 +11,9 @@ create table if not exists enc_categoria (
   id          text primary key,
   nome        text not null,
   ordem       int not null default 0,
+  descricao   text,                          -- frase curta no card da vitrine
+  foto        text,                          -- capa do card (vazio = foto do 1º produto)
+  ativa       boolean not null default true, -- false = escondida da página do cliente
   created_at  timestamptz not null default now()
 );
 

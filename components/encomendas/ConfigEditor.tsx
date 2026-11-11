@@ -4,7 +4,7 @@ import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
-import { DIAS, PERIODOS, horariosDaJanela, useEncomendas, validarConfig, type ConfigEncomendas, type DiaKey } from "@/lib/encomendas";
+import { CORES_DESTAQUE, DIAS, PERIODOS, horariosDaJanela, useEncomendas, validarConfig, vitrineDe, type ConfigEncomendas, type DiaKey, type Vitrine } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import { Botao, Chave } from "./CatalogoEditor";
@@ -31,11 +31,59 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
     setC(limpa);
     if (falha) setErro(falha); else setOk(true);
   };
+  const vit = vitrineDe(c);
+  const mudarV = (patch: Partial<Vitrine>) => mudar({ vitrine: { ...vit, ...patch } });
   const num = (v: string) => (v.trim() === "" ? NaN : Number(v.replace(",", ".")));
   const ro = !editavel;
 
   return (
     <div style={css("max-width:860px; display:flex; flex-direction:column; gap:16px; padding-bottom:70px;")}>
+      <Cartao titulo="Vitrine (primeira tela)" sub="O que o cliente vê ao abrir a página: faixa de destaque e cards das categorias" icone={<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>}>
+        <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:10px;")}>
+          <Rotulo t="Título"><input disabled={ro} maxLength={80} value={vit.titulo} onChange={(e) => mudarV({ titulo: e.target.value })} placeholder="O que você vai querer?" style={css(campo("width:100%;"))} /></Rotulo>
+          <Rotulo t="Texto abaixo do título"><input disabled={ro} maxLength={160} value={vit.subtitulo} onChange={(e) => mudarV({ subtitulo: e.target.value })} placeholder="Escolha uma categoria para ver os produtos." style={css(campo("width:100%;"))} /></Rotulo>
+        </div>
+        <div style={css("margin-top:14px; border:1px solid #F0F1F4; background:#FAFAFB; border-radius:12px; padding:12px 14px;")}>
+          <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>
+            <Chave ligado={vit.destaqueAtivo} onChange={(v) => !ro && mudarV({ destaqueAtivo: v })} />
+            Faixa de destaque {vit.destaqueAtivo ? "ligada" : "desligada"}
+          </label>
+          {vit.destaqueAtivo && (
+            <>
+              <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:10px; margin-top:12px;")}>
+                <Rotulo t="Título da faixa"><input disabled={ro} maxLength={60} value={vit.destaqueTitulo} onChange={(e) => mudarV({ destaqueTitulo: e.target.value })} placeholder="Natal 2026" style={css(campo("width:100%;"))} /></Rotulo>
+                <Rotulo t="Texto da faixa"><input disabled={ro} maxLength={200} value={vit.destaqueTexto} onChange={(e) => mudarV({ destaqueTexto: e.target.value })} placeholder="Encomende com 48 h de antecedência…" style={css(campo("width:100%;"))} /></Rotulo>
+              </div>
+              <div style={css("margin-top:12px; font-size:12.5px; font-weight:700; color:#5B6472;")}>Cor</div>
+              <div style={css("display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;")}>
+                {CORES_DESTAQUE.map((k) => {
+                  const sel = vit.destaqueCor === k.key;
+                  return (
+                    <button key={k.key} type="button" disabled={ro} onClick={() => mudarV({ destaqueCor: k.key })} style={css(`display:inline-flex; align-items:center; gap:7px; border:1.5px solid ${sel ? BRAND : "#E2E3E9"}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:999px; padding:5px 12px 5px 5px; font-size:12.5px; font-weight:700; color:#3A3F4C; cursor:${ro ? "default" : "pointer"};`)}>
+                      <span style={css(`width:22px; height:22px; border-radius:50%; background:linear-gradient(135deg, ${k.de}, ${k.ate});`)} />{k.nome}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Prévia da faixa como o cliente vê. */}
+              <div style={css(`margin-top:12px; border-radius:14px; padding:14px 16px; color:#fff; background:linear-gradient(135deg, ${(CORES_DESTAQUE.find((k) => k.key === vit.destaqueCor) ?? CORES_DESTAQUE[0]).de}, ${(CORES_DESTAQUE.find((k) => k.key === vit.destaqueCor) ?? CORES_DESTAQUE[0]).ate}); max-width:420px;`)}>
+                <div style={css("font-size:19px; font-weight:800;")}>{vit.destaqueTitulo || "Título da faixa"}</div>
+                {vit.destaqueTexto && <div style={css("font-size:13px; font-weight:600; opacity:.95; margin-top:4px;")}>{vit.destaqueTexto}</div>}
+              </div>
+            </>
+          )}
+        </div>
+        <div style={css("display:flex; flex-direction:column; gap:10px; margin-top:14px;")}>
+          <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>
+            <Chave ligado={vit.mostrarQuantidade} onChange={(v) => !ro && mudarV({ mostrarQuantidade: v })} />Mostrar quantas opções a categoria tem (ex.: “6 opções”)
+          </label>
+          <label style={css("display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#3A3F4C; cursor:pointer;")}>
+            <Chave ligado={vit.mostrarPreco} onChange={(v) => !ro && mudarV({ mostrarPreco: v })} />Mostrar o menor preço (ex.: “a partir de R$ 100,00”)
+          </label>
+        </div>
+        <div style={css("font-size:12px; color:#9398A6; margin-top:10px;")}>A foto de capa, a frase de cada card e quais categorias aparecem ficam em <b>Produtos</b>, no botão de editar da categoria.</div>
+      </Cartao>
+
       <Cartao titulo="Retirada na loja" sub="Unidades onde o cliente pode buscar o pedido" icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>}
         direita={<Chave ligado={c.retiradaAtiva} onChange={(v) => !ro && mudar({ retiradaAtiva: v })} />}>
         {!c.retiradaAtiva && <div style={css("font-size:12.5px; color:#9398A6; font-style:italic; margin-bottom:8px;")}>Retirada desligada — o cliente só vê a opção de entrega.</div>}

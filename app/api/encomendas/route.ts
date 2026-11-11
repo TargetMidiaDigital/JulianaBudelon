@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabase, type SB } from "@/lib/supabase";
 import { nivelNaTela, requireSession, type Sessao } from "@/lib/auth-admin";
 import {
-  colunasCompromisso, colunasProduto, lerTudo, mudarStatusPedido, statusLeadValido, statusPedidoValido, subirFotoSeNova, validarConfigServidor,
+  colunasCategoria, colunasCompromisso, colunasProduto, lerTudo, mudarStatusPedido, statusLeadValido, statusPedidoValido, subirFotoSeNova, validarConfigServidor,
 } from "@/lib/encomendas-server";
 import type { Categoria, Compromisso, ConfigEncomendas, ProdutoEncomenda } from "@/lib/encomendas-base";
 import type { ScreenPage } from "@/lib/types";
@@ -85,9 +85,10 @@ export async function POST(req: Request) {
     }
     case "categoria": {
       const c = b.categoria as Categoria;
-      const nome = typeof c?.nome === "string" ? c.nome.trim().slice(0, 80) : "";
-      if (!c?.id || !nome) return erro("Informe o nome da categoria.");
-      const { error } = await sb.from("enc_categoria").upsert({ id: c.id, nome, ordem: await ordemDe(sb, "enc_categoria", c.id) });
+      const cols = colunasCategoria(c, await ordemDe(sb, "enc_categoria", String(c?.id ?? "")));
+      if (typeof cols === "string") return erro(cols);
+      try { cols.foto = await subirFotoSeNova(sb, "categoria-" + c.id, cols.foto as string | null); } catch (e) { return erro(e instanceof Error ? e.message : "Falha ao enviar a foto."); }
+      const { error } = await sb.from("enc_categoria").upsert(cols);
       return error ? erro(error.message, 500) : ok();
     }
     case "excluirCategoria": {

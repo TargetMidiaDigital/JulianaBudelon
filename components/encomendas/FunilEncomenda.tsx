@@ -5,8 +5,9 @@ import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
-  FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
-  numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, type ConfigEncomendas, type PedidoEncomenda, type TipoEntrega,
+  CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
+  numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, vitrineDe,
+  type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type Vitrine,
 } from "@/lib/encomendas";
 
 /**
@@ -23,15 +24,25 @@ const TINTA = "#1B1B28", FRACA = "#9398A6", BORDA = "#E6E7EC", CAMPO = "#F8F9FB"
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 type Passo = 1 | 2 | 3 | 4 | 5 | 6;
+/** Chave do grupo "Outros" (produtos sem categoria) na vitrine. */
+const SEM = "__sem__";
+const TITULO = "margin:0; font-size:26px; font-weight:800; letter-spacing:-.5px; line-height:1.15;";
+const SUBTITULO = `margin:6px 0 0; font-size:15.5px; color:${FRACA}; line-height:1.4;`;
 
 export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) {
   const { config: cfg, categorias, produtos, produtoDe, carregado, erroCarga } = useEncomendas();
   const unidades = cfg.retiradaAtiva ? cfg.unidades.filter((u) => u.ativo && u.nome.trim()) : [];
   const grupos = catalogoPorCategoria(categorias, produtos);
+  const vit = vitrineDe(cfg);
   const [passo, setPasso] = useState<Passo>(1);
-  // Cada passo abre no topo (sem isto, tocar num produto no fim da lista abria o passo 2 rolado).
+  // Passo 1 em duas telas: a vitrine de categorias e os produtos da categoria aberta.
+  // Só uma categoria (ou só produtos sem categoria): vai direto aos produtos.
+  const [catAberta, setCatAberta] = useState<string | null>(null);
+  const grupoAberto = grupos.length === 1 ? grupos[0] : grupos.find((g) => (g.categoria?.id ?? SEM) === catAberta);
+  const naVitrine = grupos.length !== 1 && !grupoAberto;
+  // Cada tela abre no topo (sem isto, tocar num produto no fim da lista abria o passo 2 rolado).
   const rolagem = useRef<HTMLDivElement>(null);
-  useEffect(() => { rolagem.current?.scrollTo(0, 0); }, [passo]);
+  useEffect(() => { rolagem.current?.scrollTo(0, 0); }, [passo, catAberta]);
   const [produtoId, setProdutoId] = useState<string | null>(null);
   const [qtd, setQtd] = useState(1);
   const [mensagem, setMensagem] = useState("");
@@ -99,7 +110,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     else if (passo < 5) setPasso((passo + 1) as Passo);
   };
   const recomecar = () => {
-    setPasso(1); setProdutoId(null); setQtd(1); setMensagem(""); setTipo(null); setUnidadeId(null);
+    setPasso(1); setCatAberta(null); setProdutoId(null); setQtd(1); setMensagem(""); setTipo(null); setUnidadeId(null);
     setEnd({ cidade: "", bairro: "", rua: "", numero: "", complemento: "" }); setData(null); setHora(null);
     setNome(""); setWhats(""); setPedido(null); setPago(false);
   };
@@ -111,15 +122,15 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
       <div style={css(`width:100%; max-width:560px; ${emTela ? "height:100dvh;" : "height:100%;"} background:#fff; display:flex; flex-direction:column; position:relative;`)}>
         {/* Cabeçalho */}
         <div style={css(`flex:none; position:sticky; top:0; z-index:5; background:#fff; padding:${emTela ? "calc(env(safe-area-inset-top) + 12px)" : "12px"} 16px 10px; border-bottom:1px solid ${BORDA};`)}>
-          <div style={css("display:flex; align-items:center; gap:10px; min-height:40px;")}>
-            {passo > 1 && passo < 6 ? (
-              <button onClick={() => setPasso((passo - 1) as Passo)} style={css(`display:inline-flex; align-items:center; gap:4px; border:1px solid ${BORDA}; background:#fff; border-radius:999px; padding:7px 12px; font-size:13px; font-weight:700; color:${TINTA}; cursor:pointer;`)}>
-                <Svg size={14} sw={2.4}><path d="m15 18-6-6 6-6" /></Svg>Voltar
+          <div style={css("display:flex; align-items:center; gap:10px; min-height:46px;")}>
+            {(passo > 1 && passo < 6) || (passo === 1 && !naVitrine && grupos.length > 1) ? (
+              <button onClick={() => (passo === 1 ? setCatAberta(null) : setPasso((passo - 1) as Passo))} style={css(`display:inline-flex; align-items:center; gap:6px; border:1.5px solid ${BORDA}; background:#fff; border-radius:999px; padding:10px 18px 10px 13px; font-size:16px; font-weight:800; color:${TINTA}; cursor:pointer;`)}>
+                <Svg size={18} sw={2.6}><path d="m15 18-6-6 6-6" /></Svg>{passo === 1 ? "Categorias" : "Voltar"}
               </button>
-            ) : <span style={css(`font-size:13px; font-weight:800; color:${COR}; letter-spacing:.3px;`)}>Encomendas</span>}
+            ) : <span style={css(`font-size:16px; font-weight:800; color:${COR}; letter-spacing:.2px;`)}>Encomendas</span>}
             <span style={{ flex: 1 }} />
-            {passo < 6 && <span style={css(`font-size:12.5px; font-weight:700; color:${FRACA};`)}>{passo} de 5</span>}
-            <img src="/icone-jb-180.png" alt="Ju Budelon" style={css("width:38px; height:38px; border-radius:10px;")} />
+            {passo < 6 && <span style={css(`font-size:14px; font-weight:700; color:${FRACA};`)}>{passo} de 5</span>}
+            <img src="/icone-jb-180.png" alt="Ju Budelon" style={css("width:44px; height:44px; border-radius:12px;")} />
           </div>
           {passo < 6 && (
             <div style={css("display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px;")}>
@@ -130,82 +141,86 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
         {/* Conteúdo */}
         <div ref={rolagem} style={css("flex:1; min-height:0; overflow-y:auto; padding:18px 16px 24px;")}>
-          {passo === 1 && (
+          {passo === 1 && naVitrine && (
             <>
-              <h1 style={css("margin:0 0 4px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>O que você vai querer?</h1>
-              <p style={css(`margin:0 0 6px; font-size:13.5px; color:${FRACA};`)}>Escolha um produto para continuar.</p>
-              {!carregado && <div style={css(`padding:40px 0; text-align:center; color:${FRACA}; font-size:14px;`)}>Carregando o cardápio…</div>}
-              {carregado && erroCarga && <div role="alert" style={css("margin-top:14px; font-size:13.5px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:11px 13px;")}>Não foi possível carregar o cardápio agora. Atualize a página em instantes.</div>}
-              {carregado && !erroCarga && grupos.length === 0 && <div style={css(`padding:30px 0; text-align:center; color:${FRACA}; font-size:14px;`)}>Nenhum produto disponível para encomenda no momento.</div>}
-              {grupos.length > 1 && (
-                <div style={css("display:flex; gap:7px; overflow-x:auto; padding:8px 0 4px; scrollbar-width:none;")}>
-                  {grupos.map((g) => (
-                    <button key={g.categoria?.id ?? "sem"} onClick={() => document.getElementById(`cat-${g.categoria?.id ?? "sem"}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} style={css(`flex:none; border:1px solid ${BORDA}; background:#fff; border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:700; color:${TINTA}; cursor:pointer; white-space:nowrap;`)}>{g.categoria?.nome ?? "Outros"}</button>
-                  ))}
-                </div>
-              )}
-              {grupos.length === 0 && <div style={css(`margin-top:20px; text-align:center; color:${FRACA}; font-size:13.5px;`)}>Nenhum produto disponível no momento.</div>}
-              {grupos.map((g) => (
-                <section key={g.categoria?.id ?? "sem"} id={`cat-${g.categoria?.id ?? "sem"}`} style={css("margin-top:14px; scroll-margin-top:8px;")}>
-                  <h2 style={css(`margin:0 0 10px; font-size:15px; font-weight:800; color:${COR};`)}>{g.categoria?.nome ?? "Outros"}</h2>
-                  <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;")}>
-                    {g.produtos.map((p) => {
-                      const sel = p.id === produtoId;
-                      return (
-                        <button key={p.id} onClick={() => { setProdutoId(p.id); if (p.id !== produtoId) setQtd(1); setPasso(2); }} style={css(`text-align:left; padding:0; border:2px solid ${sel ? COR : BORDA}; background:#fff; border-radius:16px; overflow:hidden; cursor:pointer; box-shadow:${sel ? `0 6px 18px ${COR}33` : "none"}; position:relative;`)}>
-                          <Foto src={p.foto} alt={p.nome} proporcao="auto" miniatura />
-                          {sel && <span style={css(`position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={15} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
-                          <div style={css("padding:9px 10px 11px;")}>
-                            <div style={css("font-size:13.5px; font-weight:800; line-height:1.25;")}>{p.nome.replace(/^Torta de /, "")}</div>
-                            <div style={css(`font-size:13px; font-weight:800; color:${COR}; margin-top:3px;`)}>{brl(p.preco)}</div>
-                            {p.peso && <div style={css(`font-size:11.5px; color:${FRACA}; margin-top:1px;`)}>{p.peso}</div>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
+              {vit.destaqueAtivo && (vit.destaqueTitulo || vit.destaqueTexto) && <FaixaDestaque vitrine={vit} />}
+              <h1 style={css(TITULO)}>{vit.titulo}</h1>
+              {vit.subtitulo && <p style={css(SUBTITULO)}>{vit.subtitulo}</p>}
+              {!carregado && <div style={css(`padding:40px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Carregando o cardápio…</div>}
+              {carregado && erroCarga && <div role="alert" style={css("margin-top:14px; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:12px 14px;")}>Não foi possível carregar o cardápio agora. Atualize a página em instantes.</div>}
+              {carregado && !erroCarga && grupos.length === 0 && <div style={css(`padding:30px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Nenhum produto disponível para encomenda no momento.</div>}
+              {/* Vitrine: um card grande por categoria. Com número ímpar, a primeira ocupa a linha toda. */}
+              <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:16px;")}>
+                {grupos.map((g, i) => (
+                  <CardCategoria key={g.categoria?.id ?? "sem"} grupo={g} largo={grupos.length % 2 === 1 && i === 0} vitrine={vit}
+                    onClick={() => setCatAberta(g.categoria?.id ?? SEM)} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {passo === 1 && !naVitrine && grupoAberto && (
+            <>
+              {/* Uma categoria só: a faixa de destaque e o título da vitrine ficam aqui. */}
+              {grupos.length === 1 && vit.destaqueAtivo && (vit.destaqueTitulo || vit.destaqueTexto) && <FaixaDestaque vitrine={vit} />}
+              <h1 style={css(TITULO)}>{grupos.length === 1 ? vit.titulo : grupoAberto.categoria?.nome ?? "Outros"}</h1>
+              <p style={css(SUBTITULO)}>{grupos.length > 1 && grupoAberto.categoria?.descricao ? `${grupoAberto.categoria.descricao} · ` : ""}Toque no produto para escolher.</p>
+              <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:16px;")}>
+                {grupoAberto.produtos.map((p) => {
+                  const sel = p.id === produtoId;
+                  return (
+                    <button key={p.id} onClick={() => { setProdutoId(p.id); if (p.id !== produtoId) setQtd(1); setPasso(2); }} style={css(`text-align:left; padding:0; border:2px solid ${sel ? COR : BORDA}; background:#fff; border-radius:18px; overflow:hidden; cursor:pointer; box-shadow:${sel ? `0 6px 18px ${COR}33` : "0 2px 10px rgba(27,27,40,.05)"}; position:relative; display:flex; flex-direction:column;`)}>
+                      <Foto src={p.foto} alt={p.nome} proporcao="1/1" cortar miniatura />
+                      {sel && <span style={css(`position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
+                      <div style={css("padding:11px 12px 13px;")}>
+                        <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{p.nome.replace(/^Torta de /, "")}</div>
+                        <div style={css(`font-size:17px; font-weight:800; color:${COR}; margin-top:5px;`)}>{brl(p.preco)}</div>
+                        {(p.peso || p.porcoes) && <div style={css(`font-size:15.5px; color:${FRACA}; margin-top:2px;`)}>{[p.peso, p.porcoes].filter(Boolean).join(" · ")}</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </>
           )}
 
           {passo === 2 && produto && (
             <>
               <div style={css(`border-radius:16px; overflow:hidden; margin-bottom:14px; background:#F6D3DA;`)}><Foto src={produto.foto} alt={produto.nome} proporcao="auto" alturaMax="72vh" /></div>
-              <h1 style={css("margin:0; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>{produto.nome}</h1>
-              <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:3px;`)}>{[produto.porcoes && `Serve ${produto.porcoes}`, produto.peso && `peso médio ${produto.peso}`].filter(Boolean).join(" · ")}{produto.porcoes || produto.peso ? " · " : ""}<b style={{ color: COR }}>{brl(produto.preco)}</b></div>
-              {produto.descricao && <p style={css("margin:10px 0 0; font-size:13.5px; color:#3A3F4C; line-height:1.5;")}>{produto.descricao}</p>}
+              <h1 style={css("margin:0; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>{produto.nome}</h1>
+              <div style={css(`font-size:15.5px; color:${FRACA}; margin-top:3px;`)}>{[produto.porcoes && `Serve ${produto.porcoes}`, produto.peso && `peso médio ${produto.peso}`].filter(Boolean).join(" · ")}{produto.porcoes || produto.peso ? " · " : ""}<b style={{ color: COR }}>{brl(produto.preco)}</b></div>
+              {produto.descricao && <p style={css("margin:10px 0 0; font-size:15.5px; color:#3A3F4C; line-height:1.55;")}>{produto.descricao}</p>}
               {produto.camadas.length > 0 && (
                 <div style={css(`margin-top:14px; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px;`)}>
                   <div style={css(`font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:${COR}; margin-bottom:8px;`)}>Ordem das camadas</div>
                   <ol style={css("margin:0; padding-left:18px; display:flex; flex-direction:column; gap:3px;")}>
-                    {produto.camadas.map((c, i) => <li key={i} style={css("font-size:13px; color:#3A3F4C;")}>{c}</li>)}
+                    {produto.camadas.map((c, i) => <li key={i} style={css("font-size:15px; color:#3A3F4C;")}>{c}</li>)}
                   </ol>
                 </div>
               )}
               {/* Quantidade em destaque e centralizada: alvo grande para o dedo e a conta do valor logo abaixo. */}
               <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:16px; padding:16px 14px 14px; text-align:center;`)}>
-                <div style={css("font-size:15px; font-weight:800;")}>Quantas unidades?</div>
+                <div style={css("font-size:17px; font-weight:800;")}>Quantas unidades?</div>
                 <div style={css("display:flex; align-items:center; justify-content:center; gap:22px; margin-top:12px;")}>
                   <Passador onClick={() => setQtd((q) => Math.max(1, q - 1))} disabled={qtd <= 1}>−</Passador>
-                  <span style={css("font-size:34px; font-weight:800; min-width:44px; text-align:center; font-variant-numeric:tabular-nums; line-height:1;")}>{qtd}</span>
+                  <span style={css("font-size:38px; font-weight:800; min-width:48px; text-align:center; font-variant-numeric:tabular-nums; line-height:1;")}>{qtd}</span>
                   <Passador onClick={() => setQtd((q) => Math.min(cfg.maxPorPedido, q + 1))} disabled={qtd >= cfg.maxPorPedido} cheio>+</Passador>
                 </div>
-                <div style={css("font-size:13.5px; font-weight:700; color:#3A3F4C; margin-top:12px; font-variant-numeric:tabular-nums;")}>
+                <div style={css("font-size:15.5px; font-weight:700; color:#3A3F4C; margin-top:12px; font-variant-numeric:tabular-nums;")}>
                   {qtd} × {brl(produto.preco)} = <span style={{ color: COR }}>{brl(subtotal)}</span>
                 </div>
-                <div style={css(`font-size:12px; color:${FRACA}; margin-top:3px;`)}>até {cfg.maxPorPedido} por pedido</div>
+                <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:3px;`)}>até {cfg.maxPorPedido} por pedido</div>
               </div>
-              <label style={css("display:block; margin-top:18px; font-size:14px; font-weight:800;")}>Alguma observação? <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span></label>
+              <label style={css("display:block; margin-top:18px; font-size:16.5px; font-weight:800;")}>Alguma observação? <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span></label>
               <textarea value={mensagem} maxLength={300} onChange={(e) => setMensagem(e.target.value)} rows={3} placeholder="Ex.: escrever “Feliz aniversário, Ana!”, embalar para presente…" style={css(campo("margin-top:8px; resize:none;"))} />
-              <div style={css(`text-align:right; font-size:11.5px; color:${FRACA}; margin-top:3px;`)}>{mensagem.length}/300</div>
+              <div style={css(`text-align:right; font-size:13px; color:${FRACA}; margin-top:3px;`)}>{mensagem.length}/300</div>
             </>
           )}
 
           {passo === 3 && (
             <>
-              <h1 style={css("margin:0 0 14px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>{soRetirada ? "Em qual loja você vai retirar?" : soEntrega ? "Onde vamos entregar?" : "Entrega ou retirada?"}</h1>
-              {soRetirada && <p style={css(`margin:-6px 0 14px; font-size:14px; color:${FRACA};`)}>A encomenda é retirada na loja, sem taxa.</p>}
+              <h1 style={css("margin:0 0 14px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>{soRetirada ? "Em qual loja você vai retirar?" : soEntrega ? "Onde vamos entregar?" : "Entrega ou retirada?"}</h1>
+              {soRetirada && <p style={css(`margin:-6px 0 14px; font-size:15.5px; color:${FRACA};`)}>A encomenda é retirada na loja, sem taxa.</p>}
               {/* Dois botões grandes lado a lado; some quando só uma forma está ligada. */}
               <div style={css(`display:${soRetirada || soEntrega ? "none" : "grid"}; grid-template-columns:repeat(${unidades.length > 0 && cfg.entregaAtiva ? 2 : 1}, minmax(0,1fr)); gap:12px;`)}>
                 {unidades.length > 0 && (
@@ -219,7 +234,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               </div>
               {tipo === "Retirada" && unidades.length > 0 && (
                 <>
-                  {!soRetirada && <div style={css("margin:20px 0 8px; font-size:14px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
+                  {!soRetirada && <div style={css("margin:20px 0 8px; font-size:16.5px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
                   <div style={css("display:flex; flex-direction:column; gap:8px;")}>
                     {unidades.map((u) => (
                       <Opcao key={u.id} sel={unidadeId === u.id} onClick={() => setUnidadeId(u.id)} titulo={u.nome} sub={u.endereco || "Retire no horário escolhido"}
@@ -230,7 +245,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               )}
               {tipo === "Entrega" && (
                 <>
-                  {cfg.taxaEntrega > 0 && <div style={css("margin-top:16px; font-size:13px; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:10px 12px;")}>A entrega tem uma taxa de <b>{brl(cfg.taxaEntrega)}</b>, somada ao total do pedido.</div>}
+                  {cfg.taxaEntrega > 0 && <div style={css("margin-top:16px; font-size:15px; color:#92400E; background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:10px 12px;")}>A entrega tem uma taxa de <b>{brl(cfg.taxaEntrega)}</b>, somada ao total do pedido.</div>}
                   <div style={css("display:flex; flex-direction:column; gap:10px; margin-top:14px;")}>
                     <Campo rotulo="Cidade" valor={end.cidade} onChange={(v) => setEnd({ ...end, cidade: v })} ph="Ex.: Florianópolis" />
                     <Campo rotulo="Bairro" valor={end.bairro} onChange={(v) => setEnd({ ...end, bairro: v })} ph="Ex.: Centro" />
@@ -238,7 +253,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                       <div style={{ flex: 1, minWidth: 0 }}><Campo rotulo="Rua" valor={end.rua} onChange={(v) => setEnd({ ...end, rua: v })} ph="Ex.: Rua Felipe Schmidt" /></div>
                       <div style={{ width: 96, flex: "none" }}><Campo rotulo="Número" valor={end.numero} onChange={(v) => setEnd({ ...end, numero: v })} ph="Ex.: 85" /></div>
                     </div>
-                    <label style={css("font-size:13px; font-weight:700;")}>Outras informações <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span>
+                    <label style={css("font-size:15px; font-weight:700;")}>Outras informações <span style={css(`font-weight:600; color:${FRACA};`)}>(opcional)</span>
                       <textarea value={end.complemento} onChange={(e) => setEnd({ ...end, complemento: e.target.value })} rows={2} placeholder="Apartamento, ponto de referência…" style={css(campo("margin-top:6px; resize:none;"))} />
                     </label>
                   </div>
@@ -251,13 +266,13 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
           {passo === 5 && produto && tipo && data && hora && (
             <>
-              <h1 style={css("margin:0 0 4px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>Quase lá!</h1>
-              <p style={css(`margin:0 0 16px; font-size:13.5px; color:${FRACA};`)}>Só precisamos saber para quem é o pedido.</p>
+              <h1 style={css("margin:0 0 4px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>Quase lá!</h1>
+              <p style={css(`margin:0 0 16px; font-size:15.5px; color:${FRACA};`)}>Só precisamos saber para quem é o pedido.</p>
               <div style={css("display:flex; flex-direction:column; gap:10px;")}>
                 <Campo rotulo="Seu nome" valor={nome} onChange={setNome} ph="Como podemos te chamar?" />
                 <Campo rotulo="WhatsApp" valor={whats} onChange={(v) => setWhats(mascara(v))} ph="(48) 99999-9999" tipo="tel" dica="É por aqui que confirmamos seu pedido." />
               </div>
-              <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:7px; font-size:13px;`)}>
+              <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; font-size:15px;`)}>
                 <Linha k={`${qtd}× ${produto.nome}`} v={brl(subtotal)} forte />
                 {mensagem.trim() && <Linha k="Observação" v={mensagem.trim()} />}
                 <Linha k={tipo === "Entrega" ? "Taxa de entrega" : "Retirada no local"} v={tipo === "Entrega" ? brl(taxa) : "Sem taxa"} />
@@ -272,33 +287,33 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             !pago ? (
               <div style={css("text-align:center;")}>
                 <div style={css("width:56px; height:56px; border-radius:50%; background:#E7F6EE; color:#1B7F4D; display:flex; align-items:center; justify-content:center; margin:8px auto 12px;")}><Svg size={28} sw={2.6}><path d="M20 6 9 17l-5-5" /></Svg></div>
-                <h1 style={css("margin:0; font-size:22px; font-weight:800;")}>Pedido registrado!</h1>
-                <p style={css(`margin:6px 0 16px; font-size:13.5px; color:${FRACA};`)}>Agora é só pagar com PIX para entrar na fila de produção.</p>
+                <h1 style={css("margin:0; font-size:26px; font-weight:800;")}>Pedido registrado!</h1>
+                <p style={css(`margin:6px 0 16px; font-size:15.5px; color:${FRACA};`)}>Agora é só pagar com PIX para entrar na fila de produção.</p>
                 {pix ? (
                   <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:16px;`)}>
                     <div style={css("font-size:30px; font-weight:800; letter-spacing:-.6px;")}>{brl(pedido.total)}</div>
                     <QrPix codigo={pix} />
-                    <div style={css(`font-size:12.5px; color:${FRACA}; margin-bottom:8px;`)}>Escaneie no app do seu banco ou use o código abaixo.</div>
+                    <div style={css(`font-size:14.5px; color:${FRACA}; margin-bottom:8px;`)}>Escaneie no app do seu banco ou use o código abaixo.</div>
                     <div style={css(`font-family:ui-monospace,monospace; font-size:11px; color:#5B6472; background:${CAMPO}; border-radius:9px; padding:8px; word-break:break-all; user-select:all;`)}>{pix}</div>
-                    <button onClick={() => { void navigator.clipboard?.writeText(pix).catch(() => {}); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }} style={css(`margin-top:10px; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:9px 18px; font-size:13.5px; font-weight:800; cursor:pointer;`)}>{copiado ? "Copiado!" : "Copiar código PIX"}</button>
+                    <button onClick={() => { void navigator.clipboard?.writeText(pix).catch(() => {}); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }} style={css(`margin-top:10px; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:13px 22px; font-size:16px; font-weight:800; cursor:pointer;`)}>{copiado ? "Copiado!" : "Copiar código PIX"}</button>
                   </div>
                 ) : (
                   // Chave PIX ainda não cadastrada em Autoatendimento → Configurações: nada de PIX falso.
                   <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:16px;`)}>
                     <div style={css("font-size:30px; font-weight:800; letter-spacing:-.6px;")}>{brl(pedido.total)}</div>
-                    <div style={css("margin-top:10px; font-size:13.5px; color:#1E3A8A; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:12px; padding:10px 12px;")}>Nossa equipe vai te enviar a chave PIX pelo WhatsApp <b>{foneBR(normalizePhone(whats))}</b> para você pagar.</div>
+                    <div style={css("margin-top:10px; font-size:15px; color:#1E3A8A; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:12px; padding:10px 12px;")}>Nossa equipe vai te enviar a chave PIX pelo WhatsApp <b>{foneBR(normalizePhone(whats))}</b> para você pagar.</div>
                   </div>
                 )}
               </div>
             ) : (
               <div>
-                <h1 style={css("margin:6px 0 4px; font-size:22px; font-weight:800;")}>Obrigado, {nome.trim().split(" ")[0]}!</h1>
-                <p style={css(`margin:0 0 14px; font-size:13.5px; color:${FRACA};`)}>Recebemos sua encomenda.</p>
-                <div style={css("background:#EFF6FF; border:1px solid #BFDBFE; border-radius:14px; padding:12px 14px; font-size:13px; color:#1E3A8A; margin-bottom:14px;")}>
+                <h1 style={css("margin:6px 0 4px; font-size:26px; font-weight:800;")}>Obrigado, {nome.trim().split(" ")[0]}!</h1>
+                <p style={css(`margin:0 0 14px; font-size:15.5px; color:${FRACA};`)}>Recebemos sua encomenda.</p>
+                <div style={css("background:#EFF6FF; border:1px solid #BFDBFE; border-radius:14px; padding:12px 14px; font-size:15px; color:#1E3A8A; margin-bottom:14px;")}>
                   <b>Vamos entrar em contato</b><br />Nossa equipe vai te chamar no WhatsApp {foneBR(normalizePhone(whats))} para confirmar o pagamento e o seu pedido.
                 </div>
-                <div style={css(`border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:7px; font-size:13px;`)}>
-                  <div style={css(`font-size:11px; font-weight:800; letter-spacing:.5px; color:${FRACA};`)}>PEDIDO #{numeroPedido(pedido.id)}</div>
+                <div style={css(`border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; font-size:15px;`)}>
+                  <div style={css(`font-size:13px; font-weight:800; letter-spacing:.5px; color:${FRACA};`)}>PEDIDO #{numeroPedido(pedido.id)}</div>
                   <Linha k={`${pedido.quantidade}× ${produto.nome}`} v={brl(pedido.subtotal)} forte />
                   {pedido.taxa > 0 && <Linha k="Taxa de entrega" v={brl(pedido.taxa)} />}
                   <Linha k="Total" v={brl(pedido.total)} forte />
@@ -307,7 +322,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                   <Linha k={pedido.tipo} v={pedido.tipo === "Entrega" ? "No endereço informado" : unidadeNome ?? "No local"} />
                   <Linha k="Pagamento" v="PIX" />
                 </div>
-                <div style={css(`text-align:center; font-size:12px; color:${FRACA}; margin-top:12px;`)}>Guarde este link — ele é o comprovante do seu pedido.</div>
+                <div style={css(`text-align:center; font-size:14px; color:${FRACA}; margin-top:12px;`)}>Guarde este link — ele é o comprovante do seu pedido.</div>
               </div>
             )
           )}
@@ -315,25 +330,70 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
         {/* Rodapé — no passo 1 não tem: tocar no produto já avança. */}
         {passo > 1 && <div style={css(`flex:none; position:sticky; bottom:0; background:#fff; border-top:1px solid ${BORDA}; padding:12px 16px ${emTela ? "calc(env(safe-area-inset-bottom) + 12px)" : "12px"}; display:flex; align-items:center; gap:12px; flex-wrap:wrap;`)}>
-          {erroEnvio && passo === 5 && <div role="alert" style={css("flex-basis:100%; font-size:13px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:9px 12px;")}>{erroEnvio}</div>}
+          {erroEnvio && passo === 5 && <div role="alert" style={css("flex-basis:100%; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:9px 12px;")}>{erroEnvio}</div>}
           {passo < 6 ? (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={css(`font-size:11.5px; font-weight:700; color:${FRACA};`)}>{passo <= 2 ? "Subtotal" : "Total"}</div>
-                <div style={css("font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(passo <= 2 ? subtotal : total)}</div>
+                <div style={css(`font-size:13px; font-weight:700; color:${FRACA};`)}>{passo <= 2 ? "Subtotal" : "Total"}</div>
+                <div style={css("font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(passo <= 2 ? subtotal : total)}</div>
               </div>
-              <button onClick={avancar} disabled={!pode[passo]} style={css(`border:none; background:${pode[passo] ? COR : "#D9C6CC"}; color:#fff; border-radius:999px; padding:13px 22px; font-size:15px; font-weight:800; cursor:${pode[passo] ? "pointer" : "not-allowed"}; display:inline-flex; align-items:center; gap:6px;`)}>
-                {botao}<Svg size={16} sw={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>
+              <button onClick={avancar} disabled={!pode[passo]} style={css(`border:none; background:${pode[passo] ? COR : "#D9C6CC"}; color:#fff; border-radius:999px; padding:16px 26px; font-size:17.5px; font-weight:800; cursor:${pode[passo] ? "pointer" : "not-allowed"}; display:inline-flex; align-items:center; gap:6px;`)}>
+                {botao}<Svg size={19} sw={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>
               </button>
             </>
           ) : !pago ? (
-            <button onClick={() => setPago(true)} style={css(`flex:1; border:none; background:${COR}; color:#fff; border-radius:999px; padding:14px; font-size:15px; font-weight:800; cursor:pointer;`)}>Já fiz o PIX</button>
+            <button onClick={() => setPago(true)} style={css(`flex:1; border:none; background:${COR}; color:#fff; border-radius:999px; padding:17px; font-size:17.5px; font-weight:800; cursor:pointer;`)}>Já fiz o PIX</button>
           ) : (
-            <button onClick={recomecar} style={css(`flex:1; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:13px; font-size:15px; font-weight:800; cursor:pointer;`)}>Fazer outra encomenda</button>
+            <button onClick={recomecar} style={css(`flex:1; border:1.5px solid ${COR}; background:#fff; color:${COR}; border-radius:999px; padding:16px; font-size:17.5px; font-weight:800; cursor:pointer;`)}>Fazer outra encomenda</button>
           )}
         </div>}
       </div>
     </div>
+  );
+}
+
+/** Faixa de destaque no topo da vitrine (ex.: "Natal 2026"), com texto e cor da configuração. */
+function FaixaDestaque({ vitrine: v }: { vitrine: Vitrine }) {
+  const cor = CORES_DESTAQUE.find((c) => c.key === v.destaqueCor) ?? CORES_DESTAQUE[0];
+  return (
+    <div style={css(`position:relative; overflow:hidden; border-radius:20px; padding:20px 20px 19px; margin-bottom:20px; color:#fff; background:linear-gradient(135deg, ${cor.de}, ${cor.ate}); box-shadow:0 10px 24px ${cor.ate}40;`)}>
+      {/* Brilhos decorativos (só enfeite, não leem na tela de leitura). */}
+      <svg aria-hidden width="150" height="150" viewBox="0 0 150 150" style={css("position:absolute; right:-18px; top:-22px; opacity:.22;")}>
+        {[[110, 40, 16], [62, 26, 8], [128, 98, 9], [80, 76, 5]].map(([x, y, r], i) => (
+          <path key={i} fill="#fff" d={`M${x} ${y - r}C${x + r * 0.18} ${y - r * 0.18} ${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y}C${x + r * 0.18} ${y + r * 0.18} ${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r}C${x - r * 0.18} ${y + r * 0.18} ${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y}C${x - r * 0.18} ${y - r * 0.18} ${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z`} />
+        ))}
+      </svg>
+      {v.destaqueTitulo && <div style={css("position:relative; font-size:27px; font-weight:800; letter-spacing:-.5px; line-height:1.1;")}>{v.destaqueTitulo}</div>}
+      {v.destaqueTexto && <div style={css(`position:relative; font-size:15.5px; font-weight:600; line-height:1.4; opacity:.95; ${v.destaqueTitulo ? "margin-top:7px;" : ""} max-width:92%;`)}>{v.destaqueTexto}</div>}
+    </div>
+  );
+}
+
+/** Card grande de categoria na vitrine: capa, nome, frase curta, nº de opções e preço inicial. */
+function CardCategoria({ grupo, largo, vitrine: v, onClick }: { grupo: { categoria: Categoria | null; produtos: ProdutoEncomenda[] }; largo: boolean; vitrine: Vitrine; onClick: () => void }) {
+  const { categoria: c, produtos } = grupo;
+  const capa = c?.foto || produtos.find((p) => p.foto)?.foto || null;
+  const menor = Math.min(...produtos.map((p) => p.preco));
+  const n = produtos.length;
+  const preco = v.mostrarPreco && Number.isFinite(menor);
+  return (
+    <button onClick={onClick} style={css(`${largo ? "grid-column:1 / -1;" : ""} position:relative; text-align:left; padding:0; border:1.5px solid ${BORDA}; background:#fff; border-radius:20px; overflow:hidden; cursor:pointer; color:${TINTA}; display:flex; flex-direction:column; box-shadow:0 4px 16px rgba(27,27,40,.07);`)}>
+      <Foto src={capa} alt={c?.nome ?? "Outros"} proporcao={largo ? "16/10" : "1/1"} cortar miniatura />
+      {v.mostrarQuantidade && <span style={css(`position:absolute; top:10px; left:10px; background:rgba(255,255,255,.94); color:${TINTA}; border-radius:999px; padding:5px 11px; font-size:13.5px; font-weight:800; box-shadow:0 2px 8px rgba(0,0,0,.12);`)}>{n} {n === 1 ? "opção" : "opções"}</span>}
+      <div style={css(`padding:12px 13px 14px; display:flex; flex-direction:column; gap:3px; flex:1;`)}>
+        <div style={css(`display:flex; align-items:flex-start; gap:6px;`)}>
+          <span style={css(`flex:1; min-width:0; font-size:${largo ? 21 : 17.5}px; font-weight:800; line-height:1.2; letter-spacing:-.2px;`)}>{c?.nome ?? "Outros"}</span>
+          <span style={css(`flex:none; width:28px; height:28px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-1px;`)}><Svg size={15} sw={2.8}><path d="m9 6 6 6-6 6" /></Svg></span>
+        </div>
+        {c?.descricao && <span style={css(`font-size:14px; color:${FRACA}; line-height:1.35;`)}>{c.descricao}</span>}
+        {preco && (
+          <span style={css("margin-top:auto; padding-top:6px; display:flex; flex-direction:column;")}>
+            {n > 1 && <span style={css(`font-size:13px; font-weight:600; color:${FRACA};`)}>a partir de</span>}
+            <span style={css(`font-size:${largo ? 20 : 18}px; font-weight:800; color:${COR}; letter-spacing:-.2px;`)}>{brl(menor)}</span>
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
 
@@ -357,42 +417,42 @@ function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas;
 
   return (
     <>
-      <h1 style={css("margin:0 0 4px; font-size:22px; font-weight:800; letter-spacing:-.4px;")}>Quando você quer receber?</h1>
-      <p style={css(`margin:0 0 14px; font-size:13.5px; color:${FRACA};`)}>Precisamos de pelo menos <b>{cfg.antecedenciaHoras}h</b> de antecedência.</p>
+      <h1 style={css("margin:0 0 4px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>Quando você quer receber?</h1>
+      <p style={css(`margin:0 0 14px; font-size:15.5px; color:${FRACA};`)}>Precisamos de pelo menos <b>{cfg.antecedenciaHoras}h</b> de antecedência.</p>
       <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:12px;`)}>
         <div style={css("display:flex; align-items:center; margin-bottom:8px;")}>
-          <span style={css("flex:1; font-size:15px; font-weight:800; text-transform:capitalize;")}>{MESES[mes.getMonth()]} {mes.getFullYear()}</span>
+          <span style={css("flex:1; font-size:18px; font-weight:800; text-transform:capitalize;")}>{MESES[mes.getMonth()]} {mes.getFullYear()}</span>
           <SetaMes dir={-1} off={!podeVoltar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))} />
           <SetaMes dir={1} off={!podeAvancar} onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))} />
         </div>
         <div style={css("display:grid; grid-template-columns:repeat(7,1fr); gap:3px; text-align:center;")}>
-          {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <span key={i} style={css(`font-size:11px; font-weight:700; color:${FRACA}; padding:4px 0;`)}>{d}</span>)}
+          {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <span key={i} style={css(`font-size:13px; font-weight:700; color:${FRACA}; padding:4px 0;`)}>{d}</span>)}
           {dias.map((d) => {
             const iso = isoDia(d);
             const doMes = d.getMonth() === mes.getMonth();
             const ok = doMes && d <= limite && disponivel(iso);
             const sel = iso === data;
             return (
-              <button key={iso} disabled={!ok} onClick={() => onData(iso)} style={css(`height:38px; border:none; border-radius:10px; font-size:14px; font-weight:${sel ? 800 : 600}; cursor:${ok ? "pointer" : "default"}; background:${sel ? COR : "transparent"}; color:${sel ? "#fff" : !doMes ? "transparent" : ok ? TINTA : "#CDD0D8"}; ${ok && !sel ? `box-shadow:inset 0 0 0 1px ${BORDA};` : ""}`)}>{d.getDate()}</button>
+              <button key={iso} disabled={!ok} onClick={() => onData(iso)} style={css(`height:46px; border:none; border-radius:12px; font-size:16.5px; font-weight:${sel ? 800 : 600}; cursor:${ok ? "pointer" : "default"}; background:${sel ? COR : "transparent"}; color:${sel ? "#fff" : !doMes ? "transparent" : ok ? TINTA : "#CDD0D8"}; ${ok && !sel ? `box-shadow:inset 0 0 0 1px ${BORDA};` : ""}`)}>{d.getDate()}</button>
             );
           })}
         </div>
       </div>
       {data && (
         <>
-          <div style={css("margin:18px 0 8px; font-size:14px; font-weight:800;")}>Horário · {dataBR(data)}</div>
-          {!algum && <div style={css("font-size:13px; color:#CC3338; font-weight:600;")}>Nenhum horário desse dia atende a antecedência de {cfg.antecedenciaHoras}h. Escolha um dia depois.</div>}
+          <div style={css("margin:18px 0 8px; font-size:16.5px; font-weight:800;")}>Horário · {dataBR(data)}</div>
+          {!algum && <div style={css("font-size:15px; color:#CC3338; font-weight:600;")}>Nenhum horário desse dia atende a antecedência de {cfg.antecedenciaHoras}h. Escolha um dia depois.</div>}
           {PERIODOS.map((p) => {
             const hs = horarios.filter((h) => { const n = Number(h.slice(0, 2)); return n >= p.de && n < p.ate; });
             if (!hs.length) return null;
             return (
               <div key={p.label} style={css("margin-bottom:10px;")}>
-                <div style={css(`font-size:12px; font-weight:700; color:${FRACA}; margin-bottom:6px;`)}>{p.label}</div>
-                <div style={css("display:grid; grid-template-columns:repeat(4,1fr); gap:7px;")}>
+                <div style={css(`font-size:14px; font-weight:700; color:${FRACA}; margin-bottom:7px;`)}>{p.label}</div>
+                <div style={css("display:grid; grid-template-columns:repeat(4,1fr); gap:8px;")}>
                   {hs.map((h) => {
                     const ok = respeitaAntecedencia(cfg, data, h);
                     const sel = h === hora;
-                    return <button key={h} disabled={!ok} onClick={() => onHora(h)} style={css(`height:40px; border-radius:999px; border:1.5px solid ${sel ? COR : BORDA}; background:${sel ? COR : "#fff"}; color:${sel ? "#fff" : TINTA}; font-size:13.5px; font-weight:700; opacity:${ok ? 1 : 0.3}; cursor:${ok ? "pointer" : "default"};`)}>{h}</button>;
+                    return <button key={h} disabled={!ok} onClick={() => onHora(h)} style={css(`height:50px; border-radius:999px; border:1.5px solid ${sel ? COR : BORDA}; background:${sel ? COR : "#fff"}; color:${sel ? "#fff" : TINTA}; font-size:16.5px; font-weight:700; opacity:${ok ? 1 : 0.3}; cursor:${ok ? "pointer" : "default"};`)}>{h}</button>;
                   })}
                 </div>
               </div>
@@ -404,27 +464,27 @@ function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas;
   );
 }
 
-const campo = (extra = "") => `width:100%; box-sizing:border-box; border:1px solid ${BORDA}; background:${CAMPO}; border-radius:12px; padding:11px 12px; font-size:15px; font-family:inherit; color:${TINTA}; outline:none; ${extra}`;
+const campo = (extra = "") => `width:100%; box-sizing:border-box; border:1px solid ${BORDA}; background:${CAMPO}; border-radius:13px; padding:14px 14px; font-size:17px; font-family:inherit; color:${TINTA}; outline:none; ${extra}`;
 
 function Campo({ rotulo, valor, onChange, ph, tipo = "text", dica }: { rotulo: string; valor: string; onChange: (v: string) => void; ph?: string; tipo?: string; dica?: string }) {
   return (
-    <label style={css("display:block; font-size:13px; font-weight:700;")}>
+    <label style={css("display:block; font-size:15px; font-weight:700;")}>
       {rotulo}
       <input type={tipo} value={valor} onChange={(e) => onChange(e.target.value)} placeholder={ph} style={css(campo("margin-top:6px;"))} />
-      {dica && <span style={css(`display:block; font-size:12px; font-weight:500; color:${FRACA}; margin-top:4px;`)}>{dica}</span>}
+      {dica && <span style={css(`display:block; font-size:13.5px; font-weight:500; color:${FRACA}; margin-top:5px;`)}>{dica}</span>}
     </label>
   );
 }
 
 function Opcao({ sel, onClick, titulo, sub, icone }: { sel: boolean; onClick: () => void; titulo: string; sub: string; icone: React.ReactNode }) {
   return (
-    <button onClick={onClick} style={css(`display:flex; align-items:center; gap:12px; text-align:left; width:100%; border:1.5px solid ${sel ? COR : BORDA}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:14px; padding:12px 14px; cursor:pointer; color:${TINTA};`)}>
-      <span style={css(`flex:none; width:40px; height:40px; border-radius:11px; background:${sel ? COR : CAMPO}; color:${sel ? "#fff" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}><Svg size={19} sw={2}>{icone}</Svg></span>
+    <button onClick={onClick} style={css(`display:flex; align-items:center; gap:12px; text-align:left; width:100%; border:1.5px solid ${sel ? COR : BORDA}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:16px; padding:15px 16px; cursor:pointer; color:${TINTA};`)}>
+      <span style={css(`flex:none; width:46px; height:46px; border-radius:13px; background:${sel ? COR : CAMPO}; color:${sel ? "#fff" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}><Svg size={22} sw={2}>{icone}</Svg></span>
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={css("display:block; font-size:14.5px; font-weight:800;")}>{titulo}</span>
-        <span style={css(`display:block; font-size:12.5px; color:${FRACA}; margin-top:1px;`)}>{sub}</span>
+        <span style={css("display:block; font-size:17px; font-weight:800;")}>{titulo}</span>
+        <span style={css(`display:block; font-size:14.5px; color:${FRACA}; margin-top:2px;`)}>{sub}</span>
       </span>
-      <span style={css(`flex:none; width:20px; height:20px; border-radius:50%; border:2px solid ${sel ? COR : "#CDD0D8"}; display:flex; align-items:center; justify-content:center;`)}>{sel && <span style={css(`width:10px; height:10px; border-radius:50%; background:${COR};`)} />}</span>
+      <span style={css(`flex:none; width:24px; height:24px; border-radius:50%; border:2px solid ${sel ? COR : "#CDD0D8"}; display:flex; align-items:center; justify-content:center;`)}>{sel && <span style={css(`width:12px; height:12px; border-radius:50%; background:${COR};`)} />}</span>
     </button>
   );
 }
@@ -435,9 +495,9 @@ function OpcaoGrande({ sel, onClick, titulo, sub, detalhe, icone }: { sel: boole
     <button onClick={onClick} style={css(`position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; min-height:150px; justify-content:center; border:2px solid ${sel ? COR : BORDA}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:18px; padding:16px 10px; cursor:pointer; color:${TINTA}; box-shadow:${sel ? `0 6px 18px ${COR}2E` : "none"};`)}>
       {sel && <span style={css(`position:absolute; top:10px; right:10px; width:22px; height:22px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={13} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
       <span style={css(`width:56px; height:56px; border-radius:16px; background:${sel ? COR : CAMPO}; color:${sel ? "#fff" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}><Svg size={26} sw={1.9}>{icone}</Svg></span>
-      <span style={css("font-size:17px; font-weight:800; margin-top:2px;")}>{titulo}</span>
-      <span style={css(`font-size:12.5px; color:${FRACA}; line-height:1.3;`)}>{sub}</span>
-      <span style={css(`font-size:13px; font-weight:800; color:${sel ? COR : "#3A3F4C"};`)}>{detalhe}</span>
+      <span style={css("font-size:19px; font-weight:800; margin-top:2px;")}>{titulo}</span>
+      <span style={css(`font-size:14.5px; color:${FRACA}; line-height:1.3;`)}>{sub}</span>
+      <span style={css(`font-size:15px; font-weight:800; color:${sel ? COR : "#3A3F4C"};`)}>{detalhe}</span>
     </button>
   );
 }
@@ -445,13 +505,13 @@ function OpcaoGrande({ sel, onClick, titulo, sub, detalhe, icone }: { sel: boole
 /** Botão − / + da quantidade; `cheio` = o "+" na cor da marca (a ação principal). */
 function Passador({ onClick, disabled, cheio, children }: { onClick: () => void; disabled?: boolean; cheio?: boolean; children: React.ReactNode }) {
   const ativo = cheio && !disabled;
-  return <button onClick={onClick} disabled={disabled} style={css(`width:52px; height:52px; border-radius:50%; border:1.5px solid ${ativo ? COR : BORDA}; background:${ativo ? COR : "#fff"}; font-size:26px; font-weight:700; line-height:1; color:${disabled ? "#CDD0D8" : ativo ? "#fff" : TINTA}; cursor:${disabled ? "default" : "pointer"}; display:flex; align-items:center; justify-content:center;`)}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={css(`width:60px; height:60px; border-radius:50%; border:1.5px solid ${ativo ? COR : BORDA}; background:${ativo ? COR : "#fff"}; font-size:26px; font-weight:700; line-height:1; color:${disabled ? "#CDD0D8" : ativo ? "#fff" : TINTA}; cursor:${disabled ? "default" : "pointer"}; display:flex; align-items:center; justify-content:center;`)}>{children}</button>;
 }
 
 function SetaMes({ dir, off, onClick }: { dir: 1 | -1; off: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} disabled={off} style={css(`width:34px; height:34px; border:none; background:transparent; border-radius:9px; cursor:${off ? "default" : "pointer"}; color:${off ? "#CDD0D8" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}>
-      <Svg size={17} sw={2.4}>{dir < 0 ? <path d="m15 18-6-6 6-6" /> : <path d="m9 6 6 6-6 6" />}</Svg>
+    <button onClick={onClick} disabled={off} style={css(`width:44px; height:44px; border:none; background:transparent; border-radius:11px; cursor:${off ? "default" : "pointer"}; color:${off ? "#CDD0D8" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}>
+      <Svg size={21} sw={2.4}>{dir < 0 ? <path d="m15 18-6-6 6-6" /> : <path d="m9 6 6 6-6 6" />}</Svg>
     </button>
   );
 }

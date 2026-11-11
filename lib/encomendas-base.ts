@@ -15,7 +15,17 @@ import { brl, foneBR, normalizePhone } from "./format";
 
 // ── Catálogo ────────────────────────────────────────────────────────────────
 
-export type Categoria = { id: string; nome: string };
+export type Categoria = {
+  id: string;
+  nome: string;
+  /** Frase curta no card da vitrine (ex.: "Servem de 15 a 20 fatias"). */
+  descricao?: string;
+  /** Capa do card na vitrine; vazio = foto do primeiro produto da categoria. */
+  foto?: string | null;
+  /** false = escondida da página do cliente (com os produtos dela). */
+  ativa?: boolean;
+};
+export const categoriaAtiva = (c: Categoria) => c.ativa !== false;
 
 export type ProdutoEncomenda = {
   id: string;
@@ -57,12 +67,12 @@ export const FOTO_POSICAO = "center 72%";
 // Fotos recortadas do PDF em /public/encomendas/natal/. Encomendas com 48 h de antecedência.
 
 export const CATEGORIAS_NATAL: Categoria[] = [
-  { id: "natal-cheesecakes", nome: "Cheesecakes" },
-  { id: "natal-sobremesas", nome: "Sobremesas" },
-  { id: "natal-cake-box-especial", nome: "Cake Box Especial Fatias" },
-  { id: "natal-cake-box", nome: "Cake Box" },
-  { id: "natal-chocotones", nome: "Chocotones" },
-  { id: "natal-empadoes", nome: "Empadões" },
+  { id: "natal-cheesecakes", nome: "Cheesecakes", descricao: "Servem de 15 a 20 fatias" },
+  { id: "natal-sobremesas", nome: "Sobremesas", descricao: "Para a mesa da ceia" },
+  { id: "natal-cake-box-especial", nome: "Cake Box Especial Fatias", descricao: "As maiores, para a família toda" },
+  { id: "natal-cake-box", nome: "Cake Box", descricao: "Tortas de 1,2 a 1,3 kg" },
+  { id: "natal-chocotones", nome: "Chocotones", descricao: "Recheados e finalizados" },
+  { id: "natal-empadoes", nome: "Empadões", descricao: "Vendidos congelados · 4 a 6 porções" },
 ];
 
 const natal = (categoriaId: string, id: string, nome: string, preco: number, peso: string, descricao: string, foto = id, porcoes = ""): ProdutoEncomenda => ({
@@ -153,11 +163,46 @@ export type ConfigEncomendas = {
   intervaloMin: number;
   maxPorPedido: number;
   janelas: Record<DiaKey, JanelaDia>;
+  /** Primeira tela da página do cliente (vitrine de categorias e faixa de destaque). */
+  vitrine: Vitrine;
   pixChave: string; // vazio = PIX de exemplo
   pixNome: string;
   pixCidade: string;
   whatsappContato: string;
 };
+
+export type CorDestaque = "rose" | "natal" | "verde" | "dourado" | "chocolate";
+export const CORES_DESTAQUE: { key: CorDestaque; nome: string; de: string; ate: string }[] = [
+  { key: "rose", nome: "Rosé", de: "#B0717F", ate: "#5E2F3E" },
+  { key: "natal", nome: "Vermelho Natal", de: "#C0392B", ate: "#6E1414" },
+  { key: "verde", nome: "Verde", de: "#2F7D55", ate: "#14432C" },
+  { key: "dourado", nome: "Dourado", de: "#C79A3F", ate: "#7A5512" },
+  { key: "chocolate", nome: "Chocolate", de: "#7B5544", ate: "#3B231A" },
+];
+export type Vitrine = {
+  titulo: string;
+  subtitulo: string;
+  destaqueAtivo: boolean;
+  destaqueTitulo: string;
+  destaqueTexto: string;
+  destaqueCor: CorDestaque;
+  /** Mostra "a partir de R$ …" no card da categoria. */
+  mostrarPreco: boolean;
+  /** Mostra "N opções" no card da categoria. */
+  mostrarQuantidade: boolean;
+};
+export const VITRINE_PADRAO: Vitrine = {
+  titulo: "O que você vai querer?",
+  subtitulo: "Escolha uma categoria para ver os produtos.",
+  destaqueAtivo: true,
+  destaqueTitulo: "Natal 2026",
+  destaqueTexto: "Encomende com 48 h de antecedência e retire na loja mais perto de você.",
+  destaqueCor: "natal",
+  mostrarPreco: true,
+  mostrarQuantidade: true,
+};
+/** Vitrine com os padrões para campos que ainda não existiam na configuração salva. */
+export const vitrineDe = (cfg: { vitrine?: Partial<Vitrine> } | null | undefined): Vitrine => ({ ...VITRINE_PADRAO, ...(cfg?.vitrine ?? {}) });
 
 const dia = (inicio: string, fim: string): JanelaDia => ({ ativo: true, intervalos: [{ inicio, fim }] });
 export const CONFIG_PADRAO: ConfigEncomendas = {
@@ -177,6 +222,7 @@ export const CONFIG_PADRAO: ConfigEncomendas = {
   intervaloMin: 60,
   maxPorPedido: 5,
   janelas: { dom: { ativo: false, intervalos: [] }, seg: dia("09:00", "18:00"), ter: dia("09:00", "18:00"), qua: dia("09:00", "18:00"), qui: dia("09:00", "18:00"), sex: dia("09:00", "18:00"), sab: dia("09:00", "14:00") },
+  vitrine: VITRINE_PADRAO,
   pixChave: "",
   pixNome: "",
   pixCidade: "",
@@ -305,7 +351,10 @@ export const enderecoLinha = (e?: PedidoEncomenda["endereco"]) =>
 
 /** Produtos ativos agrupados pelas categorias, na ordem das categorias ("Sem categoria" por último). */
 export function catalogoPorCategoria(categorias: Categoria[], produtos: ProdutoEncomenda[], soAtivos = true) {
-  const lista = soAtivos ? produtos.filter((p) => p.ativo) : produtos;
+  // Na página do cliente, categoria oculta esconde também os produtos dela.
+  const ocultas = new Set(categorias.filter((c) => !categoriaAtiva(c)).map((c) => c.id));
+  const lista = soAtivos ? produtos.filter((p) => p.ativo && !(p.categoriaId && ocultas.has(p.categoriaId))) : produtos;
+  if (soAtivos) categorias = categorias.filter(categoriaAtiva);
   const grupos = categorias.map((c) => ({ categoria: c as Categoria | null, produtos: lista.filter((p) => p.categoriaId === c.id) }));
   const sem = lista.filter((p) => !p.categoriaId || !categorias.some((c) => c.id === p.categoriaId));
   if (sem.length) grupos.push({ categoria: null, produtos: sem });

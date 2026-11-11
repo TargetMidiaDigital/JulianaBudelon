@@ -4,8 +4,8 @@ import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
 import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
-  CONFIG_PADRAO, LEAD_STATUS, PEDIDO_STATUS, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido,
-  type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda,
+  CONFIG_PADRAO, CORES_DESTAQUE, LEAD_STATUS, PEDIDO_STATUS, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
+  type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
 
@@ -18,7 +18,7 @@ type SB = SupabaseClient;
 
 // ── Linhas do banco → tipos do app ──────────────────────────────────────────
 
-type RowCategoria = { id: string; nome: string; ordem: number };
+type RowCategoria = { id: string; nome: string; ordem: number; descricao: string | null; foto: string | null; ativa: boolean };
 type RowProduto = {
   id: string; nome: string; categoria_id: string | null; preco: number | string; porcoes: string; peso: string; descricao: string | null;
   camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number;
@@ -55,19 +55,26 @@ const paraCompromisso = (r: RowCompromisso): Compromisso => ({
 export async function lerConfig(sb: SB): Promise<ConfigEncomendas> {
   const { data } = await sb.from("enc_config").select("dados").eq("id", "geral").maybeSingle();
   const dados = (data as { dados?: Partial<ConfigEncomendas> } | null)?.dados ?? {};
-  return { ...CONFIG_PADRAO, ...dados, janelas: { ...CONFIG_PADRAO.janelas, ...(dados.janelas ?? {}) } };
+  return { ...CONFIG_PADRAO, ...dados, janelas: { ...CONFIG_PADRAO.janelas, ...(dados.janelas ?? {}) }, vitrine: vitrineDe(dados) };
 }
 
 /** Catálogo (categorias na ordem + produtos). `soAtivos` = página pública. */
 export async function lerCatalogo(sb: SB, soAtivos: boolean): Promise<{ categorias: Categoria[]; produtos: ProdutoEncomenda[] }> {
   let qp = sb.from("enc_produto").select("*").order("ordem").order("nome");
   if (soAtivos) qp = qp.eq("ativo", true);
-  const [c, p] = await Promise.all([sb.from("enc_categoria").select("id, nome, ordem").order("ordem").order("nome"), qp]);
+  const [c, p] = await Promise.all([sb.from("enc_categoria").select("id, nome, ordem, descricao, foto, ativa").order("ordem").order("nome"), qp]);
   if (c.error) throw new Error(c.error.message);
   if (p.error) throw new Error(p.error.message);
+  const categorias: Categoria[] = (c.data as RowCategoria[]).map((r) => ({ id: r.id, nome: r.nome, descricao: r.descricao ?? undefined, foto: r.foto, ativa: r.ativa }));
   const produtos = (p.data as RowProduto[]).map(paraProduto);
-  // A página pública não precisa saber qual item do estoque cada torta movimenta.
-  return { categorias: (c.data as RowCategoria[]).map(({ id, nome }) => ({ id, nome })), produtos: soAtivos ? produtos.map((x) => ({ ...x, produtoEstoqueId: undefined })) : produtos };
+  if (!soAtivos) return { categorias, produtos };
+  // Página pública: categoria oculta some com os produtos dela (e o pedido deles é recusado),
+  // e o cliente não precisa saber qual item do estoque cada produto movimenta.
+  const ocultas = new Set(categorias.filter((x) => !categoriaAtiva(x)).map((x) => x.id));
+  return {
+    categorias: categorias.filter(categoriaAtiva),
+    produtos: produtos.filter((x) => !(x.categoriaId && ocultas.has(x.categoriaId))).map((x) => ({ ...x, produtoEstoqueId: undefined })),
+  };
 }
 
 /** Lê todas as linhas (PostgREST devolve no máximo 1000 por chamada). */
@@ -117,9 +124,28 @@ export function validarConfigServidor(c: ConfigEncomendas): ConfigEncomendas | s
   const limpa: ConfigEncomendas = {
     ...CONFIG_PADRAO, ...c,
     unidades: (Array.isArray(c.unidades) ? c.unidades : []).slice(0, 50).map((u) => ({ id: idValido(u.id) ? u.id : crypto.randomUUID(), nome: txt(u.nome, 80), endereco: txt(u.endereco, 200), ativo: u.ativo !== false })),
+    vitrine: limparVitrine(c.vitrine),
     pixChave: txt(c.pixChave, 120), pixNome: txt(c.pixNome, 25), pixCidade: txt(c.pixCidade, 15), whatsappContato: String(c.whatsappContato ?? "").replace(/\D/g, "").slice(0, 15),
   };
   return validarConfig(limpa) ?? limpa;
+}
+
+function limparVitrine(v: Partial<Vitrine> | undefined): Vitrine {
+  const b = vitrineDe({ vitrine: v as Vitrine });
+  return {
+    titulo: txt(b.titulo, 80) || VITRINE_PADRAO.titulo, subtitulo: txt(b.subtitulo, 160),
+    destaqueAtivo: b.destaqueAtivo !== false, destaqueTitulo: txt(b.destaqueTitulo, 60), destaqueTexto: txt(b.destaqueTexto, 200),
+    destaqueCor: CORES_DESTAQUE.some((x) => x.key === b.destaqueCor) ? b.destaqueCor : VITRINE_PADRAO.destaqueCor,
+    mostrarPreco: b.mostrarPreco !== false, mostrarQuantidade: b.mostrarQuantidade !== false,
+  };
+}
+
+/** Categoria do painel → colunas (a foto em data URL é enviada à parte). */
+export function colunasCategoria(c: Categoria, ordem: number): Record<string, unknown> | string {
+  if (!idValido(c?.id)) return "Categoria inválida.";
+  const nome = txt(c.nome, 80);
+  if (!nome) return "Informe o nome da categoria.";
+  return { id: c.id, nome, ordem, descricao: txt(c.descricao, 120) || null, foto: typeof c.foto === "string" && c.foto ? c.foto.slice(0, 2000) : null, ativa: c.ativa !== false };
 }
 
 export function colunasCompromisso(c: Compromisso): Record<string, unknown> | string {

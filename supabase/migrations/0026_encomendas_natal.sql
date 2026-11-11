@@ -6,13 +6,13 @@
 --    produção soma na Fábrica → loja recebe → "Entregue" dá baixa.
 -- Idempotente (on conflict do nothing): não sobrescreve o que já foi editado na tela.
 
-insert into enc_categoria (id, nome, ordem) values
-  ('natal-cheesecakes', 'Cheesecakes', 0),
-  ('natal-sobremesas', 'Sobremesas', 1),
-  ('natal-cake-box-especial', 'Cake Box Especial Fatias', 2),
-  ('natal-cake-box', 'Cake Box', 3),
-  ('natal-chocotones', 'Chocotones', 4),
-  ('natal-empadoes', 'Empadões', 5)
+insert into enc_categoria (id, nome, descricao, ordem) values
+  ('natal-cheesecakes', 'Cheesecakes', 'Servem de 15 a 20 fatias', 0),
+  ('natal-sobremesas', 'Sobremesas', 'Para a mesa da ceia', 1),
+  ('natal-cake-box-especial', 'Cake Box Especial Fatias', 'As maiores, para a família toda', 2),
+  ('natal-cake-box', 'Cake Box', 'Tortas de 1,2 a 1,3 kg', 3),
+  ('natal-chocotones', 'Chocotones', 'Recheados e finalizados', 4),
+  ('natal-empadoes', 'Empadões', 'Vendidos congelados · 4 a 6 porções', 5)
 on conflict (id) do nothing;
 update enc_categoria set ordem = 6 where id = 'camadas-de-felicidade';
 

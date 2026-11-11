@@ -21,7 +21,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
 const ABAS = [
   { id: "pagina", label: "Página de encomendas", desc: "O que o cliente vê e o link para divulgar" },
   { id: "produtos", label: "Produtos", desc: "Produtos e categorias do catálogo" },
-  { id: "config", label: "Configurações", desc: "Unidades de retirada, entrega, horários e pagamento" },
+  { id: "config", label: "Configurações", desc: "Vitrine, unidades de retirada, entrega, horários e pagamento" },
 ] as const;
 
 export default function EncAutoatendimento() {
