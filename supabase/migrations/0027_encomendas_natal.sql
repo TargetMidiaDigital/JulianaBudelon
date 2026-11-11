@@ -4,7 +4,7 @@
 --  * 48 produtos com preço, peso, rendimento, descrição e foto (public/encomendas/natal/).
 --  * Um item no Estoque (categoria "Encomendas") por produto, ligado pelo produto_estoque_id:
 --    produção soma na Fábrica → loja recebe → "Entregue" dá baixa.
--- Idempotente (on conflict do nothing): não sobrescreve o que já foi editado na tela.
+-- Idempotente (on conflict do nothing): não sobrescreve o que já foi editado na tela. Depende da 0026 (colunas da vitrine).
 
 insert into enc_categoria (id, nome, descricao, destaque, ordem) values
   ('natal-cheesecakes', 'Cheesecakes', 'Servem de 15 a 20 fatias', true, 0),
