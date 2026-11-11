@@ -634,7 +634,9 @@ function QrPix({ codigo }: { codigo: string }) {
 export function Foto({ src: original, alt, proporcao, cortar, alturaMax, miniatura }: { src: string | null; alt: string; proporcao: string; cortar?: boolean; alturaMax?: string; miniatura?: boolean }) {
   // Flyer do catálogo: em listas e miniaturas usa a versão "-card" (~24 KB em vez de ~75 KB).
   const flyer = !!original && /^\/encomendas\/torta-[\w-]+\.webp$/.test(original);
-  const src = flyer && miniatura ? original!.replace(/\.webp$/, "-card.webp") : original;
+  // Fotos do cardápio de Natal também têm versão "-card" (440px, ~12 KB em vez de ~50 KB).
+  const natal = !!original && /^\/encomendas\/natal\/[\w-]+\.webp$/.test(original) && !original.endsWith("-card.webp");
+  const src = (flyer || natal) && miniatura ? original!.replace(/\.webp$/, "-card.webp") : original;
   // Lazy nas listas; width/height do flyer reservam o espaço antes de carregar (sem "pulo").
   const extra = { loading: miniatura ? ("lazy" as const) : undefined, decoding: "async" as const, ...(flyer ? { width: 941, height: 1672 } : {}) };
   if (!src) {
