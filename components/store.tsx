@@ -1148,6 +1148,14 @@ export const STATUS_ORDER: TaskStatus[] = ["verificar", "em andamento", "atrasad
  *  Expedição não tem "Em produção": vai direto de A verificar para Concluída. */
 export const statusEscolhiveis = (canSeeAll: boolean, expedicao = false /* Expedição ou Unidades */): TaskStatus[] =>
   (["verificar", "em andamento", "concluida", "validada"] as TaskStatus[]).filter((s) => (canSeeAll || s !== "validada") && (!expedicao || s !== "em andamento"));
+/** Próximo status do fluxo (A verificar → Em produção → Concluída → Validada), entre os que a pessoa
+ *  pode escolher (`opcoes` = statusEscolhiveis). "Atrasada" segue para Concluída. null = fim do fluxo. */
+export const proximoStatusTarefa = (atual: TaskStatus, opcoes: TaskStatus[]): TaskStatus | null => {
+  const fluxo: TaskStatus[] = ["verificar", "em andamento", "concluida", "validada"];
+  const i = atual === "atrasada" ? fluxo.indexOf("em andamento") : fluxo.indexOf(atual);
+  if (i < 0) return null;
+  return fluxo.slice(i + 1).find((s) => opcoes.includes(s)) ?? null;
+};
 /** Colunas/grupos de status de uma lista (Produção ou Expedição). */
 export const statusDaLista = (expedicao: boolean): TaskStatus[] => (expedicao ? STATUS_ORDER.filter((s) => s !== "em andamento") : STATUS_ORDER);
 export const PRIO_ORDER: Prioridade[] = ["urgente", "alta", "normal", "baixa"];

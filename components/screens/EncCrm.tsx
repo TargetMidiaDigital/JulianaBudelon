@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
-import { PEDIDO_STATUS, corPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus, type ResponsavelLead } from "@/lib/encomendas";
+import { PEDIDO_STATUS, corPedido, proximoPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus, type ResponsavelLead } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail, { RESP_COR, Seletor } from "../encomendas/LeadDetail";
 import { useApp } from "../store";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { useMudarStatusPedido } from "../encomendas/useStatusPedido";
+import BotaoAvancar from "../ui/BotaoAvancar";
 
 const RESPONSAVEIS: ResponsavelLead[] = ["I.A", "Humano"];
 
@@ -69,6 +70,8 @@ export default function EncCrm() {
         <div style={css("display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #F0F1F4; flex-wrap:wrap;")}>
           <Seletor disabled={!editavel} valor={p.status} cor={cor} opcoes={PEDIDO_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
           {l && <Seletor disabled={!editavel} valor={l.responsavel} cor={RESP_COR[l.responsavel].fg} opcoes={RESPONSAVEIS.map((r) => ({ v: r, cor: RESP_COR[r].fg }))} onChange={(v) => setResponsavel(l.id, v as ResponsavelLead)} />}
+          <span style={{ flex: 1 }} />
+          {editavel && proximoPedido(p.status) && <BotaoAvancar proximo={proximoPedido(p.status)!} onClick={() => setPedidoStatus(p.id, proximoPedido(p.status)!)} />}
         </div>
       </Hoverable>
     );

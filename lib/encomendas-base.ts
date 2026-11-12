@@ -331,6 +331,11 @@ export const PEDIDO_STATUS = [
   { key: "Entregue", cor: "#10B981", agenda: "#16A34A" },
 ] as const;
 export type PedidoStatus = (typeof PEDIDO_STATUS)[number]["key"];
+/** Próximo status do pedido no funil (null em "Entregue"). */
+export const proximoPedido = (s: PedidoStatus): PedidoStatus | null => {
+  const i = PEDIDO_STATUS.findIndex((x) => x.key === s);
+  return i >= 0 && i < PEDIDO_STATUS.length - 1 ? PEDIDO_STATUS[i + 1].key : null;
+};
 export const corPedido = (s: string) => PEDIDO_STATUS.find((x) => x.key === s)?.cor ?? "#94A3B8";
 
 export type Lead = {

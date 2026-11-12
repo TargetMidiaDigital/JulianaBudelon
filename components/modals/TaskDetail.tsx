@@ -16,7 +16,7 @@ import CampoExpansivel from "../ui/CampoExpansivel";
 import CommentBody from "../ui/CommentBody";
 import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
-import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
+import { PRIO_ORDER, gestorOf, responsaveisDoScope, proximoStatusTarefa, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
 import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
 import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
@@ -44,9 +44,8 @@ function TaskDetailBody({ t }: { t: Task }) {
   const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, semEtapaProducao(t)); // sem "Atrasada"; Expedição sem "Em produção"
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
   // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
-  const PROXIMO: Partial<Record<TaskStatus, TaskStatus>> = { verificar: semEtapaProducao(t) ? "concluida" : "em andamento", "em andamento": "concluida", atrasada: "concluida", concluida: "validada" };
-  const proximo = PROXIMO[t.status];
-  const podeAvancar = !!proximo && (proximo !== "validada" || canSeeAll);
+  const proximo = proximoStatusTarefa(t.status, statusOpts);
+  const podeAvancar = !!proximo;
   const close = () => setTaskDetailOpen(null);
   useFecharComEsc(true, close);
   const g = gestorOf(team, t.gestor);

@@ -10,6 +10,7 @@ import {
   PRIO_ORDER,
   STATUS_ORDER,
   statusEscolhiveis,
+  proximoStatusTarefa,
   statusDaLista,
   filterByGestor,
   gestorOf,
@@ -30,6 +31,7 @@ import FiltroTarefas from "../FiltroTarefas";
 import { pageSemProducao, tarefasDaPage } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 import { useIsMobile } from "@/lib/useIsMobile";
+import BotaoAvancar from "../ui/BotaoAvancar";
 
 type SortKey = "unidade" | "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
 type ResizeCol = "tarefa" | "descricao" | "com";
@@ -149,7 +151,7 @@ export default function ListaView({
     { id: "resp", label: "Resp.", key: "resp", w: "70px", min: 70 },
     { id: "unidade", label: "Unidade", key: "unidade", w: "132px", min: 132 },
     { id: "prio", label: "Prioridade", key: "prio", w: "130px", min: 130 },
-    { id: "status", label: "Status", key: "status", w: "150px", min: 150 },
+    { id: "status", label: "Status", key: "status", w: "184px", min: 184 },
     { id: "descricao", label: "Descrição", resize: "descricao", w: `${colW.descricao}px`, min: colW.descricao },
     { id: "com", label: "Comentário", key: "com", resize: "com", w: `${colW.com}px`, min: colW.com },
     { id: "criada", label: "Criada", key: "criada", w: "150px", min: 150 },
@@ -324,9 +326,9 @@ export default function ListaView({
             ))}
           </Menu>
         </div>
-        <div onClick={stop} style={{ minWidth: 0 }}>
+        <div onClick={stop} style={css("min-width:0; display:flex; align-items:center; gap:6px;")}>
           <Menu trigger={(tg) => (
-            <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg};`)}>
+            <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg};`)}>
               <span style={css(`width:7px; height:7px; border-radius:50%; background:${statusInfo[t.status].dot};`)} />{statusInfo[t.status].label}
               <Svg size={11} sw={2.4} stroke="currentColor" style={css("flex:none; opacity:.55;")}><path d="m6 9 6 6 6-6" /></Svg>
             </span>
@@ -337,6 +339,7 @@ export default function ListaView({
               </MenuItem>
             ))}
           </Menu>
+          {(() => { const px = proximoStatusTarefa(t.status, statusOpts); return px && <BotaoAvancar size={24} proximo={statusInfo[px].label} onClick={() => updateTask(t.id, { status: px })} />; })()}
         </div>
         <div onClick={stop} style={{ minWidth: 0 }}>
           <DescricaoPopover title={t.titulo} html={t.desc} preview={descText(t.desc)} />
@@ -676,6 +679,7 @@ function BoardView({ groups, statusOpts }: { groups: BoardGroup[]; statusOpts: T
                         <span style={css(`font-size:12px; font-weight:700; color:${late ? "#CC3338" : "#7A8090"};`)}>{t.venc || "—"}</span>
                         <span style={{ flex: 1 }} />
                         <RespHover member={g}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10} /></RespHover>
+                        {(() => { const px = proximoStatusTarefa(t.status, statusOpts); return px && <BotaoAvancar proximo={statusInfo[px].label} onClick={() => updateTask(t.id, { status: px })} />; })()}
                       </div>
                     </div>
                   );
