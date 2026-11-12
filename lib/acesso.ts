@@ -88,14 +88,23 @@ export function nivelEfetivo(acessos: Record<string, Record<string, NivelAcesso>
 /** Setores das tarefas e os espaços do menu que contam para cada um. */
 const ESPACOS_DO_SETOR: Record<string, string[]> = { Operacional: ["operacional", "lojas"], Recrutamento: ["recrutamento"] };
 
+/** Quem já era responsável em cada setor antes dos cargos editáveis — continua sendo
+ *  (mesmo sem acesso às telas, como o Líder (Loja) hoje), enquanto o cargo tiver esse nome. */
+const RESPONSAVEIS_LEGADO: Record<string, string[]> = {
+  Operacional: ["Administrador", "Gerente", "Produção", "Expedição", "Líder (Loja)"],
+  Recrutamento: ["Administrador", "Recursos Humanos"],
+};
+
 /**
  * Cargos que aparecem como "Responsável" num setor (e em "Quem pode ver" dos grupos):
- * os que têm acesso a alguma tela do setor em Configurações → Acessos. Administrador sempre.
+ * os de antes (RESPONSAVEIS_LEGADO) e os que têm acesso a alguma tela do setor em
+ * Configurações → Acessos — é assim que um cargo novo entra. Administrador sempre.
  */
 export function cargosDoSetor(setor: string, cargos: CargoDef[] = registro, acessos = acessosReg): string[] {
   const espacos = spacesTree.filter((sp) => (ESPACOS_DO_SETOR[setor] ?? ESPACOS_DO_SETOR.Operacional).includes(sp.id));
+  const legado = RESPONSAVEIS_LEGADO[setor] ?? RESPONSAVEIS_LEGADO.Operacional;
   return cargos
-    .filter((c) => c.nome === ADMIN || espacos.some((sp) => sp.children.some((k) => nivelEfetivo(acessos, c.nome, sp.id, k.page) !== "nenhum")))
+    .filter((c) => c.nome === ADMIN || legado.includes(c.nome) || espacos.some((sp) => sp.children.some((k) => nivelEfetivo(acessos, c.nome, sp.id, k.page) !== "nenhum")))
     .map((c) => c.nome);
 }
 
