@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { requireSession, findAuthUserByEmail } from "@/lib/auth-admin";
 import { localSlug } from "@/lib/selectors";
-import { CARGOS, corDoCargo } from "@/lib/acesso";
+import { cargoExiste } from "@/lib/cargos-server";
 import { teamDe, type UsuarioRow } from "@/lib/data";
-import type { Cargo, TeamMember } from "@/lib/types";
+import type { TeamMember } from "@/lib/types";
 
 /**
  * Pessoas (Configurações → Pessoas / Perfil).
@@ -32,11 +32,12 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { nome?: string; email?: string; cargo?: string; senha?: string };
   const nome = (body.nome ?? "").trim();
   const email = (body.email ?? "").trim().toLowerCase();
-  const cargo = body.cargo as Cargo;
+  const cargo = String(body.cargo ?? "");
   const senha = body.senha ?? "";
   if (!nome) return NextResponse.json({ error: "Informe o nome." }, { status: 400 });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: "E-mail inválido." }, { status: 400 });
-  if (!CARGOS.includes(cargo)) return NextResponse.json({ error: "Cargo inválido." }, { status: 400 });
+  const cargoDef = await cargoExiste(sb, cargo);
+  if (!cargoDef) return NextResponse.json({ error: "Cargo inválido." }, { status: 400 });
   if (senha.length < 6) return NextResponse.json({ error: "A senha precisa ter ao menos 6 caracteres." }, { status: 400 });
   const { data: dup } = await sb.from("usuarios").select("id").eq("email", email).maybeSingle();
   if (dup) return NextResponse.json({ error: "Já existe uma pessoa com este e-mail." }, { status: 400 });
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     if (!exists) break;
     id = `${localSlug(nome)}-${Math.random().toString(36).slice(2, 5)}`;
   }
-  const row = { id, nome, email, cargo, ini: initials(nome), cor: corDoCargo(cargo), ativo: true };
+  const row = { id, nome, email, cargo, ini: initials(nome), cor: cargoDef.cor, ativo: true };
   const { error: insErr } = await sb.from("usuarios").insert(row);
   if (insErr) {
     await sb.auth.admin.deleteUser(created.user.id);
@@ -78,7 +79,7 @@ export async function PATCH(req: Request) {
   if (typeof patch.nome === "string" && patch.nome.trim()) { cols.nome = patch.nome.trim(); cols.ini = initials(patch.nome); }
   if (typeof patch.ini === "string" && patch.ini.trim()) cols.ini = patch.ini.trim().toUpperCase();
   if (typeof patch.cargo === "string") {
-    if (!CARGOS.includes(patch.cargo as Cargo)) return NextResponse.json({ error: "Cargo inválido." }, { status: 400 });
+    if (!(await cargoExiste(sb, patch.cargo))) return NextResponse.json({ error: "Cargo inválido." }, { status: 400 });
     cols.cargo = patch.cargo;
   }
   if (typeof patch.cor === "string") cols.cor = patch.cor;

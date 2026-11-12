@@ -32,7 +32,7 @@ export default function ConfirmModal({ titulo, mensagem, confirmLabel = "Confirm
           <Hoverable as="button" onClick={onClose} s={css("width:30px; height:30px; flex:none; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={15} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
         </div>
         <div style={css("padding:18px 20px;")}>
-          <p style={css("margin:0; font-size:13.5px; color:#5B6472; line-height:1.55;")}>{mensagem}</p>
+          <div style={css("margin:0; font-size:13.5px; color:#5B6472; line-height:1.55;")}>{mensagem}</div>
         </div>
         <div style={css("display:flex; gap:10px; justify-content:flex-end; padding:0 20px 18px;")}>
           <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;")} hover="background:#F4F4F7">{cancelLabel}</Hoverable>

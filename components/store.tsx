@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { CARGOS_FULL, DEFAULT_ESCOPO, SETOR_CARGOS, nivelPadrao } from "@/lib/acesso";
+import { CARGOS_PADRAO, DEFAULT_ESCOPO, cargosDoSetor, isCargoFull, matrizEfetiva, nivelPadrao, ordenarCargos, registrarCargos } from "@/lib/acesso";
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
@@ -19,11 +19,13 @@ import { faltamPreencher, linhasDaTarefa, qtdEfetiva, rotuloRealizado } from "@/
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
 import { spacesTree } from "@/lib/seed";
+import { validarNomeCargo } from "@/lib/cargos";
 import { DB_KEY, loadDb, saveDb, seedDb, slugify, type Db } from "@/lib/localdb";
 import { apiJson, authHeaders, getSupabaseBrowser } from "@/lib/supabase-browser";
 import { dataUrlParaFile, uploadAvatar } from "@/lib/upload";
 import type { AppData } from "@/lib/data";
 import type {
+  CargoDef,
   Client,
   Comentario,
   GrupoInterno,
@@ -105,6 +107,14 @@ type Store = {
   escopoProprio: Record<string, boolean>;
   setEscopoProprio: (next: Record<string, boolean>) => void;
   ownScopeOnly: boolean;
+  /** Cargos cadastrados, na ordem de exibição (Administrador primeiro). */
+  cargos: CargoDef[];
+  /** Cria um cargo (começa sem acesso a nenhuma tela). */
+  criarCargo: (c: { nome: string; cor: string; acessoTotal: boolean }) => Promise<{ ok: boolean; error?: string }>;
+  /** Edita nome/cor/acesso total. Renomear leva junto pessoas, acessos, escopo e grupos. */
+  editarCargo: (nomeAtual: string, patch: { nome?: string; cor?: string; acessoTotal?: boolean }) => Promise<{ ok: boolean; error?: string }>;
+  /** Exclui um cargo sem pessoas. */
+  excluirCargo: (nome: string) => Promise<{ ok: boolean; error?: string }>;
 
   // dados
   team: TeamMember[];
@@ -213,7 +223,7 @@ const FALLBACK_USER: TeamMember = { id: "", nome: "—", cargo: "", ini: "—", 
 
 /** Db vazio (com Supabase o conteúdo vem do bootstrap; até lá, nada). */
 function dbVazio(): Db {
-  return { ...seedDb(), team: [], senhas: {}, clients: [], tasks: [], talentos: [], produtos: [], pedidos: [], unidades: [], vagas: [], gruposInternos: [], acessos: {}, escopoProprio: {} };
+  return { ...seedDb(), team: [], senhas: {}, clients: [], tasks: [], talentos: [], produtos: [], pedidos: [], unidades: [], vagas: [], gruposInternos: [], acessos: {}, escopoProprio: {}, cargos: [] };
 }
 
 /** Cookie com o access token — só para a mídia do /api/anexo (tags <img> e links não
@@ -389,13 +399,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [demo]);
 
   const { team, tasks, clients: allClients, talentos, produtos, pedidos, unidades, vagas, linkbio, gruposInternos, workspace, acessos, escopoProprio } = db;
+  const cargos = useMemo(() => ordenarCargos(db.cargos?.length ? db.cargos : CARGOS_PADRAO), [db.cargos]);
+  // Funções puras (cor da pílula, responsáveis por setor) leem os cargos/acessos daqui.
+  registrarCargos(cargos, acessos);
   produtosGlobais = produtos;
   const currentUser: TeamMember = (sessionId && team.find((t) => t.id === sessionId)) || FALLBACK_USER;
   const authed = !!sessionId && currentUser.id !== "";
   const hasSession = demo ? !!sessionId : !!authEmail;
 
   // Cargo → acessos.
-  const canSeeAll = CARGOS_FULL.includes(currentUser.cargo);
+  const canSeeAll = isCargoFull(currentUser.cargo, cargos);
   const isAdmin = currentUser.cargo === "Administrador";
   const canEditResponsavel = canSeeAll;
   const podeTrocarResp = (): boolean => canEditResponsavel;
@@ -557,6 +570,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
     escopoProprio,
     setEscopoProprio: (next) => { patchDb(() => ({ escopoProprio: next })); void persist("/api/acessos", "PATCH", { escopoProprio: next }); },
     ownScopeOnly,
+
+    cargos,
+    criarCargo: async (c) => {
+      const nome = c.nome.trim().replace(/\s+/g, " ");
+      const erro = validarNomeCargo(nome, cargos);
+      if (erro) return { ok: false, error: erro };
+      if (demo) {
+        patchDb((d) => ({ cargos: [...(d.cargos?.length ? d.cargos : CARGOS_PADRAO), { nome, cor: c.cor, acessoTotal: c.acessoTotal, sistema: false, ordem: Math.max(0, ...cargos.map((x) => x.ordem)) + 1 }] }));
+        return { ok: true };
+      }
+      try { await apiJson("/api/cargos", "POST", { acao: "criar", nome, cor: c.cor, acessoTotal: c.acessoTotal }); await reload(); return { ok: true }; }
+      catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    },
+    editarCargo: async (nomeAtual, patch) => {
+      const atual = cargos.find((x) => x.nome === nomeAtual);
+      if (!atual) return { ok: false, error: "Cargo não encontrado." };
+      const novo = patch.nome !== undefined ? patch.nome.trim().replace(/\s+/g, " ") : nomeAtual;
+      if (novo !== nomeAtual) {
+        if (atual.sistema) return { ok: false, error: "O cargo Administrador não pode ser renomeado." };
+        const erro = validarNomeCargo(novo, cargos.filter((x) => x.nome !== nomeAtual));
+        if (erro) return { ok: false, error: erro };
+      }
+      if (atual.sistema && patch.acessoTotal === false) return { ok: false, error: "O Administrador sempre tem acesso total." };
+      if (demo) {
+        patchDb((d) => {
+          const lista = (d.cargos?.length ? d.cargos : CARGOS_PADRAO).map((x) => (x.nome === nomeAtual ? { ...x, nome: novo, cor: patch.cor ?? x.cor, acessoTotal: patch.acessoTotal ?? x.acessoTotal } : x));
+          const team = d.team.map((t) => (t.cargo === nomeAtual ? { ...t, cargo: novo, cor: patch.cor ?? t.cor } : t));
+          if (novo === nomeAtual) return { cargos: lista, team };
+          // Renomear: a matriz do cargo (salva ou padrão) passa inteira para o nome novo.
+          const { [nomeAtual]: _a, ...restoAcessos } = d.acessos;
+          const { [nomeAtual]: esc, ...restoEscopo } = d.escopoProprio;
+          return {
+            cargos: lista, team,
+            acessos: { ...restoAcessos, [novo]: matrizEfetiva(d.acessos, nomeAtual) },
+            escopoProprio: esc === undefined ? restoEscopo : { ...restoEscopo, [novo]: esc },
+            gruposInternos: d.gruposInternos.map((g) => ({ ...g, visivelCargos: g.visivelCargos.map((v) => (v === nomeAtual ? novo : v)) })),
+          };
+        });
+        return { ok: true };
+      }
+      try { await apiJson("/api/cargos", "POST", { acao: "editar", nomeAtual, nome: novo, cor: patch.cor, acessoTotal: patch.acessoTotal }); await reload(); return { ok: true }; }
+      catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    },
+    excluirCargo: async (nome) => {
+      const atual = cargos.find((x) => x.nome === nome);
+      if (!atual) return { ok: false, error: "Cargo não encontrado." };
+      if (atual.sistema) return { ok: false, error: "O cargo Administrador não pode ser excluído." };
+      if (team.some((t) => t.cargo === nome)) return { ok: false, error: "Há pessoas com esse cargo. Troque o cargo delas antes de excluir." };
+      if (demo) {
+        patchDb((d) => {
+          const { [nome]: _a, ...acessos } = d.acessos;
+          const { [nome]: _e, ...escopoProprio } = d.escopoProprio;
+          return {
+            cargos: (d.cargos?.length ? d.cargos : CARGOS_PADRAO).filter((x) => x.nome !== nome), acessos, escopoProprio,
+            gruposInternos: d.gruposInternos.map((g) => ({ ...g, visivelCargos: g.visivelCargos.filter((v) => v !== nome) })),
+          };
+        });
+        return { ok: true };
+      }
+      try { await apiJson("/api/cargos", "POST", { acao: "excluir", nome }); await reload(); return { ok: true }; }
+      catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    },
 
     team,
     updateUsuario: (id, patch) => {
@@ -1062,7 +1137,7 @@ const SCOPE_TO_SETOR: Record<string, string> = { operacional: "Operacional", rec
 // Responsáveis elegíveis p/ um escopo de tarefa (ativos + cargo do setor).
 export function responsaveisDoScope(team: TeamMember[], scope?: string) {
   const setor = SCOPE_TO_SETOR[scope ?? "operacional"] ?? "Operacional";
-  const cargos = SETOR_CARGOS[setor] ?? SETOR_CARGOS.Operacional;
+  const cargos = cargosDoSetor(setor);
   return team.filter((t) => t.ativo !== false && cargos.includes(t.cargo));
 }
 

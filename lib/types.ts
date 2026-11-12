@@ -7,8 +7,20 @@ export type TaskStatus =
 
 export type Prioridade = "urgente" | "alta" | "normal" | "baixa";
 
-/** Cargos do sistema. Administrador tem acesso total; os demais seguem Configurações → Acessos. */
-export type Cargo = "Administrador" | "Gerente" | "Produção" | "Expedição" | "Líder (Loja)" | "Recursos Humanos";
+/** Nome do cargo. Os cargos são editáveis (Configurações → Acessos → Cargos); só
+ *  "Administrador" é fixo (acesso total, não pode ser renomeado nem excluído). */
+export type Cargo = string;
+
+/** Cargo cadastrado (tabela `cargo`). */
+export type CargoDef = {
+  nome: string;
+  cor: string;
+  ordem: number;
+  /** Vê tudo (sem recorte) e pode validar tarefas — Administrador e Gerente no padrão. */
+  acessoTotal: boolean;
+  /** Administrador: protegido (não renomeia nem exclui). */
+  sistema: boolean;
+};
 
 export type TeamMember = {
   id: string;

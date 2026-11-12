@@ -1,8 +1,9 @@
-import type { Client, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, Produto, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
+import type { CargoDef, Client, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, Produto, Talento, Task, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import {
   seedTeam, seedSenhas, seedClients, seedTasks, seedTalentos, seedGrupos, seedWorkspace, seedAcessos, seedEscopoProprio,
   seedUnidades, seedVagas, seedLinkBio, cargoDoCatalogo,
 } from "./seed";
+import { CARGOS_PADRAO } from "./acesso";
 
 /**
  * "BANCO" LOCAL (fase sem backend): um objeto no localStorage, compartilhado entre o
@@ -27,6 +28,8 @@ export type Db = {
   workspace: Workspace;
   acessos: Record<string, Record<string, NivelAcesso>>;
   escopoProprio: Record<string, boolean>;
+  /** Cargos cadastrados (Configurações → Acessos → Cargos). */
+  cargos: CargoDef[];
 };
 
 export const DB_KEY = "jb.db.v1";
@@ -39,6 +42,7 @@ export function seedDb(): Db {
     team: seedTeam, senhas: seedSenhas, clients: seedClients, tasks: seedTasks, talentos: seedTalentos, produtos: [], pedidos: [],
     unidades: seedUnidades, vagas: seedVagas, linkbio: seedLinkBio,
     gruposInternos: seedGrupos, workspace: seedWorkspace, acessos: seedAcessos, escopoProprio: seedEscopoProprio,
+    cargos: CARGOS_PADRAO,
   };
 }
 

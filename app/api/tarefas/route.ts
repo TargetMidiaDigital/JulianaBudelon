@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { isCargoFull } from "@/lib/acesso";
 import { toISO } from "@/lib/data";
 import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
@@ -23,9 +22,9 @@ import { requireSession, nivelNaTela } from "@/lib/auth-admin";
 export const dynamic = "force-dynamic";
 
 /** "Atrasada" só o sistema grava (lib/tarefas-server.ts); "Validada" só Administrador/Head. */
-function validarStatusManual(status: unknown, cargo: string): string | null {
+function validarStatusManual(status: unknown, acessoTotal: boolean): string | null {
   if (status === "atrasada") return 'O status "Atrasada" é definido automaticamente pelo vencimento.';
-  if (status === "validada" && !isCargoFull(cargo)) return 'Só Administrador ou Gerente podem validar.';
+  if (status === "validada" && !acessoTotal) return "Só cargos com acesso total (ex.: Administrador ou Gerente) podem validar.";
   return null;
 }
 
@@ -72,9 +71,9 @@ export async function POST(req: Request) {
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
   const sess = await editorDaTarefa(req, sb, task);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  const recusaStatus = validarStatusManual(task.status, sess.cargo) ?? (semEtapaProducao(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+  const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaProducao(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
-  if (!isCargoFull(sess.cargo) && task.gestor && task.gestor !== sess.userId) {
+  if (!sess.acessoTotal && task.gestor && task.gestor !== sess.userId) {
     return NextResponse.json({ error: "Sem permissão para atribuir a outra pessoa." }, { status: 403 });
   }
   const row: Record<string, unknown> = {
@@ -98,14 +97,14 @@ export async function PATCH(req: Request) {
   const sess = await editorDaTarefa(req, sb, atual);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
 
-  if (!isCargoFull(sess.cargo)) {
+  if (!sess.acessoTotal) {
     if (atual.responsavel !== sess.userId) return NextResponse.json({ error: "Sem permissão nesta tarefa." }, { status: 403 });
     if (patch && "gestor" in patch && patch.gestor !== sess.userId) return NextResponse.json({ error: "Sem permissão para alterar o responsável." }, { status: 403 });
   }
 
   const cols = mapPatch(patch ?? {});
   if ("status" in cols) {
-    const recusa = validarStatusManual(cols.status as string, sess.cargo) ?? (semEtapaProducao(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+    const recusa = validarStatusManual(cols.status as string, sess.acessoTotal) ?? (semEtapaProducao(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
   // Conferência: concluir exige todas as linhas preenchidas; tarefa concluída não muda os números
@@ -140,7 +139,7 @@ export async function DELETE(req: Request) {
   if (!atual) return NextResponse.json({ persisted: true }); // já não existe
   const sess = await editorDaTarefa(req, sb, atual);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  if (!isCargoFull(sess.cargo) && atual.responsavel !== sess.userId) return NextResponse.json({ error: "Sem permissão nesta tarefa." }, { status: 403 });
+  if (!sess.acessoTotal && atual.responsavel !== sess.userId) return NextResponse.json({ error: "Sem permissão nesta tarefa." }, { status: 403 });
   const { data: apagada, error } = await sb.from("tarefas").delete().eq("id", id).select("pedido_id").maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const pedidoId = (apagada as { pedido_id?: string | null } | null)?.pedido_id;
