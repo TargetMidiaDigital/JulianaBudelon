@@ -21,15 +21,19 @@ export default function BotaoWhatsapp({ candidato, size = 28 }: { candidato: Can
   const { workspace } = useApp();
   const href = linkWhatsappCandidato(candidato, workspace.nome);
   if (!href) return null;
-  const msg = mensagemPrimeiroContato(candidato, workspace.nome);
+  return <LinkWhatsapp href={href} mensagem={mensagemPrimeiroContato(candidato, workspace.nome)} para={candidato.nome} size={size} />;
+}
+
+/** O botão verde em si: abre o link do WhatsApp (com o texto pronto) numa aba nova. */
+export function LinkWhatsapp({ href, mensagem, para, size = 28 }: { href: string; mensagem: string; para: string; size?: number }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      title={`Mandar no WhatsApp: "${msg}"`}
-      aria-label={`Mandar mensagem no WhatsApp para ${candidato.nome}`}
+      title={`Mandar no WhatsApp: "${mensagem}"`}
+      aria-label={`Mandar mensagem no WhatsApp para ${para}`}
       style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none", width: size, height: size, borderRadius: 8, background: "rgba(37,211,102,.14)", color: "#1DA851", textDecoration: "none" }}
       onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(37,211,102,.28)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(37,211,102,.14)"; }}

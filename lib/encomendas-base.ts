@@ -326,6 +326,7 @@ export const corLead = (s: string) => LEAD_STATUS.find((x) => x.key === s)?.cor 
 export const PEDIDO_STATUS = [
   { key: "Verificar pagamento", cor: "#EAB308", agenda: "#2563EB" },
   { key: "Em fila", cor: "#F5B942", agenda: "#A16207" },
+  { key: "Confirmado com o cliente", cor: "#0EA5E9", agenda: "#0369A1" },
   { key: "Em produção", cor: "#F97316", agenda: "#D97706" },
   { key: "Entregue", cor: "#10B981", agenda: "#16A34A" },
 ] as const;
@@ -438,8 +439,32 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
   return { produto, unidade, quantidade, numero: numeroCanonico(n.whatsapp), nome, mensagem, subtotal, taxa, total, resumo };
 }
 
-/** Pagamento confirmado: o pedido sai de "Verificar pagamento" para a fila (ou direto para a produção). */
-export const confirmaPagamento = (de: PedidoStatus, para: PedidoStatus) => de === "Verificar pagamento" && (para === "Em fila" || para === "Em produção");
+/** Pagamento confirmado: o pedido sai de "Verificar pagamento" para qualquer etapa depois dele, menos "Entregue". */
+export const confirmaPagamento = (de: PedidoStatus, para: PedidoStatus) => de === "Verificar pagamento" && (para === "Em fila" || para === "Confirmado com o cliente" || para === "Em produção");
+
+/** Primeiro nome com a inicial maiúscula ("maria da silva" → "Maria"). */
+const primeiroNomeCliente = (nome: string) => {
+  const p = nome.trim().split(/\s+/)[0] ?? "";
+  return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "";
+};
+
+/** Mensagem pronta para confirmar a encomenda com o cliente pelo WhatsApp (pagamento já conferido). */
+export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string }): string {
+  const nome = primeiroNomeCliente(x.nome);
+  const p = x.pedido;
+  const onde = p.tipo === "Retirada" ? `retirada no dia ${dataBR(p.data)} às ${p.hora}${p.unidadeNome ? ` na loja ${p.unidadeNome}` : ""}` : `entrega no dia ${dataBR(p.data)} às ${p.hora}${p.endereco ? ` em ${enderecoLinha(p.endereco)}` : ""}`;
+  return [
+    `Oi${nome ? `, ${nome}` : ""}, tudo bem? Aqui é da ${x.empresa || "Ju Budelon"}.`,
+    `Acabamos de verificar o seu pagamento e estamos confirmando a sua encomenda: ${p.quantidade}× ${x.produto}, para ${onde}.`,
+    "Qualquer dúvida, é só chamar por aqui!",
+  ].join("\n\n");
+}
+
+/** Link do WhatsApp (wa.me) com o texto pronto. null sem número. */
+export const linkWhatsapp = (numero: string, texto: string) => {
+  const n = numero.replace(/\D/g, "");
+  return n ? `https://wa.me/${n}?text=${encodeURIComponent(texto)}` : null;
+};
 
 /** Unidade de retirada → local do estoque/tarefas (u-centro → centro). */
 export const localDaUnidade = (unidadeId: string | undefined, locais: { id: string }[]) => {

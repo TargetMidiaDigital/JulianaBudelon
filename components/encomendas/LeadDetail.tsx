@@ -9,8 +9,10 @@ import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Foto } from "./FunilEncomenda";
+import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
+import { useApp } from "../store";
 import {
-  LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, numeroPedido, useEncomendas,
+  LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, mensagemConfirmacaoPedido, numeroPedido, useEncomendas,
   type LeadStatus, type PedidoStatus, type ResponsavelLead,
 } from "@/lib/encomendas";
 
@@ -30,11 +32,18 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
   useFecharComEsc(true, onClose);
   const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus, setResponsavel } = useEncomendas();
   const setPedidoStatus = useMudarStatusPedido();
+  const { workspace } = useApp();
   const lead = leads.find((l) => l.id === leadId);
   const meus = pedidos.filter((p) => p.leadId === leadId).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
   const [aberto, setAberto] = useState<string | null>(pedidoAberto ?? (meus.length === 1 ? meus[0].id : null));
   if (!lead) return null;
   const faturamento = meus.reduce((s, p) => s + p.total, 0);
+  // Mensagem de confirmação: do pedido aberto; senão do mais recente ainda não entregue.
+  const alvo = meus.find((p) => p.id === aberto) ?? meus.find((p) => p.status !== "Entregue") ?? meus[0];
+  const msgWpp = alvo
+    ? mensagemConfirmacaoPedido({ nome: lead.nome, empresa: workspace.nome, pedido: { ...alvo, unidadeNome: alvo.unidadeNome ?? unidadeDe(alvo.unidadeId)?.nome }, produto: produtoDe(alvo.produtoId)?.nome ?? alvo.produtoNome ?? "encomenda" })
+    : `Oi${lead.nome ? `, ${lead.nome.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}.`;
+  const hrefWpp = linkWhatsapp(lead.numero, msgWpp);
 
   return (
     <>
@@ -68,7 +77,12 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
 
           <Card titulo="Contato">
             <Linha k="Nome" v={lead.nome || "—"} />
-            <Linha k="Telefone" v={foneBR(lead.numero)} />
+            <Linha k="Telefone" v={
+              <span style={css("display:inline-flex; align-items:center; gap:8px;")}>
+                {foneBR(lead.numero)}
+                {hrefWpp && <LinkWhatsapp href={hrefWpp} mensagem={msgWpp} para={lead.nome || foneBR(lead.numero)} size={26} />}
+              </span>
+            } />
           </Card>
 
           <Card titulo="Atividade">
@@ -126,7 +140,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
               })}
             </div>
             {!config.pixChave && meus.some((p) => p.status === "Verificar pagamento") && (
-              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Em fila</b> — ele entra na fila de produção e aparece em amarelo na Agenda.</div>
+              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Em fila</b> — ele entra na fila de produção e aparece em amarelo na Agenda. Depois, use o botão do WhatsApp ao lado do telefone para confirmar com o cliente e mude para <b>Confirmado com o cliente</b>.</div>
             )}
           </div>
         </div>
