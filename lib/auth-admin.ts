@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NivelAcesso, ScreenPage } from "./types";
-import { nivelPadrao } from "./acesso";
+import { isCargoFull, nivelPadrao } from "./acesso";
+import { lerCargos } from "./cargos-server";
 import { spacesTree } from "./seed";
 
 /**
@@ -9,7 +10,8 @@ import { spacesTree } from "./seed";
  * e-mail; ter linha em `usuarios` com esse e-mail = ser da equipe.
  */
 
-export type Sessao = { ok: true; email: string; cargo: string; userId: string };
+/** acessoTotal: o cargo vê tudo e pode validar (tabela `cargo`). */
+export type Sessao = { ok: true; email: string; cargo: string; userId: string; acessoTotal: boolean };
 export type Recusa = { ok: false; status: number; error: string };
 
 function tokenDe(req: Request): string {
@@ -27,7 +29,7 @@ export async function requireSession(req: Request, sb: SupabaseClient, token?: s
   const r = row as { id?: string; cargo?: string; ativo?: boolean } | null;
   if (!r?.cargo || !r.id) return { ok: false, status: 403, error: "Sem acesso." };
   if (r.ativo === false) return { ok: false, status: 403, error: "Usuário inativo." };
-  return { ok: true, email, cargo: r.cargo, userId: r.id };
+  return { ok: true, email, cargo: r.cargo, userId: r.id, acessoTotal: isCargoFull(r.cargo, await lerCargos(sb)) };
 }
 
 /** Valida que o chamador é Administrador. */

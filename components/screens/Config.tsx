@@ -4,9 +4,10 @@ import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { spacesTree } from "@/lib/seed";
 import { sectorIcon } from "../Sidebar";
-import { CARGOS, corDoCargo, DEFAULT_ESCOPO, nivelPadrao, nomeDoSetor } from "@/lib/acesso";
+import { ADMIN, cargosDoSetor, corDoCargo, DEFAULT_ESCOPO, nivelPadrao, nomeDoSetor } from "@/lib/acesso";
+import CargosCard from "./CargosCard";
 import { uploadLocal } from "@/lib/upload";
-import type { Cargo, GrupoInterno, NivelAcesso, ScreenPage } from "@/lib/types";
+import type { GrupoInterno, NivelAcesso, ScreenPage } from "@/lib/types";
 import { Avatar } from "../ui/bits";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -18,13 +19,10 @@ import WhatsAppTab from "./WhatsAppTab";
 
 type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "whatsapp" | "perfil";
 
-// Grupos internos: setores disponíveis e cargos selecionáveis em "Quem pode ver"
-// por setor (Administrador é sempre implícito e não entra na lista).
+// Grupos internos: setores disponíveis. Os cargos de "Quem pode ver" de cada setor são os que
+// têm acesso a alguma tela dele em Acessos (Administrador é sempre implícito e não entra na lista).
 const GRUPO_SETORES = ["Operacional", "Recrutamento"] as const;
-const GRUPO_CARGOS_POR_SETOR: Record<string, Cargo[]> = {
-  Operacional: ["Gerente", "Produção", "Expedição", "Líder (Loja)"],
-  Recrutamento: ["Recursos Humanos"],
-};
+const cargosVisiveisDoSetor = (s: string) => cargosDoSetor(s).filter((c) => c !== ADMIN);
 const SETOR_COR: Record<string, string> = { Operacional: "#1B7F4D", Recrutamento: "#C2410C" };
 
 /** Página de configurações: Empresa · Pessoas · Grupos · Acessos · WhatsApp são só p/ Administrador;
@@ -70,7 +68,7 @@ export default function Config() {
       {tab === "empresa" && (isAdmin ? <EmpresaTab /> : <Placeholder titulo="Empresa" texto="Acesso restrito a Administrador." />)}
       {tab === "pessoas" && (isAdmin ? <PessoasTab /> : <Placeholder titulo="Pessoas" texto="Acesso restrito a Administrador." />)}
       {tab === "grupos" && (isAdmin ? <GruposTab /> : <Placeholder titulo="Grupos" texto="Acesso restrito a Administrador." />)}
-      {tab === "acessos" && (isAdmin ? <AcessosTab /> : <Placeholder titulo="Acessos" texto="Acesso restrito a Administrador." />)}
+      {tab === "acessos" && (isAdmin ? <AcessosComCargos /> : <Placeholder titulo="Acessos" texto="Acesso restrito a Administrador." />)}
       {tab === "whatsapp" && (isAdmin ? <WhatsAppTab /> : <Placeholder titulo="WhatsApp" texto="Acesso restrito a Administrador." />)}
     </div>
   );
@@ -174,7 +172,7 @@ function StatusPill({ ativo, onChange }: { ativo: boolean; onChange: (ativo: boo
 }
 
 function PessoasTab() {
-  const { team, updateUsuario } = useApp();
+  const { team, updateUsuario, cargos } = useApp();
   const [criando, setCriando] = useState(false);
   const [verId, setVerId] = useState<string | null>(null);
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -184,11 +182,12 @@ function PessoasTab() {
     .map((m) => ({ id: m.id, nome: m.nome, email: m.email ?? "—", cargo: m.cargo, cor: m.cor, ini: m.ini, foto: m.foto as string | undefined, ativo: m.ativo !== false, whatsapp: m.whatsapp ?? undefined, whatsappInterno: m.whatsappInterno ?? undefined }))
     .filter((p) => mostrarInativos || p.ativo);
 
-  // Organiza por cargo, na ordem oficial de CARGOS; cada grupo ordenado por nome.
-  const grupos = CARGOS
-    .map((c) => ({ cargo: c as string, gente: pessoas.filter((p) => p.cargo === c).sort((a, b) => a.nome.localeCompare(b.nome, "pt")) }))
+  // Organiza por cargo, na ordem dos cargos cadastrados; cada grupo ordenado por nome.
+  const nomesCargos = cargos.map((c) => c.nome);
+  const grupos = nomesCargos
+    .map((c) => ({ cargo: c, gente: pessoas.filter((p) => p.cargo === c).sort((a, b) => a.nome.localeCompare(b.nome, "pt")) }))
     .filter((g) => g.gente.length);
-  const outros = pessoas.filter((p) => !CARGOS.includes(p.cargo as Cargo)).sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
+  const outros = pessoas.filter((p) => !nomesCargos.includes(p.cargo)).sort((a, b) => a.nome.localeCompare(b.nome, "pt"));
   if (outros.length) grupos.push({ cargo: "Outros", gente: outros });
 
   const sel = pessoas.find((p) => p.id === verId);
@@ -334,13 +333,13 @@ function CriarGrupo({ inicial, onClose }: { inicial?: GrupoInterno; onClose: () 
   const logoEmpresa = workspace.logo || "/logo-2.png";
 
   // Cargos que podem ver = união dos cargos dos setores selecionados.
-  const cargosDoSetor = [...new Set(setores.flatMap((s) => GRUPO_CARGOS_POR_SETOR[s] ?? []))] as Cargo[];
+  const cargosDoGrupo = [...new Set(setores.flatMap(cargosVisiveisDoSetor))];
   const toggleCargo = (c: string) => setVisiveis((v) => (v.includes(c) ? v.filter((x) => x !== c) : [...v, c]));
   // Alterna um setor (multi-seleção) e remove cargos que deixaram de ser válidos.
   const toggleSetor = (s: string) => setSetores((prev) => {
     const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
-    const validos = new Set(next.flatMap((x) => GRUPO_CARGOS_POR_SETOR[x] ?? []));
-    setVisiveis((v) => v.filter((c) => validos.has(c as Cargo)));
+    const validos = new Set(next.flatMap(cargosVisiveisDoSetor));
+    setVisiveis((v) => v.filter((c) => validos.has(c)));
     return next;
   });
 
@@ -351,7 +350,7 @@ function CriarGrupo({ inicial, onClose }: { inicial?: GrupoInterno; onClose: () 
     setErro(null);
     if (!nome.trim()) { setErro("Informe o nome do grupo."); return; }
     if (!setores.length) { setErro("Selecione ao menos um setor."); return; }
-    const cargosValidos = visiveis.filter((c) => cargosDoSetor.includes(c as Cargo));
+    const cargosValidos = visiveis.filter((c) => cargosDoGrupo.includes(c));
     const dados = { nome: nome.trim(), descricao: descricao.trim() || undefined, setores, visivelCargos: cargosValidos, logo: logo || undefined };
     if (inicial) updateGrupoInterno(inicial.id, dados);
     else criarGrupoInterno({ id: `g-${Date.now()}`, ...dados });
@@ -395,7 +394,7 @@ function CriarGrupo({ inicial, onClose }: { inicial?: GrupoInterno; onClose: () 
               <Svg size={13} sw={2.4} stroke="#9398A6" style={css(`flex:none; transform:rotate(${open ? 180 : 0}deg); transition:transform .15s ease;`)}><path d="m6 9 6 6 6-6" /></Svg>
             </Hoverable>
           )}>
-            {() => cargosDoSetor.length ? cargosDoSetor.map((c) => (
+            {() => cargosDoGrupo.length ? cargosDoGrupo.map((c) => (
               <MenuItem key={c} checked={visiveis.includes(c)} onClick={() => toggleCargo(c)}>
                 <span style={css(`width:10px; height:10px; border-radius:50%; flex:none; background:${corDoCargo(c)};`)} />
                 <span style={{ flex: 1, fontWeight: 600 }}>{c}</span>
@@ -475,7 +474,7 @@ function redimensionar(f: File, max: number): Promise<Blob> {
 
 /** Detalhe + edição de uma pessoa em drawer lateral (nome e cargo editáveis). */
 function PessoaDrawer({ p, onClose }: { p: { id: string; nome: string; email: string; cargo: string; cor: string; ini: string; foto?: string; ativo: boolean; whatsapp?: string; whatsappInterno?: string }; onClose: () => void }) {
-  const { updateUsuario } = useApp();
+  const { updateUsuario, cargos } = useApp();
   const [nome, setNome] = useState(p.nome);
   const [cargo, setCargo] = useState(p.cargo);
   const ini = inits(nome);
@@ -525,8 +524,8 @@ function PessoaDrawer({ p, onClose }: { p: { id: string; nome: string; email: st
                   </Hoverable>
                 );
               }}>
-                {(close) => CARGOS.map((c) => (
-                  <MenuItem key={c} checked={c === cargo} onClick={() => { setCargo(c); updateUsuario(p.id, { cargo: c }); close(); }}>
+                {(close) => cargos.map(({ nome: c }) => (
+                  <MenuItem key={c} checked={c === cargo} onClick={() => { setCargo(c); updateUsuario(p.id, { cargo: c, cor: corDoCargo(c) }); close(); }}>
                     <span style={css(`width:10px; height:10px; border-radius:50%; flex:none; background:${corDoCargo(c)};`)} />
                     <span style={{ flex: 1, fontWeight: 600 }}>{c}</span>
                   </MenuItem>
@@ -651,10 +650,10 @@ function SenhaPessoa({ id, nome, email }: { id: string; nome: string; email: str
 }
 
 function CriarPessoa({ onClose }: { onClose: () => void }) {
-  const { addUsuario } = useApp();
+  const { addUsuario, cargos } = useApp();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [cargo, setCargo] = useState<Cargo>("Produção");
+  const [cargo, setCargo] = useState<string>(() => cargos.find((c) => !c.sistema)?.nome ?? ADMIN);
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
 
@@ -696,7 +695,7 @@ function CriarPessoa({ onClose }: { onClose: () => void }) {
                 </Hoverable>
               );
             }}>
-              {(close) => CARGOS.map((c) => (
+              {(close) => cargos.map(({ nome: c }) => (
                 <MenuItem key={c} checked={c === cargo} onClick={() => { setCargo(c); close(); }}>
                   <span style={css(`width:10px; height:10px; border-radius:50%; flex:none; background:${corDoCargo(c)};`)} />
                   <span style={{ flex: 1, fontWeight: 600 }}>{c}</span>
@@ -883,10 +882,23 @@ const ICONE_NIVEL: Record<NivelAcesso, React.ReactNode> = {
   editar: <Svg size={12} sw={2.2}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></Svg>,
 };
 
+/** Aba Acessos: cargos (criar/editar) em cima e a matriz de permissões embaixo. A matriz
+ *  remonta quando a lista de cargos muda (novo, renomeado, excluído). */
+function AcessosComCargos() {
+  const { cargos } = useApp();
+  return (
+    <div style={css("display:flex; flex-direction:column; gap:16px;")}>
+      <CargosCard />
+      <AcessosTab key={cargos.map((c) => c.nome).join("|")} />
+    </div>
+  );
+}
+
 /** Aba Acessos: matriz cargo × tela com 3 níveis (Sem acesso / Visualizar /
  *  Editar) + escopo "ver só o que é dele" por cargo. Administrador é total. */
 function AcessosTab() {
-  const { acessos, setAcessos, escopoProprio, setEscopoProprio } = useApp();
+  const { acessos, setAcessos, escopoProprio, setEscopoProprio, cargos } = useApp();
+  const CARGOS = cargos.map((c) => c.nome);
 
   // Estado inicial dos níveis: o que já estiver salvo tem prioridade; senão o padrão de código.
   const [map, setMap] = useState<Record<string, Record<string, NivelAcesso>>>(() => {

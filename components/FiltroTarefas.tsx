@@ -2,7 +2,7 @@
 
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { spacesTree } from "@/lib/seed";
-import { SETOR_CARGOS } from "@/lib/acesso";
+import { cargosDoSetor } from "@/lib/acesso";
 import { pageSemProducao } from "@/lib/tarefas";
 import { LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import { statusDaLista, PRIO_ORDER, useApp } from "./store";
@@ -21,7 +21,7 @@ export default function FiltroTarefas() {
 
   // Responsáveis elegíveis: os cargos do setor da tela atual.
   const setorId = spacesTree.find((sp) => sp.children.some((k) => k.page === screen))?.id ?? "operacional";
-  const cargosResp = setorId === "recrutamento" ? SETOR_CARGOS.Recrutamento : SETOR_CARGOS.Operacional;
+  const cargosResp = cargosDoSetor(setorId === "recrutamento" ? "Recrutamento" : "Operacional");
   const membros = team.filter((t) => t.ativo !== false && cargosResp.includes(t.cargo));
 
   const optsResp: FiltroOpt[] = [

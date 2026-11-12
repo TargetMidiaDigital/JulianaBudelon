@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AnaliseIA, Anexo, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, PedidoStatus, Prioridade, Produto, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
+import type { AnaliseIA, Anexo, CargoDef, Comentario, GrupoInterno, LinkBioConfig, NivelAcesso, Pedido, PedidoStatus, Prioridade, Produto, Talento, Task, TaskStatus, TeamMember, Unidade, Vaga, Workspace } from "./types";
 import { DEFAULT_ESCOPO, isCargoFull } from "./acesso";
+import { lerCargos } from "./cargos-server";
 import { seedLinkBio } from "./seed";
 import { parseQuantidades } from "./estoque";
 import { parseConferencia } from "./conferencia";
@@ -23,6 +24,8 @@ export type AppData = {
   workspace: Workspace;
   acessos: Record<string, Record<string, NivelAcesso>>;
   escopoProprio: Record<string, boolean>;
+  /** Cargos cadastrados (Configurações → Acessos → Cargos). */
+  cargos: CargoDef[];
 };
 
 /** timestamptz ISO → { date: "dd/mm/yyyy", hora: "hh:mm" } no fuso de Brasília. */
@@ -184,7 +187,7 @@ export function linkbioDe(raw: unknown): LinkBioConfig {
 // ───────────────────────── carga completa ─────────────────────────
 
 export async function getData(sb: SupabaseClient): Promise<AppData> {
-  const [us, tk, tl, un, vg, gr, ws, ca, cp, pr, pd] = await Promise.all([
+  const [us, tk, tl, un, vg, gr, ws, ca, cp, pr, pd, cargos] = await Promise.all([
     sb.from("usuarios").select("*").order("nome", { ascending: true }),
     sb.from("tarefas").select("*").order("criada_em", { ascending: false }).limit(5000),
     sb.from("talento").select("*").order("criada", { ascending: false }).limit(5000),
@@ -196,6 +199,7 @@ export async function getData(sb: SupabaseClient): Promise<AppData> {
     sb.from("cargo_permissao").select("cargo, escopo_proprio"),
     sb.from("produto").select("*").order("nome", { ascending: true }).limit(5000),
     sb.from("pedido").select("*").order("criada", { ascending: false }).limit(5000),
+    lerCargos(sb),
   ]);
   // Tabela `produto` ainda não criada (migration 0010 pendente) → estoque vazio, sem derrubar o app.
   const semTabela = (r: { error: { code?: string } | null }) => !!r.error && (r.error.code === "42P01" || r.error.code === "PGRST205");
@@ -221,7 +225,7 @@ export async function getData(sb: SupabaseClient): Promise<AppData> {
     linkbio: linkbioDe(w?.vagas_pagina),
     gruposInternos: ((gr.data ?? []) as GrupoRow[]).map(grupoDe),
     workspace: { nome: w?.nome || "Ju Budelon", logo: w?.logo ?? null },
-    acessos, escopoProprio,
+    acessos, escopoProprio, cargos,
   };
 }
 
@@ -232,7 +236,7 @@ export async function getData(sb: SupabaseClient): Promise<AppData> {
  *  - grupos internos: só os visíveis ao cargo.
  */
 export function scopeData(data: AppData, cargo: string, userId: string): AppData {
-  if (isCargoFull(cargo)) return data;
+  if (isCargoFull(cargo, data.cargos)) return data;
   const own = data.escopoProprio[cargo] ?? DEFAULT_ESCOPO[cargo] ?? false;
   return {
     ...data,
