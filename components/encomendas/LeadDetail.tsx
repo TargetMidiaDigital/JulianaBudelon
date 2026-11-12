@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMudarStatusPedido } from "./useStatusPedido";
+import { useMensagemConfirmacao, useMudarStatusPedido } from "./useStatusPedido";
 import { css } from "@/lib/css";
 import { brl, foneBR } from "@/lib/format";
 import { Svg } from "../ui/Svg";
@@ -12,7 +12,7 @@ import { Foto } from "./FunilEncomenda";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
 import { useApp } from "../store";
 import {
-  LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, mensagemConfirmacaoPedido, numeroPedido, useEncomendas,
+  LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
   type LeadStatus, type PedidoStatus, type ResponsavelLead,
 } from "@/lib/encomendas";
 
@@ -31,7 +31,8 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
 }) {
   useFecharComEsc(true, onClose);
   const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus, setResponsavel } = useEncomendas();
-  const setPedidoStatus = useMudarStatusPedido();
+  const { mudar: setPedidoStatus, popup: popupStatus } = useMudarStatusPedido();
+  const mensagemDe = useMensagemConfirmacao();
   const { workspace } = useApp();
   const lead = leads.find((l) => l.id === leadId);
   const meus = pedidos.filter((p) => p.leadId === leadId).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
@@ -41,12 +42,13 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
   // Mensagem de confirmação: do pedido aberto; senão do mais recente ainda não entregue.
   const alvo = meus.find((p) => p.id === aberto) ?? meus.find((p) => p.status !== "Entregue") ?? meus[0];
   const msgWpp = alvo
-    ? mensagemConfirmacaoPedido({ nome: lead.nome, empresa: workspace.nome, pedido: { ...alvo, unidadeNome: alvo.unidadeNome ?? unidadeDe(alvo.unidadeId)?.nome }, produto: produtoDe(alvo.produtoId)?.nome ?? alvo.produtoNome ?? "encomenda" })
+    ? mensagemDe(alvo)
     : `Oi${lead.nome ? `, ${lead.nome.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}.`;
   const hrefWpp = linkWhatsapp(lead.numero, msgWpp);
 
   return (
     <>
+      {popupStatus}
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:62; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer" style={css("position:fixed; top:0; right:0; bottom:0; z-index:63; background:#FAFAFB; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:640px; max-width:96vw; display:flex; flex-direction:column;")}>
         <div style={css("flex:none; display:flex; align-items:center; gap:12px; padding:18px 22px; background:#fff; border-bottom:1px solid #ECEDF1;")}>

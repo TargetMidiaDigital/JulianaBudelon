@@ -19,7 +19,7 @@ export default function EncCrm() {
   const { canEditPage } = useApp();
   const editavel = canEditPage("encomendas-crm");
   const { leads, pedidos, produtoDe, setResponsavel } = useEncomendas();
-  const setPedidoStatus = useMudarStatusPedido();
+  const { mudar: setPedidoStatus, popup: popupStatus } = useMudarStatusPedido();
   const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState<{ lead: string; pedido: string } | null>(null);
   const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>({});
@@ -148,6 +148,7 @@ export default function EncCrm() {
         </div>
       </div>}
 
+      {popupStatus}
       {aberto && <LeadDetail leadId={aberto.lead} pedidoAberto={aberto.pedido} canEdit={editavel} onClose={() => setAberto(null)} />}
     </div>
   );
