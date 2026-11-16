@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
-import { PEDIDO_STATUS, corPedido, proximoPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus, type ResponsavelLead } from "@/lib/encomendas";
+import { PEDIDO_STATUS, corPedido, linkWhatsapp, proximoPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus, type ResponsavelLead } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail, { RESP_COR, Seletor } from "../encomendas/LeadDetail";
@@ -11,6 +11,8 @@ import { useApp } from "../store";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { useMudarStatusPedido } from "../encomendas/useStatusPedido";
 import BotaoAvancar from "../ui/BotaoAvancar";
+import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
+import { useMensagemConfirmacao } from "../encomendas/useStatusPedido";
 
 const RESPONSAVEIS: ResponsavelLead[] = ["I.A", "Humano"];
 
@@ -20,6 +22,7 @@ export default function EncCrm() {
   const editavel = canEditPage("encomendas-crm");
   const { leads, pedidos, produtoDe, setResponsavel } = useEncomendas();
   const { mudar: setPedidoStatus, popup: popupStatus } = useMudarStatusPedido();
+  const mensagemDe = useMensagemConfirmacao();
   const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState<{ lead: string; pedido: string } | null>(null);
   const [recolhidas, setRecolhidas] = useState<Record<string, boolean>>({});
@@ -58,7 +61,12 @@ export default function EncCrm() {
         <div style={css("display:flex; align-items:flex-start; gap:8px;")}>
           <div style={css("flex:1; min-width:0;")}>
             <div style={css("font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{l?.nome || (l ? foneBR(l.numero) : "Contato removido")}</div>
-            {l && <div style={css("font-size:12.5px; color:#7A8090; margin-top:2px;")}>{foneBR(l.numero)}</div>}
+            {l && (
+              <div style={css("display:flex; align-items:center; gap:7px; font-size:12.5px; color:#7A8090; margin-top:2px;")}>
+                {foneBR(l.numero)}
+                {linkWhatsapp(l.numero, "") && <LinkWhatsapp href={linkWhatsapp(l.numero, mensagemDe(p))!} mensagem={mensagemDe(p)} para={l.nome || foneBR(l.numero)} size={24} />}
+              </div>
+            )}
           </div>
           <span style={css("flex:none; font-size:13.5px; font-weight:800;")}>{brl(p.total)}</span>
         </div>

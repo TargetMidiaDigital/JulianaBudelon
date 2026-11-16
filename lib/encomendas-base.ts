@@ -454,14 +454,22 @@ const primeiroNomeCliente = (nome: string) => {
 };
 
 /** Mensagem pronta para confirmar a encomenda com o cliente pelo WhatsApp (pagamento já conferido). */
-export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string }): string {
+export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "id" | "status" | "total" | "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string }): string {
   const nome = primeiroNomeCliente(x.nome);
   const p = x.pedido;
-  const onde = p.tipo === "Retirada" ? `retirada no dia ${dataBR(p.data)} às ${p.hora}${p.unidadeNome ? ` na loja ${p.unidadeNome}` : ""}` : `entrega no dia ${dataBR(p.data)} às ${p.hora}${p.endereco ? ` em ${enderecoLinha(p.endereco)}` : ""}`;
+  const quando = `${dataBR(p.data)} às ${p.hora}`;
+  const onde = p.tipo === "Retirada"
+    ? `Retirada: ${quando}${p.unidadeNome ? ` na loja ${p.unidadeNome}` : ""}`
+    : `Entrega: ${quando}${p.endereco ? ` em ${enderecoLinha(p.endereco)}` : ""}`;
+  // Antes de conferir o PIX não dá para dizer que o pagamento foi validado.
+  const pago = p.status !== "Verificar pagamento";
   return [
     `Oi${nome ? `, ${nome}` : ""}, tudo bem? Aqui é da ${x.empresa || "Ju Budelon"}.`,
-    `Acabamos de verificar o seu pagamento e estamos confirmando a sua encomenda: ${p.quantidade}× ${x.produto}, para ${onde}.`,
-    "Qualquer dúvida, é só chamar por aqui!",
+    pago
+      ? "Acabamos de verificar o seu pagamento: a sua encomenda está confirmada e já está em processo!"
+      : "Recebemos a sua encomenda e estamos verificando o pagamento. Assim que confirmar, ela entra em processo.",
+    [`Pedido #${numeroPedido(p.id)}`, `• ${p.quantidade}× ${x.produto}`, `• ${onde}`, `• Valor: ${brl(p.total)} (PIX)`].join("\n"),
+    "Pode confirmar se está tudo certinho? Qualquer dúvida, é só chamar por aqui!",
   ].join("\n\n");
 }
 
