@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone, parseBR } from "@/lib/format";
-import { statusInfo } from "@/lib/theme";
+import { ACCENT, statusInfo } from "@/lib/theme";
 import type { Task } from "@/lib/types";
 import { LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import { tarefasDaPage } from "@/lib/tarefas";
@@ -13,6 +13,7 @@ import { Foto } from "../encomendas/FunilEncomenda";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
+import Menu, { MenuItem } from "../ui/Menu";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 /**
@@ -80,11 +81,16 @@ export default function LojaEncomendas() {
     };
   });
 
-  const lojas = [...new Set(itens.map((i) => i.t.local).filter(Boolean))] as string[];
+  // Todas as unidades (lojas) no filtro — a Fábrica não recebe encomenda de cliente; local fora da lista também aparece.
+  const unidades = [
+    ...LOCAIS_ESTOQUE.filter((l) => l.id !== "fabrica"),
+    ...[...new Set(itens.map((i) => i.t.local).filter((l): l is string => !!l && !LOCAIS_ESTOQUE.some((x) => x.id === l)))].map((id) => ({ id, label: id })),
+  ];
   const q = busca.trim().toLowerCase(), dig = normalizePhone(busca);
-  const filtrados = itens.filter((i) =>
-    (!loja || i.t.local === loja) &&
-    (!q || i.cliente.toLowerCase().includes(q) || i.produto.toLowerCase().includes(q) || (i.p && numeroPedido(i.p.id).toLowerCase().includes(q)) || (dig.length >= 3 && !!i.numero?.includes(dig))));
+  const casaBusca = (i: Item) =>
+    (!q || i.cliente.toLowerCase().includes(q) || i.produto.toLowerCase().includes(q) || (i.p && numeroPedido(i.p.id).toLowerCase().includes(q)) || (dig.length >= 3 && !!i.numero?.includes(dig)));
+  const itensDaAba = itens.filter((i) => casaBusca(i) && (aba === "concluidas") === feita(i.t));
+  const filtrados = itens.filter((i) => (!loja || i.t.local === loja) && casaBusca(i));
   const pendentes = filtrados.filter((i) => !feita(i.t)).sort((a, b) => `${a.iso} ${a.hora}`.localeCompare(`${b.iso} ${b.hora}`));
   const concluidas = filtrados.filter((i) => feita(i.t)).sort((a, b) => `${b.iso} ${b.hora}`.localeCompare(`${a.iso} ${a.hora}`));
 
@@ -201,12 +207,34 @@ export default function LojaEncomendas() {
         </div>
       </div>
 
-      <div style={css("display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:8px; scrollbar-width:none;")}>
-        {chip(aba === "pendentes", () => setAba("pendentes"), <>Para entregar <span style={css("color:#9398A6;")}>{pendentes.length}</span></>)}
-        {chip(aba === "concluidas", () => setAba("concluidas"), <>Concluídas <span style={css("color:#9398A6;")}>{concluidas.length}</span></>, "#1B7F4D")}
-        {lojas.length > 1 && <span style={css("flex:none; width:1px; background:#E2E3E9; margin:4px 4px;")} />}
-        {lojas.length > 1 && chip(!loja, () => setLoja(""), "Todas as lojas", "#3A3F4C")}
-        {lojas.length > 1 && lojas.map((l) => chip(loja === l, () => setLoja(loja === l ? "" : l), <><span style={css(`width:8px; height:8px; border-radius:50%; background:${corDoLocal(l)};`)} />{LOCAIS_ESTOQUE.find((x) => x.id === l)?.label ?? l}</>, corDoLocal(l), l))}
+      <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;")}>
+        <div style={css("display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;")}>
+          {chip(aba === "pendentes", () => setAba("pendentes"), <>Para entregar <span style={css("color:#9398A6;")}>{pendentes.length}</span></>)}
+          {chip(aba === "concluidas", () => setAba("concluidas"), <>Concluídas <span style={css("color:#9398A6;")}>{concluidas.length}</span></>, "#1B7F4D")}
+        </div>
+        <span style={{ flex: 1 }} />
+        {/* Mesmo filtro da Ordem de Serviço: botão com menu, destacado quando há uma unidade escolhida. */}
+        <Menu align="right" width={230} trigger={(toggle) => (
+          <Hoverable as="button" onClick={toggle} s={css(`display:inline-flex; align-items:center; gap:8px; background:${loja ? "#FDF1F4" : "#fff"}; border:1px solid ${loja ? ACCENT : "#E2E3E9"}; color:${loja ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:13px; font-weight:700; padding:8px 14px; border-radius:10px;`)} hover={loja ? undefined : "background:#FAFAFB"}>
+            {loja
+              ? <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDoLocal(loja)};`)} />
+              : <Svg size={15} sw={2.2}><path d="M3 9.5 4.5 4h15L21 9.5M3 9.5h18M3 9.5V20h18V9.5M9 20v-5h6v5" /></Svg>}
+            {loja ? LOCAIS_ESTOQUE.find((x) => x.id === loja)?.label ?? loja : "Todas as unidades"}
+            <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
+          </Hoverable>
+        )}>
+          {(close) => (
+            <>
+              <MenuItem checked={!loja} accent={ACCENT} onClick={() => { setLoja(""); close(); }}><span style={{ flex: 1 }}>Todas as unidades</span><span style={css("font-size:12px; color:#9398A6;")}>{itensDaAba.length}</span></MenuItem>
+              {unidades.map((u) => (
+                <MenuItem key={u.id} checked={loja === u.id} accent={ACCENT} onClick={() => { setLoja(u.id); close(); }}>
+                  <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDoLocal(u.id)};`)} /><span style={{ flex: 1 }}>{u.label}</span>
+                  <span style={css("font-size:12px; color:#9398A6;")}>{itensDaAba.filter((i) => i.t.local === u.id).length}</span>
+                </MenuItem>
+              ))}
+            </>
+          )}
+        </Menu>
       </div>
 
       {erroCarga && <div style={css("margin:8px 0; padding:10px 14px; border-radius:10px; background:#FDECEC; color:#CC3338; font-size:13px; font-weight:600;")}>Não foi possível carregar as fotos e os dados dos pedidos: {erroCarga}</div>}
