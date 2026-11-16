@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, montarAcompanhamento, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
+  type Acompanhamento,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
 
@@ -275,6 +276,15 @@ export function useEncomendas() {
       [cs[i], cs[j]] = [cs[j], cs[i]];
       fazer(() => ({ categorias: cs }), "ordemCategorias", { ids: cs.map((c) => c.id) });
     },
+    /** Põe a categoria numa posição (0 = primeira) de uma vez só. */
+    posicionarCategoria: (id: string, para: number) => {
+      const cs = [...carregar().categorias];
+      const i = cs.findIndex((c) => c.id === id);
+      if (i < 0 || i === para) return;
+      const [c] = cs.splice(i, 1);
+      cs.splice(Math.max(0, Math.min(para, cs.length)), 0, c);
+      fazer(() => ({ categorias: cs }), "ordemCategorias", { ids: cs.map((x) => x.id) });
+    },
     salvarConfig: (config: ConfigEncomendas) => fazer(() => ({ config }), "config", { config }),
     /** Só no demo: volta aos dados de exemplo. */
     restaurarExemplo: () => (meta.modo === "demo" ? salvar(seed()) : null),
@@ -326,4 +336,22 @@ export function reduzirFoto(arquivo: File): Promise<string> {
     img.onerror = () => { URL.revokeObjectURL(url); falha(new Error("Não foi possível ler essa imagem.")); };
     img.src = url;
   });
+}
+
+/**
+ * Acompanhamento do pedido (/pedido/[id]) para o cliente. Com banco: rota pública
+ * /api/encomendas/acompanhar. Demo: lê o pedido do navegador (só abre no mesmo navegador).
+ */
+export async function buscarAcompanhamento(id: string): Promise<Acompanhamento | null> {
+  if (modoAtual() === "demo") {
+    const e = lerDemo();
+    const p = e.pedidos.find((x) => x.id === id);
+    if (!p) return null;
+    return montarAcompanhamento(p, { produto: e.produtos.find((x) => x.id === p.produtoId), clienteNome: e.leads.find((l) => l.id === p.leadId)?.nome ?? "", cfg: e.config });
+  }
+  const res = await fetch(`/api/encomendas/acompanhar?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  const j = (await res.json().catch(() => ({}))) as { pedido?: Acompanhamento; error?: string };
+  if (!res.ok || !j.pedido) throw new Error(j.error || `Falha (${res.status})`);
+  return j.pedido;
 }

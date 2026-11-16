@@ -53,3 +53,8 @@ export const rotuloEncomenda = (status: string, t: ComCategoria): string | undef
  */
 export const passouDaConferencia = (t: ComCategoria, status?: string | null): boolean =>
   ehEncomendaLoja(t) ? status === "em andamento" || status === "concluida" || status === "validada" : status === "concluida" || status === "validada";
+
+/** De onde veio a tarefa de Produção: Encomenda (CRM), Ordem de Serviço ou criada à mão. */
+export type OrigemProducao = "encomenda" | "os" | "avulsa";
+export const origemProducao = (t: { id: string; tipo?: string; pedidoId?: string }): OrigemProducao =>
+  t.tipo === "Encomenda" || t.id.includes("-encp-") ? "encomenda" : t.pedidoId ? "os" : "avulsa";

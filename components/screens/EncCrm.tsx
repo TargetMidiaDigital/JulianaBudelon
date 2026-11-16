@@ -12,6 +12,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
 import { useMudarStatusPedido } from "../encomendas/useStatusPedido";
 import BotaoAvancar from "../ui/BotaoAvancar";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
+import { IconeLinkPedido } from "../encomendas/LinkAcompanhamento";
 import { useMensagemConfirmacao } from "../encomendas/useStatusPedido";
 
 
@@ -64,6 +65,7 @@ export default function EncCrm() {
               <div style={css("display:flex; align-items:center; gap:7px; font-size:12.5px; color:#7A8090; margin-top:2px;")}>
                 {foneBR(l.numero)}
                 {linkWhatsapp(l.numero, "") && <LinkWhatsapp href={linkWhatsapp(l.numero, mensagemDe(p))!} mensagem={mensagemDe(p)} para={l.nome || foneBR(l.numero)} size={24} />}
+                <IconeLinkPedido pedidoId={p.id} />
               </div>
             )}
           </div>

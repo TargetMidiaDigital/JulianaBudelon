@@ -10,6 +10,7 @@ import Menu, { MenuItem } from "../ui/Menu";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Foto } from "./FunilEncomenda";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
+import { LinkPedidoCliente } from "./LinkAcompanhamento";
 import { useApp } from "../store";
 import {
   LEAD_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
@@ -129,6 +130,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
                         {p.tipo === "Retirada" && <Linha k="Unidade" v={p.unidadeNome ?? unidadeDe(p.unidadeId)?.nome ?? "—"} />}
                         {p.tipo === "Entrega" && <Linha k="Endereço" v={enderecoLinha(p.endereco)} />}
                         <Linha k={p.tipo === "Entrega" ? "Entrega em" : "Retirada em"} v={`${dataBR(p.data)} às ${p.hora}`} />
+                        <Linha k="Acompanhamento" v={<LinkPedidoCliente pedidoId={p.id} />} />
                         <Linha k="Registrado em" v={`${dataHora(p.criadoEm)}${p.origem === "autoatendimento" ? " · autoatendimento" : ""}`} />
                       </div>
                     )}

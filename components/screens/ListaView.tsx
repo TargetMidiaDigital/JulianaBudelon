@@ -28,7 +28,7 @@ import DescricaoPopover from "../ui/DescricaoPopover";
 import EditableTitle from "../ui/EditableTitle";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import FiltroTarefas from "../FiltroTarefas";
-import { pageSemProducao, tarefasDaPage } from "@/lib/tarefas";
+import { origemProducao, pageSemProducao, tarefasDaPage, type OrigemProducao } from "@/lib/tarefas";
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 import { useIsMobile } from "@/lib/useIsMobile";
 import BotaoAvancar from "../ui/BotaoAvancar";
@@ -96,7 +96,17 @@ export default function ListaView({
   const listGroupBy: ListGroupBy = gruposDaPagina.some((o) => o.key === listGroupBySalvo) ? listGroupBySalvo : "status";
   const scope = "operacional";
   const editavel = canEditPage(page);
-  const tasks = tarefasDaPage(todasTasks, page);
+  const tarefasPagina = tarefasDaPage(todasTasks, page);
+  // Produção: filtro de origem (Ordem de Serviço × Encomendas do CRM × criadas à mão).
+  const [origem, setOrigem] = useState<OrigemProducao | "">("");
+  const contaOrigem = (o: OrigemProducao) => tarefasPagina.filter((t) => origemProducao(t) === o && t.status !== "validada").length;
+  const origens: { key: OrigemProducao | ""; label: string; n: number; cor: string }[] = page !== "listaview" ? [] : [
+    { key: "", label: "Todas", n: tarefasPagina.filter((t) => t.status !== "validada").length, cor: "#5B6472" },
+    { key: "os", label: "Ordem de serviço", n: contaOrigem("os"), cor: "#2563EB" },
+    { key: "encomenda", label: "Encomendas", n: contaOrigem("encomenda"), cor: "#C2410C" },
+    ...(contaOrigem("avulsa") || origem === "avulsa" ? [{ key: "avulsa" as const, label: "Avulsas", n: contaOrigem("avulsa"), cor: "#7A8090" }] : []),
+  ];
+  const tasks = page === "listaview" && origem ? tarefasPagina.filter((t) => origemProducao(t) === origem) : tarefasPagina;
   const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Unidades" : page === "lojas-encomendas" ? "Encomendas" : "Produção";
   const abrir = setTaskDetailOpen;
 
@@ -386,8 +396,23 @@ export default function ListaView({
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 18px;")}>
         <div style={{ flex: 1 }}>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>{titulo}</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{ts.length} tarefas{listGroupBy === "none" ? "" : ` · agrupadas por ${GROUP_OPTS.find((o) => o.key === listGroupBy)?.label.toLowerCase()}`}{!showValidadas && tsBase.length > ts.length ? ` · ${tsBase.length - ts.length} validadas ocultas (botão ✓)` : ""}</p>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{ts.length} tarefas{origem ? ` de ${origens.find((o) => o.key === origem)?.label.toLowerCase()}` : ""}{listGroupBy === "none" ? "" : ` · agrupadas por ${GROUP_OPTS.find((o) => o.key === listGroupBy)?.label.toLowerCase()}`}{!showValidadas && tsBase.length > ts.length ? ` · ${tsBase.length - ts.length} validadas ocultas (botão ✓)` : ""}</p>
         </div>
+        {origens.length > 0 && (
+          <div role="tablist" aria-label="Origem das tarefas" className="m-full" style={css("display:flex; gap:3px; background:#EDEEF2; border-radius:11px; padding:3px; flex-wrap:wrap;")}>
+            {origens.map((o) => {
+              const on = origem === o.key;
+              return (
+                <button key={o.key || "todas"} role="tab" aria-selected={on} onClick={() => setOrigem(o.key)}
+                  style={css(`display:inline-flex; align-items:center; gap:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; padding:7px 13px; border-radius:8px; background:${on ? "#fff" : "transparent"}; color:${on ? "#1B1B28" : "#5B6472"}; box-shadow:${on ? "0 1px 2px rgba(16,24,40,.10)" : "none"};`)}>
+                  {o.key && <span style={css(`width:8px; height:8px; border-radius:50%; background:${o.cor};`)} />}
+                  {o.label}
+                  <span style={css(`font-size:11.5px; font-weight:800; padding:1px 7px; border-radius:999px; background:${on ? o.cor + "1A" : "#E2E3E9"}; color:${on ? o.cor : "#7A8090"};`)}>{o.n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:12px; padding:0 30px 16px;")}>

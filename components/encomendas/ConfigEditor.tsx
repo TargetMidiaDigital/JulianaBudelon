@@ -4,7 +4,7 @@ import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
-import { CORES_DESTAQUE, DIAS, PERIODOS, horariosDaJanela, useEncomendas, validarConfig, vitrineDe, type ConfigEncomendas, type DiaKey, type Vitrine } from "@/lib/encomendas";
+import { CORES_DESTAQUE, DIAS, PERIODOS, categoriaAtiva, horariosDaJanela, resumoHorario, useEncomendas, validarConfig, vitrineDe, type ConfigEncomendas, type DiaKey, type JanelaDia, type UnidadeRetirada, type Vitrine } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import { Botao, Chave } from "./CatalogoEditor";
@@ -16,13 +16,14 @@ import { Botao, Chave } from "./CatalogoEditor";
  */
 export default function ConfigEditor({ editavel }: { editavel: boolean }) {
   const { config, salvarConfig } = useEncomendas();
+  const [abertaUnidade, setAbertaUnidade] = useState<string | null>(null);
   const [c, setC] = useState<ConfigEncomendas>(() => structuredClone(config));
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const sujo = JSON.stringify(c) !== JSON.stringify(config);
 
   const mudar = (patch: Partial<ConfigEncomendas>) => { setC((x) => ({ ...x, ...patch })); setOk(false); setErro(null); };
-  const mudarDia = (k: DiaKey, f: (d: ConfigEncomendas["janelas"][DiaKey]) => ConfigEncomendas["janelas"][DiaKey]) => mudar({ janelas: { ...c.janelas, [k]: f(c.janelas[k]) } });
+  const mudarUnidade = (id: string, patch: Partial<UnidadeRetirada>) => mudar({ unidades: c.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
   const salvar = () => {
     const limpa: ConfigEncomendas = { ...c, unidades: c.unidades.map((u) => ({ ...u, nome: u.nome.trim(), endereco: u.endereco.trim() })) };
     const e = validarConfig(limpa);
@@ -84,24 +85,48 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
         <div style={css("font-size:12px; color:#9398A6; margin-top:10px;")}>A foto de capa, a frase de cada card e quais categorias aparecem ficam em <b>Produtos</b>, no botão de editar da categoria.</div>
       </Cartao>
 
+      <OrdemCategorias editavel={editavel} />
+
       <Cartao titulo="Retirada na loja" sub="Unidades onde o cliente pode buscar o pedido" icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>}
         direita={<Chave ligado={c.retiradaAtiva} onChange={(v) => !ro && mudar({ retiradaAtiva: v })} />}>
         {!c.retiradaAtiva && <div style={css("font-size:12.5px; color:#9398A6; font-style:italic; margin-bottom:8px;")}>Retirada desligada — o cliente só vê a opção de entrega.</div>}
         <div style={css(`display:flex; flex-direction:column; gap:8px; opacity:${c.retiradaAtiva ? 1 : 0.55};`)}>
           {c.unidades.length === 0 && <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma unidade cadastrada.</div>}
-          {c.unidades.map((u, i) => (
-            <div key={u.id} className="m-wrap" style={css("display:flex; align-items:center; gap:8px; background:#FAFAFB; border:1px solid #F0F1F4; border-radius:11px; padding:8px 10px;")}>
-              <span className="m-hide" style={{ display: "flex" }}><Svg size={16} stroke="#9398A6" style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
-              {/* No celular: nome e endereço em linhas inteiras; chave e lixeira na linha de baixo. */}
-              <input className="m-full" disabled={ro} value={u.nome} onChange={(e) => mudar({ unidades: c.unidades.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)) })} placeholder="Nome (ex.: Florianópolis · Centro)" style={css(campo("flex:1; min-width:170px;"))} />
-              <input className="m-full" disabled={ro} value={u.endereco} onChange={(e) => mudar({ unidades: c.unidades.map((x, j) => (j === i ? { ...x, endereco: e.target.value } : x)) })} placeholder="Endereço (aparece para o cliente)" style={css(campo("flex:1.4; min-width:200px;"))} />
-              <span style={css("display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#7A8090; margin-right:auto;")}>
-                <Chave ligado={u.ativo} onChange={(v) => !ro && mudar({ unidades: c.unidades.map((x, j) => (j === i ? { ...x, ativo: v } : x)) })} />{u.ativo ? "Ativa" : "Inativa"}
-              </span>
-              {!ro && <Lixeira titulo="Remover unidade" onClick={() => mudar({ unidades: c.unidades.filter((_, j) => j !== i) })} />}
-            </div>
-          ))}
-          {!ro && <AddLink onClick={() => mudar({ unidades: [...c.unidades, { id: crypto.randomUUID(), nome: "", endereco: "", ativo: true }] })}>Adicionar unidade</AddLink>}
+          {c.unidades.map((u) => {
+            const aberta = abertaUnidade === u.id;
+            return (
+              <div key={u.id} style={css("background:#FAFAFB; border:1px solid #F0F1F4; border-radius:12px; padding:10px 12px;")}>
+                <div className="m-wrap" style={css("display:flex; align-items:center; gap:8px;")}>
+                  <span className="m-hide" style={{ display: "flex" }}><Svg size={16} stroke="#9398A6" style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
+                  {/* No celular: nome e endereço em linhas inteiras; chave e lixeira na linha de baixo. */}
+                  <input className="m-full" disabled={ro} value={u.nome} onChange={(e) => mudarUnidade(u.id, { nome: e.target.value })} placeholder="Nome (ex.: Centro)" aria-label="Nome da unidade" style={css(campo("flex:1; min-width:150px;"))} />
+                  <input className="m-full" disabled={ro} value={u.endereco} onChange={(e) => mudarUnidade(u.id, { endereco: e.target.value })} placeholder="Endereço (aparece para o cliente)" aria-label="Endereço da unidade" style={css(campo("flex:1.6; min-width:220px;"))} />
+                  <span style={css("display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#7A8090; margin-right:auto;")}>
+                    <Chave ligado={u.ativo} onChange={(v) => !ro && mudarUnidade(u.id, { ativo: v })} />{u.ativo ? "Ativa" : "Inativa"}
+                  </span>
+                  {!ro && <Lixeira titulo="Remover unidade" onClick={() => mudar({ unidades: c.unidades.filter((x) => x.id !== u.id) })} />}
+                </div>
+                <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; padding-left:2px;")}>
+                  <Svg size={14} stroke={u.horarios ? BRAND : "#9398A6"} sw={2} style={css("flex:none;")}><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>
+                  <span style={css("font-size:12.5px; font-weight:700; color:#5B6472;")}>Funcionamento:</span>
+                  <span style={css(`font-size:12.5px; color:${u.horarios ? "#3A3F4C" : "#9398A6"}; flex:1; min-width:160px;`)}>{u.horarios ? resumoHorario(u.horarios) : "usa os horários gerais de retirada (abaixo)"}</span>
+                  {!ro && (u.horarios
+                    ? <AddLink sem onClick={() => setAbertaUnidade(aberta ? null : u.id)}>{aberta ? "Fechar" : "Editar horário"}</AddLink>
+                    : <AddLink onClick={() => { mudarUnidade(u.id, { horarios: structuredClone(c.janelas) }); setAbertaUnidade(u.id); }}>Definir horário da loja</AddLink>)}
+                </div>
+                {aberta && u.horarios && (
+                  <div style={css("margin-top:8px; background:#fff; border:1px solid #ECEDF1; border-radius:10px; padding:4px 12px 10px;")}>
+                    <EditorJanelas janelas={u.horarios} intervaloMin={c.intervaloMin} fimIncluso={false} ro={ro} onChange={(h) => mudarUnidade(u.id, { horarios: h })} />
+                    <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;")}>
+                      <span style={css("font-size:12px; color:#9398A6; flex:1; min-width:200px;")}>O cliente só consegue marcar a retirada nesta loja dentro desse horário (o horário de fechar não entra).</span>
+                      {!ro && <AddLink sem onClick={() => { mudarUnidade(u.id, { horarios: undefined }); setAbertaUnidade(null); }}>Usar os horários gerais</AddLink>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!ro && <AddLink onClick={() => { const id = crypto.randomUUID(); mudar({ unidades: [...c.unidades, { id, nome: "", endereco: "", ativo: true, horarios: structuredClone(c.janelas) }] }); setAbertaUnidade(id); }}>Adicionar unidade</AddLink>}
         </div>
       </Cartao>
 
@@ -114,38 +139,8 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
         ) : <div style={css("font-size:12.5px; color:#9398A6; font-style:italic;")}>Entrega desligada — o cliente só vê a opção de retirada.</div>}
       </Cartao>
 
-      <Cartao titulo="Horários de entrega/retirada" sub="Quando o cliente pode receber ou buscar o pedido" icone={<><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>}>
-        <div style={css("display:flex; flex-direction:column;")}>
-          {DIAS.map((d) => {
-            const j = c.janelas[d.key];
-            const hs = horariosDaJanela(j, c.intervaloMin);
-            const periodos = PERIODOS.filter((p) => hs.some((h) => { const n = Number(h.slice(0, 2)); return n >= p.de && n < p.ate; })).map((p) => p.label);
-            return (
-              <div key={d.key} className="m-wrap" style={css("display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #F4F5F7;")}>
-                <span style={css("display:flex; align-items:center; gap:9px; width:130px; flex:none; padding-top:4px;")}>
-                  <Chave ligado={j.ativo} onChange={(v) => !ro && mudarDia(d.key, (x) => ({ ativo: v, intervalos: v && !x.intervalos.length ? [{ inicio: "09:00", fim: "18:00" }] : x.intervalos }))} />
-                  <span style={css("font-size:13.5px; font-weight:700;")}>{d.label}</span>
-                </span>
-                {j.ativo ? (
-                  <div style={css("flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px;")}>
-                    {j.intervalos.map((b, bi) => (
-                      <div key={bi} style={css("display:flex; align-items:center; gap:7px;")}>
-                        <input disabled={ro} type="time" value={b.inicio} onChange={(e) => mudarDia(d.key, (x) => ({ ...x, intervalos: x.intervalos.map((y, k) => (k === bi ? { ...y, inicio: e.target.value } : y)) }))} style={css(campo("width:112px;"))} />
-                        <span style={css("font-size:12.5px; color:#9398A6;")}>até</span>
-                        <input disabled={ro} type="time" value={b.fim} onChange={(e) => mudarDia(d.key, (x) => ({ ...x, intervalos: x.intervalos.map((y, k) => (k === bi ? { ...y, fim: e.target.value } : y)) }))} style={css(campo("width:112px;"))} />
-                        {!ro && <Lixeira titulo="Remover bloco" onClick={() => mudarDia(d.key, (x) => ({ ativo: x.intervalos.length > 1, intervalos: x.intervalos.filter((_, k) => k !== bi) }))} />}
-                      </div>
-                    ))}
-                    <div style={css("display:flex; align-items:center; gap:12px; flex-wrap:wrap;")}>
-                      {!ro && <AddLink onClick={() => mudarDia(d.key, (x) => ({ ...x, intervalos: [...x.intervalos, { inicio: "14:00", fim: "18:00" }] }))}>bloco</AddLink>}
-                      <span style={css("font-size:12px; color:#9398A6;")}>{hs.length} horário{hs.length === 1 ? "" : "s"}{periodos.length ? ` · ${periodos.join(", ")}` : ""}</span>
-                    </div>
-                  </div>
-                ) : <span style={css("flex:1; padding-top:5px; font-size:13px; color:#9398A6; font-style:italic;")}>Fechado</span>}
-              </div>
-            );
-          })}
-        </div>
+      <Cartao titulo="Horários gerais de entrega e retirada" sub="Valem para a entrega e para as lojas sem horário próprio" icone={<><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>}>
+        <EditorJanelas janelas={c.janelas} intervaloMin={c.intervaloMin} ro={ro} onChange={(janelas) => mudar({ janelas })} />
       </Cartao>
 
       <Cartao titulo="Regras do pedido" sub="Antecedência, intervalo entre horários e quantidade" icone={<path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />}>
@@ -226,10 +221,91 @@ function Lixeira({ titulo, onClick }: { titulo: string; onClick: () => void }) {
   );
 }
 
-function AddLink({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function AddLink({ onClick, children, sem }: { onClick: () => void; children: React.ReactNode; sem?: boolean }) {
   return (
     <Hoverable as="button" type="button" onClick={onClick} s={css(`align-self:flex-start; display:inline-flex; align-items:center; gap:5px; border:none; background:transparent; color:${BRAND}; font-size:13px; font-weight:700; cursor:pointer; padding:4px 2px;`)} hover="text-decoration:underline">
-      <Svg size={14} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>{children}
+      {!sem && <Svg size={14} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>}{children}
+    </Hoverable>
+  );
+}
+
+/** Editor de horários por dia da semana (blocos início–fim), usado nos horários gerais e no funcionamento de cada loja. */
+function EditorJanelas({ janelas, intervaloMin, fimIncluso = true, ro, onChange }: { janelas: Record<DiaKey, JanelaDia>; intervaloMin: number; fimIncluso?: boolean; ro: boolean; onChange: (j: Record<DiaKey, JanelaDia>) => void }) {
+  const mudarDia = (k: DiaKey, f: (d: JanelaDia) => JanelaDia) => onChange({ ...janelas, [k]: f(janelas[k] ?? { ativo: false, intervalos: [] }) });
+  return (
+    <div style={css("display:flex; flex-direction:column;")}>
+      {DIAS.map((d) => {
+        const j = janelas[d.key] ?? { ativo: false, intervalos: [] };
+        const hs = horariosDaJanela(j, intervaloMin, fimIncluso);
+        const periodos = PERIODOS.filter((p) => hs.some((h) => { const n = Number(h.slice(0, 2)); return n >= p.de && n < p.ate; })).map((p) => p.label);
+        return (
+          <div key={d.key} className="m-wrap" style={css("display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid #F4F5F7;")}>
+            <span style={css("display:flex; align-items:center; gap:9px; width:130px; flex:none; padding-top:4px;")}>
+              <Chave ligado={j.ativo} onChange={(v) => !ro && mudarDia(d.key, (x) => ({ ativo: v, intervalos: v && !x.intervalos.length ? [{ inicio: "09:00", fim: "18:00" }] : x.intervalos }))} />
+              <span style={css("font-size:13.5px; font-weight:700;")}>{d.label}</span>
+            </span>
+            {j.ativo ? (
+              <div style={css("flex:1; min-width:220px; display:flex; flex-direction:column; gap:6px;")}>
+                {j.intervalos.map((b, bi) => (
+                  <div key={bi} style={css("display:flex; align-items:center; gap:7px;")}>
+                    <input disabled={ro} type="time" aria-label={`${d.label}: início`} value={b.inicio} onChange={(e) => mudarDia(d.key, (x) => ({ ...x, intervalos: x.intervalos.map((y, k) => (k === bi ? { ...y, inicio: e.target.value } : y)) }))} style={css(campo("width:112px;"))} />
+                    <span style={css("font-size:12.5px; color:#9398A6;")}>até</span>
+                    <input disabled={ro} type="time" aria-label={`${d.label}: fim`} value={b.fim} onChange={(e) => mudarDia(d.key, (x) => ({ ...x, intervalos: x.intervalos.map((y, k) => (k === bi ? { ...y, fim: e.target.value } : y)) }))} style={css(campo("width:112px;"))} />
+                    {!ro && <Lixeira titulo="Remover bloco" onClick={() => mudarDia(d.key, (x) => ({ ativo: x.intervalos.length > 1, intervalos: x.intervalos.filter((_, k) => k !== bi) }))} />}
+                  </div>
+                ))}
+                <div style={css("display:flex; align-items:center; gap:12px; flex-wrap:wrap;")}>
+                  {!ro && <AddLink onClick={() => mudarDia(d.key, (x) => ({ ...x, intervalos: [...x.intervalos, { inicio: "14:00", fim: "18:00" }] }))}>bloco</AddLink>}
+                  <span style={css("font-size:12px; color:#9398A6;")}>{hs.length} horário{hs.length === 1 ? "" : "s"}{periodos.length ? ` · ${periodos.join(", ")}` : ""}</span>
+                </div>
+              </div>
+            ) : <span style={css("flex:1; padding-top:5px; font-size:13px; color:#9398A6; font-style:italic;")}>Fechado</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Ordem das categorias na página do cliente (1ª, 2ª, 3ª…). Grava na hora (é a mesma ordem das
+ * setas em Produtos), sem depender do "Salvar configuração".
+ */
+function OrdemCategorias({ editavel }: { editavel: boolean }) {
+  const { categorias, produtos, moverCategoria, posicionarCategoria } = useEncomendas();
+  const qtd = (id: string) => produtos.filter((p) => p.categoriaId === id && p.ativo).length;
+  return (
+    <Cartao titulo="Ordem das categorias" sub="Em que ordem o cliente vê as categorias na página de encomendas · muda na hora" icone={<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />}>
+      {categorias.length === 0 ? <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma categoria cadastrada (crie em Produtos).</div> : (
+        <ol style={css("list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;")}>
+          {categorias.map((cat, i) => {
+            const oculta = !categoriaAtiva(cat);
+            return (
+              <li key={cat.id} style={css(`display:flex; align-items:center; gap:10px; background:#FAFAFB; border:1px solid #F0F1F4; border-radius:11px; padding:7px 8px 7px 10px; opacity:${oculta ? 0.6 : 1};`)}>
+                <span style={css(`width:28px; height:28px; border-radius:8px; flex:none; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; background:${oculta ? "#EDEEF2" : BRAND + "1A"}; color:${oculta ? "#9398A6" : BRAND};`)}>{i + 1}º</span>
+                <span style={css("flex:1; min-width:0; font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{cat.nome}</span>
+                <span style={css("font-size:12px; color:#9398A6; font-weight:600; white-space:nowrap;")}>{oculta ? "oculta" : `${qtd(cat.id)} produto${qtd(cat.id) === 1 ? "" : "s"}`}</span>
+                {editavel && (
+                  <span style={css("display:inline-flex; gap:2px;")}>
+                    <SetaOrdem titulo="Mover para o topo" off={i === 0} onClick={() => posicionarCategoria(cat.id, 0)}><path d="M6 5h12M12 19V9M7 13l5-5 5 5" /></SetaOrdem>
+                    <SetaOrdem titulo="Subir" off={i === 0} onClick={() => moverCategoria(cat.id, -1)}><path d="m18 15-6-6-6 6" /></SetaOrdem>
+                    <SetaOrdem titulo="Descer" off={i === categorias.length - 1} onClick={() => moverCategoria(cat.id, 1)}><path d="m6 9 6 6 6-6" /></SetaOrdem>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Cartao>
+  );
+}
+
+function SetaOrdem({ titulo, off, onClick, children }: { titulo: string; off: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Hoverable as="button" type="button" title={titulo} aria-label={titulo} disabled={off} onClick={onClick}
+      s={css(`width:30px; height:30px; border:1px solid #E2E3E9; background:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#5B6472; cursor:${off ? "default" : "pointer"}; opacity:${off ? 0.35 : 1};`)} hover={off ? undefined : "background:#F2F3F6"}>
+      <Svg size={15} sw={2.4}>{children}</Svg>
     </Hoverable>
   );
 }

@@ -183,7 +183,11 @@ export const DIAS: { key: DiaKey; label: string; curto: string }[] = [
 
 export type Intervalo = { inicio: string; fim: string }; // "HH:MM"
 export type JanelaDia = { ativo: boolean; intervalos: Intervalo[] };
-export type UnidadeRetirada = { id: string; nome: string; endereco: string; ativo: boolean };
+export type UnidadeRetirada = {
+  id: string; nome: string; endereco: string; ativo: boolean;
+  /** Horário de funcionamento da loja: a retirada só é oferecida dentro dele. Sem = usa os horários gerais. */
+  horarios?: Record<DiaKey, JanelaDia>;
+};
 
 export type ConfigEncomendas = {
   retiradaAtiva: boolean;
@@ -266,15 +270,34 @@ export const diaKeyDe = (iso: string): DiaKey => DIAS[new Date(`${iso}T12:00:00`
 export const paraMin = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
 export const deMin = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 
-/** Horários de uma janela: cada bloco fatiado a cada `intervaloMin` (fim incluso), sem repetir. */
-export function horariosDaJanela(j: JanelaDia, intervaloMin: number): string[] {
-  if (!j.ativo) return [];
+/**
+ * Horários de uma janela: cada bloco fatiado a cada `intervaloMin`, sem repetir. Com `fimIncluso`
+ * (horários gerais) o fim também é oferecido; no horário de funcionamento de uma loja, não (a loja fecha).
+ */
+export function horariosDaJanela(j: JanelaDia | undefined, intervaloMin: number, fimIncluso = true): string[] {
+  if (!j?.ativo) return [];
   const passo = Math.max(5, intervaloMin || 60);
   const set = new Set<number>();
-  for (const b of j.intervalos) for (let m = paraMin(b.inicio); m <= paraMin(b.fim); m += passo) set.add(m);
+  for (const b of j.intervalos) for (let m = paraMin(b.inicio); fimIncluso ? m <= paraMin(b.fim) : m < paraMin(b.fim); m += passo) set.add(m);
   return [...set].sort((a, b) => a - b).map(deMin);
 }
-export const horariosDoDia = (cfg: ConfigEncomendas, iso: string) => horariosDaJanela(cfg.janelas[diaKeyDe(iso)], cfg.intervaloMin);
+/** Horários de retirada/entrega do dia: os da loja escolhida (se ela tem horário próprio) ou os gerais. */
+export const horariosDoDia = (cfg: ConfigEncomendas, iso: string, unidade?: UnidadeRetirada | null) =>
+  unidade?.horarios ? horariosDaJanela(unidade.horarios[diaKeyDe(iso)], cfg.intervaloMin, false) : horariosDaJanela(cfg.janelas[diaKeyDe(iso)], cfg.intervaloMin);
+
+/** "Seg a Sex 09:00–18:00 · Sáb 09:00–14:00" (dias fechados ficam de fora). */
+export function resumoHorario(j: Record<DiaKey, JanelaDia> | undefined): string {
+  if (!j) return "";
+  const ordem: DiaKey[] = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"];
+  const curto = (k: DiaKey) => DIAS.find((d) => d.key === k)!.curto;
+  const txt = (k: DiaKey) => (j[k]?.ativo && j[k].intervalos.length ? j[k].intervalos.map((b) => `${b.inicio}–${b.fim}`).join(", ") : "");
+  const grupos: { de: DiaKey; ate: DiaKey; t: string }[] = [];
+  for (const k of ordem) {
+    const t = txt(k), g = grupos[grupos.length - 1];
+    if (g && g.t === t) g.ate = k; else grupos.push({ de: k, ate: k, t });
+  }
+  return grupos.filter((g) => g.t).map((g) => `${curto(g.de)}${g.de === g.ate ? "" : ` a ${curto(g.ate)}`} ${g.t}`).join(" · ") || "Fechada";
+}
 
 /** Instante de uma data + hora de Brasília (UTC−3, sem horário de verão): igual no navegador e no servidor (UTC). */
 export const instanteBR = (iso: string, hora: string) => new Date(`${iso}T${hora}:00-03:00`);
@@ -294,6 +317,14 @@ export function validarConfig(c: ConfigEncomendas): string | null {
   if (!c.retiradaAtiva && !c.entregaAtiva) return "Ligue pelo menos uma forma de receber: retirada ou entrega.";
   if (c.retiradaAtiva && !c.unidades.some((u) => u.ativo && u.nome.trim())) return "A retirada está ligada, mas não há nenhuma unidade ativa. Adicione uma unidade ou desligue a retirada.";
   if (c.unidades.some((u) => !u.nome.trim())) return "Toda unidade precisa de um nome.";
+  for (const u of c.unidades) {
+    if (!u.horarios) continue;
+    for (const d of DIAS) {
+      const j = u.horarios[d.key];
+      if (j?.ativo && j.intervalos.some((b) => paraMin(b.fim) <= paraMin(b.inicio))) return `Horário inválido em ${u.nome || "uma unidade"} (${d.label.toLowerCase()}): o fim precisa ser depois do início.`;
+    }
+    if (u.ativo && !DIAS.some((d) => horariosDaJanela(u.horarios![d.key], c.intervaloMin, false).length)) return `${u.nome || "Uma unidade"} está ativa mas sem nenhum dia aberto no horário de funcionamento.`;
+  }
   if (c.entregaAtiva && !(c.taxaEntrega >= 0)) return "A taxa de entrega não pode ser negativa.";
   if (!(c.maxPorPedido >= 1)) return "O máximo por pedido precisa ser pelo menos 1.";
   if (!(c.antecedenciaHoras >= 0)) return "A antecedência não pode ser negativa.";
@@ -440,7 +471,7 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
     if (!e || e.cidade.trim().length < 3 || e.bairro.trim().length < 2 || e.rua.trim().length < 3 || !e.numero.trim()) return { erro: "Preencha o endereço de entrega." };
   } else return { erro: "Escolha retirada ou entrega." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(n.data ?? "") || !/^\d{2}:\d{2}$/.test(n.hora ?? "")) return { erro: "Escolha a data e o horário." };
-  if (!horariosDoDia(cfg, n.data).includes(n.hora)) return { erro: "Esse horário não está disponível. Escolha outro." };
+  if (!horariosDoDia(cfg, n.data, unidade).includes(n.hora)) return { erro: unidade?.horarios ? `Esse horário está fora do funcionamento da loja ${unidade.nome}. Escolha outro.` : "Esse horário não está disponível. Escolha outro." };
   if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, produto.preparoDias)) {
     return { erro: produto.preparoDias ? `${produto.nome} precisa de ${textoPreparo(produto.preparoDias)}: escolha a partir de ${dataBR(diaBR(agora, produto.preparoDias))}.` : `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
   }
@@ -473,7 +504,7 @@ const primeiroNomeCliente = (nome: string) => {
 };
 
 /** Mensagem pronta para confirmar a encomenda com o cliente pelo WhatsApp (pagamento já conferido). */
-export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "id" | "status" | "total" | "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string }): string {
+export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "id" | "status" | "total" | "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string; link?: string }): string {
   const nome = primeiroNomeCliente(x.nome);
   const p = x.pedido;
   const quando = `${dataBR(p.data)} às ${p.hora}`;
@@ -488,8 +519,9 @@ export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pe
       ? "Acabamos de verificar o seu pagamento: a sua encomenda está confirmada e já está em processo!"
       : "Recebemos a sua encomenda e estamos verificando o pagamento. Assim que confirmar, ela entra em processo.",
     [`Pedido #${numeroPedido(p.id)}`, `• ${p.quantidade}× ${x.produto}`, `• ${onde}`, `• Valor: ${brl(p.total)} (PIX)`].join("\n"),
+    x.link ? `Acompanhe o andamento do seu pedido por aqui:\n${x.link}` : "",
     "Pode confirmar se está tudo certinho? Qualquer dúvida, é só chamar por aqui!",
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 /** Link do WhatsApp (wa.me) com o texto pronto. null sem número. */
@@ -617,4 +649,60 @@ export function pixCopiaECola(cfg: Pick<ConfigEncomendas, "pixChave" | "pixNome"
     campoEmv("62", campoEmv("05", id)) +
     "6304";
   return corpo + crc16(corpo);
+}
+
+// ── Acompanhamento do pedido pelo cliente (/pedido/[id], estilo app de delivery) ─────
+
+/**
+ * O que a página pública de acompanhamento mostra. O link leva o id do pedido (UUID aleatório):
+ * só quem recebeu o link vê. Nada de telefone nem endereço completo do cliente.
+ */
+export type Acompanhamento = {
+  id: string;
+  numero: string;
+  status: PedidoStatus;
+  cliente: string; // primeiro nome
+  produto: string;
+  foto: string | null;
+  quantidade: number;
+  mensagem?: string;
+  tipo: TipoEntrega;
+  data: string;
+  hora: string;
+  total: number;
+  criadoEm: string;
+  unidade?: { nome: string; endereco: string; horario: string };
+  bairro?: string; // entrega: só o bairro
+  whatsappLoja: string;
+};
+
+/** Pedido com id de UUID (os do banco). Os do modo demo ("p-…") só abrem no navegador do demo. */
+export const idAcompanhamentoValido = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+export const linkAcompanhamento = (pedidoId: string, origem: string) => `${origem.replace(/\/$/, "")}/pedido/${encodeURIComponent(pedidoId)}`;
+
+export function montarAcompanhamento(p: PedidoEncomenda, x: { produto?: Pick<ProdutoEncomenda, "nome" | "foto">; clienteNome: string; cfg: ConfigEncomendas }): Acompanhamento {
+  const u = p.tipo === "Retirada" ? x.cfg.unidades.find((y) => y.id === p.unidadeId) : undefined;
+  const primeiro = x.clienteNome.trim().split(/\s+/)[0] ?? "";
+  return {
+    id: p.id, numero: numeroPedido(p.id), status: p.status, cliente: primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : "",
+    produto: p.produtoNome || x.produto?.nome || "Encomenda", foto: x.produto?.foto ?? null, quantidade: p.quantidade, mensagem: p.mensagem,
+    tipo: p.tipo, data: p.data, hora: p.hora, total: p.total, criadoEm: p.criadoEm,
+    unidade: p.tipo === "Retirada" ? { nome: u?.nome || p.unidadeNome || "", endereco: u?.endereco ?? "", horario: resumoHorario(u?.horarios) } : undefined,
+    bairro: p.tipo === "Entrega" ? p.endereco?.bairro : undefined,
+    whatsappLoja: x.cfg.whatsappContato,
+  };
+}
+
+/** Etapas na linguagem do cliente (a mesma ordem do funil do CRM). */
+export function etapasCliente(a: Pick<Acompanhamento, "tipo" | "unidade">): { status: PedidoStatus; titulo: string; texto: string }[] {
+  const retirada = a.tipo === "Retirada";
+  const loja = a.unidade?.nome ? `na loja ${a.unidade.nome}` : "na loja";
+  return [
+    { status: "Verificar pagamento", titulo: "Pedido recebido", texto: "Estamos conferindo o seu pagamento." },
+    { status: "Confirmado com o cliente", titulo: "Pagamento confirmado", texto: "Seu pedido está confirmado e na fila da produção." },
+    { status: "Em produção", titulo: "Em produção", texto: "Nossa equipe está preparando a sua encomenda com carinho." },
+    { status: "Pronto para retirada", titulo: retirada ? "Pronto para retirada" : "Pronto para entrega", texto: retirada ? `Já está ${loja} esperando por você.` : "Seu pedido está pronto e logo sai para entrega." },
+    { status: "Entregue", titulo: retirada ? "Retirado" : "Entregue", texto: "Pedido entregue. Bom apetite!" },
+  ];
 }

@@ -4,8 +4,9 @@ import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
 import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
-  CONFIG_PADRAO, CORES_DESTAQUE, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
-  type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
+  CONFIG_PADRAO, CORES_DESTAQUE, DIAS, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
+  idAcompanhamentoValido, montarAcompanhamento,
+  type Acompanhamento, type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
 
@@ -124,11 +125,24 @@ export function validarConfigServidor(c: ConfigEncomendas): ConfigEncomendas | s
   if (!c || typeof c !== "object") return "Configuração inválida.";
   const limpa: ConfigEncomendas = {
     ...CONFIG_PADRAO, ...c,
-    unidades: (Array.isArray(c.unidades) ? c.unidades : []).slice(0, 50).map((u) => ({ id: idValido(u.id) ? u.id : crypto.randomUUID(), nome: txt(u.nome, 80), endereco: txt(u.endereco, 200), ativo: u.ativo !== false })),
+    unidades: (Array.isArray(c.unidades) ? c.unidades : []).slice(0, 50).map((u) => ({ id: idValido(u.id) ? u.id : crypto.randomUUID(), nome: txt(u.nome, 80), endereco: txt(u.endereco, 200), ativo: u.ativo !== false, ...(limparJanelas(u.horarios) ? { horarios: limparJanelas(u.horarios) } : {}) })),
     vitrine: limparVitrine(c.vitrine),
     pixChave: txt(c.pixChave, 120), pixNome: txt(c.pixNome, 25), pixCidade: txt(c.pixCidade, 15), whatsappContato: String(c.whatsappContato ?? "").replace(/\D/g, "").slice(0, 15),
   };
   return validarConfig(limpa) ?? limpa;
+}
+
+/** Horário de funcionamento vindo da tela: só dias conhecidos e blocos "HH:MM" (até 4 por dia). */
+function limparJanelas(j: unknown): ConfigEncomendas["janelas"] | undefined {
+  if (!j || typeof j !== "object") return undefined;
+  const hm = (x: unknown) => typeof x === "string" && /^d{2}:d{2}$/.test(x);
+  const r = {} as ConfigEncomendas["janelas"];
+  for (const d of DIAS) {
+    const v = (j as Record<string, { ativo?: unknown; intervalos?: unknown }>)[d.key];
+    const intervalos = (Array.isArray(v?.intervalos) ? v.intervalos : []).filter((b: { inicio?: unknown; fim?: unknown }) => b && hm(b.inicio) && hm(b.fim)).slice(0, 4).map((b: { inicio: string; fim: string }) => ({ inicio: b.inicio, fim: b.fim }));
+    r[d.key] = { ativo: v?.ativo === true && intervalos.length > 0, intervalos };
+  }
+  return r;
 }
 
 function limparVitrine(v: Partial<Vitrine> | undefined): Vitrine {
@@ -172,6 +186,25 @@ export async function subirFotoSeNova(sb: SB, produtoId: string, foto: string | 
   const up = await sb.storage.from("avatars").upload(path, buf, { contentType: m[1], upsert: true, cacheControl: "31536000" });
   if (up.error) throw new Error(up.error.message);
   return `${sb.storage.from("avatars").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+}
+
+// ── Acompanhamento público do pedido ────────────────────────────────────────
+
+/** Página /pedido/[id]: só pelo id completo (UUID), sem telefone nem endereço completo. */
+export async function lerAcompanhamento(sb: SB, id: string): Promise<Acompanhamento | null> {
+  if (!idAcompanhamentoValido(id)) return null;
+  const { data } = await sb.from("enc_pedido").select("*").eq("id", id).maybeSingle();
+  if (!data) return null;
+  const p = paraPedido(data as RowPedido);
+  const [contato, produto, cfg] = await Promise.all([
+    sb.from("enc_contato").select("nome").eq("id", p.leadId).maybeSingle(),
+    p.produtoId ? sb.from("enc_produto").select("nome, foto").eq("id", p.produtoId).maybeSingle() : Promise.resolve({ data: null }),
+    lerConfig(sb),
+  ]);
+  return montarAcompanhamento(p, {
+    produto: (produto.data as { nome: string; foto: string | null } | null) ?? undefined,
+    clienteNome: (contato.data as { nome?: string } | null)?.nome ?? "", cfg,
+  });
 }
 
 // ── Pedido da página pública ─────────────────────────────────────────────────

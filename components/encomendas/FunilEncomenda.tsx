@@ -5,9 +5,9 @@ import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
-  CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
+  CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia, resumoHorario,
   itensDescricao, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
-  type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type Vitrine,
+  type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type UnidadeRetirada, type Vitrine,
 } from "@/lib/encomendas";
 
 /**
@@ -80,7 +80,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     1: !!produto && produto.ativo,
     2: qtd >= 1 && qtd <= cfg.maxPorPedido,
     3: tipo === "Retirada" ? !!unidade : tipo === "Entrega" ? cfg.entregaAtiva && endOk : false,
-    4: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), produto?.preparoDias ?? 0),
+    4: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), produto?.preparoDias ?? 0) && horariosDoDia(cfg, data, tipo === "Retirada" ? unidade : null).includes(hora),
     5: nome.trim().length >= 2 && normalizePhone(whats).length >= 10,
     6: true,
   };
@@ -266,7 +266,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <>
                   {!soRetirada && <div style={css("margin:20px 0 8px; font-size:16.5px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
                   <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;")}>
-                    {unidades.map((u) => <Loja key={u.id} sel={unidadeId === u.id} onClick={() => setUnidadeId(u.id)} nome={u.nome} endereco={u.endereco} />)}
+                    {unidades.map((u) => <Loja key={u.id} sel={unidadeId === u.id} onClick={() => { if (u.id !== unidadeId) setHora(null); setUnidadeId(u.id); }} nome={u.nome} endereco={u.endereco} horario={resumoHorario(u.horarios)} />)}
                   </div>
                 </>
               )}
@@ -289,7 +289,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             </>
           )}
 
-          {passo === 4 && <PassoData cfg={cfg} preparoDias={produto?.preparoDias ?? 0} produtoNome={produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
+          {passo === 4 && <PassoData key={tipo === "Retirada" ? unidadeId ?? "" : "entrega"} cfg={cfg} unidade={tipo === "Retirada" ? unidade : undefined} preparoDias={produto?.preparoDias ?? 0} produtoNome={produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
 
           {passo === 5 && produto && tipo && data && hora && (
             <>
@@ -355,7 +355,10 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                   <Linha k={pedido.tipo} v={pedido.tipo === "Entrega" ? "No endereço informado" : unidadeNome ?? "No local"} />
                   <Linha k="Pagamento" v="PIX" />
                 </div>
-                <div style={css(`text-align:center; font-size:14px; color:${FRACA}; margin-top:12px;`)}>Guarde este link — ele é o comprovante do seu pedido.</div>
+                <a href={`/pedido/${encodeURIComponent(pedido.id)}`} target="_blank" rel="noopener noreferrer" style={css(`margin-top:14px; display:flex; align-items:center; justify-content:center; gap:8px; border:none; background:${COR}; color:#fff; border-radius:999px; padding:15px; font-size:16.5px; font-weight:800; text-decoration:none;`)}>
+                  <Svg size={19} sw={2.4}><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>Acompanhar meu pedido
+                </a>
+                <div style={css(`text-align:center; font-size:14px; color:${FRACA}; margin-top:10px;`)}>Guarde o link do acompanhamento: ele mostra o status do pedido até a entrega.</div>
               </div>
             )
           )}
@@ -430,11 +433,11 @@ function CardCategoria({ grupo, largo, vitrine: v, onClick }: { grupo: { categor
   );
 }
 
-function PassoData({ cfg, preparoDias, produtoNome, data, hora, onData, onHora }: { cfg: ConfigEncomendas; preparoDias: number; produtoNome?: string; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
+function PassoData({ cfg, unidade, preparoDias, produtoNome, data, hora, onData, onHora }: { cfg: ConfigEncomendas; unidade?: UnidadeRetirada; preparoDias: number; produtoNome?: string; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
   const hoje = new Date();
   // Primeiro dia com algum horário que respeita a antecedência e o preparo do produto (busca até 90 dias).
   const respeita = (iso: string, h: string) => respeitaAntecedencia(cfg, iso, h, new Date(), preparoDias);
-  const disponivel = (iso: string) => horariosDoDia(cfg, iso).some((h) => respeita(iso, h));
+  const disponivel = (iso: string) => horariosDoDia(cfg, iso, unidade).some((h) => respeita(iso, h));
   const primeiro = useMemo(() => {
     for (let i = 0; i < 90; i++) { const d = new Date(hoje); d.setDate(d.getDate() + i); if (disponivel(isoDia(d))) return d; }
     return hoje;
@@ -446,7 +449,7 @@ function PassoData({ cfg, preparoDias, produtoNome, data, hora, onData, onHora }
   const dias = Array.from({ length: 42 }, (_, i) => { const d = new Date(inicioGrade); d.setDate(d.getDate() + i); return d; });
   const podeVoltar = mes > new Date(primeiro.getFullYear(), primeiro.getMonth(), 1);
   const podeAvancar = new Date(mes.getFullYear(), mes.getMonth() + 1, 1) <= limite;
-  const horarios = data ? horariosDoDia(cfg, data) : [];
+  const horarios = data ? horariosDoDia(cfg, data, unidade) : [];
   const algum = horarios.some((h) => respeita(data!, h));
 
   return (
@@ -587,13 +590,14 @@ function ListaItens({ itens, numerada }: { itens: string[]; numerada?: boolean }
 }
 
 /** Loja de retirada em quadrado grande (2 por linha). */
-function Loja({ sel, onClick, nome, endereco }: { sel: boolean; onClick: () => void; nome: string; endereco: string }) {
+function Loja({ sel, onClick, nome, endereco, horario }: { sel: boolean; onClick: () => void; nome: string; endereco: string; horario?: string }) {
   return (
     <button onClick={onClick} style={css(`position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left; min-height:112px; border:2px solid ${sel ? COR : BORDA}; background:${sel ? "#FDF1F4" : "#fff"}; border-radius:18px; padding:14px; cursor:pointer; color:${TINTA}; box-shadow:${sel ? `0 6px 18px ${COR}2E` : "none"};`)}>
       <span style={css(`width:42px; height:42px; border-radius:13px; background:${sel ? COR : CAMPO}; color:${sel ? "#fff" : "#5B6472"}; display:flex; align-items:center; justify-content:center;`)}><Svg size={21} sw={2}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
       {sel && <span style={css(`position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={15} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
       <span style={css("font-size:18px; font-weight:800; line-height:1.2;")}>{nome}</span>
       {endereco && <span style={css(`font-size:13.5px; color:${FRACA}; line-height:1.3; margin-top:-4px;`)}>{endereco}</span>}
+      {horario && <span style={css(`display:flex; gap:5px; align-items:flex-start; font-size:13px; color:${FRACA}; line-height:1.3; margin-top:-2px;`)}><Svg size={14} sw={2} style={css("flex:none; margin-top:1px;")}><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>{horario}</span>}
     </button>
   );
 }

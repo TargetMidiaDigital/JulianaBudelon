@@ -5,7 +5,7 @@ import { useApp } from "../store";
 import ConfirmarWhatsapp from "./ConfirmarWhatsapp";
 import { fmtNowBR } from "@/lib/format";
 import { LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
-import { confirmaPagamento, efeitoEstoque, linkWhatsapp, localDaUnidade, mensagemConfirmacaoPedido, tarefasDaEncomenda, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
+import { confirmaPagamento, efeitoEstoque, linkAcompanhamento, linkWhatsapp, localDaUnidade, mensagemConfirmacaoPedido, tarefasDaEncomenda, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
 
 /** Mensagem de confirmação (WhatsApp) de um pedido, com o nome da loja e do produto. */
 export function useMensagemConfirmacao() {
@@ -17,6 +17,7 @@ export function useMensagemConfirmacao() {
       nome: lead?.nome ?? "", empresa: workspace.nome,
       pedido: { ...p, unidadeNome: p.unidadeNome ?? unidadeDe(p.unidadeId)?.nome },
       produto: produtoDe(p.produtoId)?.nome ?? p.produtoNome ?? "encomenda",
+      link: typeof window !== "undefined" ? linkAcompanhamento(p.id, window.location.origin) : undefined,
     });
   };
 }
