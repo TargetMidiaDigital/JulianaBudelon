@@ -118,67 +118,60 @@ export default function LojaEncomendas() {
     const msg = `Oi${i.cliente ? `, ${i.cliente.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}${lojaNome ? `, loja ${lojaNome}` : ""}. Sobre a sua encomenda${p ? ` #${numeroPedido(p.id)}` : ""} (${p ? `${p.quantidade}× ` : ""}${i.produto}), com retirada ${i.iso === hoje ? "hoje" : `em ${i.iso.split("-").reverse().join("/")}`}${i.hora ? ` às ${i.hora}` : ""}:`;
     const href = i.numero ? linkWhatsapp(i.numero, msg) : null;
     return (
-      <div key={t.id} style={css(`background:#fff; border:1px solid ${atrasada ? "#F3B4BC" : "#ECEDF1"}; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(16,24,40,.05); ${feita(t) ? "opacity:.82;" : ""}`)}>
-        <div onClick={() => setTaskDetailOpen(t.id)} style={css("position:relative; cursor:pointer;")}>
-          <Foto src={i.foto} alt={i.produto} proporcao="16/10" cortar miniatura />
-          {i.qtd && <span style={css("position:absolute; top:10px; left:10px; background:rgba(27,27,40,.82); color:#fff; font-size:15px; font-weight:800; padding:5px 11px; border-radius:999px;")}>{i.qtd}×</span>}
-          {i.hora && (
-            <span style={css(`position:absolute; top:10px; right:10px; display:inline-flex; align-items:center; gap:5px; background:${atrasada ? "#CC3338" : "#fff"}; color:${atrasada ? "#fff" : "#1B1B28"}; font-size:14px; font-weight:800; padding:5px 11px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,.15);`)}>
-              <Svg size={14} sw={2.4}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>{i.hora}
-            </span>
-          )}
+      <div key={t.id} style={css(`background:#fff; border:1px solid ${atrasada ? "#F3B4BC" : "#ECEDF1"}; border-radius:14px; overflow:hidden; display:flex; box-shadow:0 1px 3px rgba(16,24,40,.05); ${feita(t) ? "opacity:.82;" : ""}`)}>
+        <div className="loja-enc-foto" onClick={() => setTaskDetailOpen(t.id)} style={css(`position:relative; flex:none; width:${mobile ? 92 : 108}px; cursor:pointer; background:#FDF1F4;`)}>
+          <div style={css("position:absolute; inset:0;")}><Foto src={i.foto} alt={i.produto} proporcao="1/1" cortar miniatura /></div>
+          {i.qtd && <span style={css("position:absolute; top:7px; left:7px; background:rgba(27,27,40,.82); color:#fff; font-size:12.5px; font-weight:800; padding:2px 8px; border-radius:999px;")}>{i.qtd}×</span>}
         </div>
 
-        <div style={css("padding:14px 16px 0; display:flex; flex-direction:column; gap:10px; flex:1;")}>
-          <div onClick={() => setTaskDetailOpen(t.id)} style={{ cursor: "pointer" }}>
-            <div style={css("font-size:17px; font-weight:800; line-height:1.25; letter-spacing:-.2px;")}>{i.produto}</div>
-            <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:5px; font-size:12.5px; font-weight:700; color:#7A8090;")}>
-              {lojaNome && <span style={css(`display:inline-flex; align-items:center; gap:5px; color:${corDoLocal(t.local)};`)}><span style={css(`width:7px; height:7px; border-radius:50%; background:${corDoLocal(t.local)};`)} />{lojaNome}</span>}
-              {p && <span>#{numeroPedido(p.id)}</span>}
-              {p && <span>{brl(p.total)}</span>}
+        <div style={css("flex:1; min-width:0; padding:10px 12px 10px; display:flex; flex-direction:column; gap:6px;")}>
+          <div onClick={() => setTaskDetailOpen(t.id)} style={css("display:flex; align-items:flex-start; gap:8px; cursor:pointer;")}>
+            <div style={css("flex:1; min-width:0;")}>
+              <div style={css("font-size:14.5px; font-weight:800; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")} title={i.produto}>{i.produto}</div>
+              <div style={css("display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:2px; font-size:11.5px; font-weight:700; color:#9398A6;")}>
+                {lojaNome && <span style={css(`display:inline-flex; align-items:center; gap:4px; color:${corDoLocal(t.local)};`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${corDoLocal(t.local)};`)} />{lojaNome}</span>}
+                {p && <span>#{numeroPedido(p.id)}</span>}
+                {p && <span>{brl(p.total)}</span>}
+              </div>
             </div>
+            {i.hora && (
+              <span style={css(`flex:none; display:inline-flex; align-items:center; gap:4px; background:${atrasada ? "#CC3338" : "#F2F3F6"}; color:${atrasada ? "#fff" : "#1B1B28"}; font-size:12.5px; font-weight:800; padding:3px 8px; border-radius:999px;`)}>
+                <Svg size={12} sw={2.4}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>{i.hora}
+              </span>
+            )}
           </div>
 
-          <div style={css("display:flex; align-items:center; gap:10px; background:#F7F7F9; border-radius:12px; padding:9px 11px;")}>
-            <span style={css(`width:34px; height:34px; flex:none; border-radius:50%; background:${COR}1A; color:${COR}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px;`)}>{(i.cliente || "?").trim().charAt(0).toUpperCase()}</span>
-            <div style={css("flex:1; min-width:0;")}>
-              <div style={css("font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{i.cliente || "Cliente"}</div>
-              {i.numero && <div style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{foneBR(i.numero)}</div>}
-            </div>
-            {href && i.numero && <LinkWhatsapp href={href} mensagem={msg} para={i.cliente || foneBR(i.numero)} size={32} />}
+          <div style={css("display:flex; align-items:center; gap:7px; font-size:12.5px; min-width:0;")}>
+            <span style={css("font-weight:800; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;")}>{i.cliente || "Cliente"}</span>
+            {i.numero && <span style={css("flex:none; color:#7A8090; font-weight:600;")}>{foneBR(i.numero)}</span>}
+            {href && i.numero && <LinkWhatsapp href={href} mensagem={msg} para={i.cliente || foneBR(i.numero)} size={22} />}
           </div>
 
           {p?.mensagem && (
-            <div style={css("background:#FFF8E6; border:1px solid #F5DFA6; border-radius:12px; padding:9px 12px;")}>
-              <div style={css("font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:#A16207; margin-bottom:2px;")}>Observação do cliente</div>
-              <div style={css("font-size:14px; font-weight:700; color:#5B4300; line-height:1.4; word-break:break-word;")}>{p.mensagem}</div>
+            <div title={p.mensagem} style={css("background:#FFF8E6; border:1px solid #F5DFA6; border-radius:8px; padding:4px 8px; font-size:12px; font-weight:700; color:#5B4300; line-height:1.35; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;")}>
+              <span style={css("color:#A16207;")}>Obs.: </span>{p.mensagem}
             </div>
           )}
 
-          {prod && !feita(t) && (
-            <div style={css(`display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:${prod.cor};`)}>
-              <span style={css(`width:8px; height:8px; border-radius:50%; background:${prod.cor};`)} />{prod.texto}
-            </div>
-          )}
-        </div>
-
-        <div style={css("display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 16px 14px; margin-top:12px; border-top:1px solid #F0F1F4;")}>
-          <span style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:7px; height:7px; border-radius:50%; background:${si.dot};`)} />{si.label}</span>
-          <span style={{ flex: 1 }} />
-          <Hoverable as="button" onClick={() => setTaskDetailOpen(t.id)} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 12px; border-radius:10px;")} hover="background:#F4F4F7">Detalhes</Hoverable>
-          {prox && (
-            <Hoverable as="button" onClick={() => updateTask(t.id, { status: prox })} title={`Passar para "${statusInfo[prox].label}"`} s={css(`border:none; background:${prox === "concluida" ? "#1B7F4D" : "#2F80ED"}; color:#fff; cursor:pointer; font-size:13px; font-weight:800; padding:9px 14px; border-radius:10px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;`)} hover="filter:brightness(1.08)">
-              <Svg size={14} sw={2.8}>{prox === "concluida" ? <path d="M20 6 9 17l-5-5" /> : <path d="M5 12h14M13 6l6 6-6 6" />}</Svg>
-              {prox === "concluida" ? "Concluir" : prox === "validada" ? "Validar" : statusInfo[prox].label}
-            </Hoverable>
-          )}
+          <div style={css("display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:2px;")}>
+            <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${si.dot};`)} />{si.label}</span>
+            {prod && !feita(t) && <span title="Situação na produção" style={css(`font-size:11px; font-weight:700; color:${prod.cor}; white-space:nowrap;`)}>{prod.texto}</span>}
+            <span style={{ flex: 1 }} />
+            <Hoverable as="button" onClick={() => setTaskDetailOpen(t.id)} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12px; font-weight:700; padding:5px 9px; border-radius:8px;")} hover="background:#F4F4F7">Detalhes</Hoverable>
+            {prox && (
+              <Hoverable as="button" onClick={() => updateTask(t.id, { status: prox })} title={`Passar para "${statusInfo[prox].label}"`} s={css(`border:none; background:${prox === "concluida" ? "#1B7F4D" : "#2F80ED"}; color:#fff; cursor:pointer; font-size:12px; font-weight:800; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;`)} hover="filter:brightness(1.08)">
+                <Svg size={12} sw={2.8}>{prox === "concluida" ? <path d="M20 6 9 17l-5-5" /> : <path d="M5 12h14M13 6l6 6-6 6" />}</Svg>
+                {prox === "concluida" ? "Concluir" : prox === "validada" ? "Validar" : statusInfo[prox].label}
+              </Hoverable>
+            )}
+          </div>
         </div>
       </div>
     );
   };
 
   const grade = (lista: Item[]) => (
-    <div style={css(`display:grid; grid-template-columns:${mobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))"}; gap:16px;`)}>{lista.map(cartao)}</div>
+    <div style={css(`display:grid; grid-template-columns:${mobile ? "1fr" : "repeat(auto-fill, minmax(380px, 1fr))"}; gap:12px;`)}>{lista.map(cartao)}</div>
   );
   const chip = (ativo: boolean, onClick: () => void, conteudo: React.ReactNode, cor = COR, key?: string) => (
     <button key={key} onClick={onClick} style={css(`flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid ${ativo ? cor : "#E2E3E9"}; background:${ativo ? `${cor}14` : "#fff"}; color:${ativo ? "#1B1B28" : "#5B6472"}; border-radius:999px; padding:8px 14px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;`)}>{conteudo}</button>
@@ -193,6 +186,7 @@ export default function LojaEncomendas() {
 
   return (
     <div className="m-pad" style={css("padding:24px 30px 40px;")}>
+      <style>{".loja-enc-foto img{height:100% !important; aspect-ratio:auto !important; object-fit:cover !important;} .loja-enc-foto > div > div{height:100%; aspect-ratio:auto !important;}"}</style>
       <div className="m-wrap" style={css("display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:16px;")}>
         <div style={css("flex:1; min-width:220px;")}>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Encomendas</h1>
