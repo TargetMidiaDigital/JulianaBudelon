@@ -13,14 +13,10 @@ import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
 import { useApp } from "../store";
 import {
   LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
-  type LeadStatus, type PedidoStatus, type ResponsavelLead,
+  type LeadStatus, type PedidoStatus,
 } from "@/lib/encomendas";
 
 const dataHora = (iso?: string) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", " às") : "—");
-export const RESP_COR: Record<ResponsavelLead, { bg: string; fg: string }> = {
-  "I.A": { bg: "rgba(59,130,246,.12)", fg: "#3B82F6" },
-  Humano: { bg: "rgba(16,185,129,.12)", fg: "#10B981" },
-};
 
 /** Drawer do contato (CRM, Contatos e Agenda): dados, funil e os pedidos dele. */
 export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
@@ -30,7 +26,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
   onClose: () => void;
 }) {
   useFecharComEsc(true, onClose);
-  const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus, setResponsavel } = useEncomendas();
+  const { leads, pedidos, config, produtoDe, unidadeDe, setLeadStatus } = useEncomendas();
   const { mudar: setPedidoStatus, popup: popupStatus } = useMudarStatusPedido();
   const mensagemDe = useMensagemConfirmacao();
   const { workspace } = useApp();
@@ -55,7 +51,6 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
           <div style={css("flex:1; min-width:0;")}>
             <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap;")}>
               <h2 style={css("margin:0; font-size:20px; font-weight:800; letter-spacing:-.3px;")}>{lead.nome || foneBR(lead.numero)}</h2>
-              <span style={css(`font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; background:${RESP_COR[lead.responsavel].bg}; color:${RESP_COR[lead.responsavel].fg};`)}>{lead.responsavel}</span>
             </div>
             <div style={css("font-size:12.5px; color:#9398A6; font-weight:600; margin-top:2px;")}>Detalhes do contato</div>
           </div>
@@ -88,9 +83,6 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
           </Card>
 
           <Card titulo="Atividade">
-            <Linha k="Responsável" v={
-              <Seletor disabled={!canEdit} valor={lead.responsavel} cor={RESP_COR[lead.responsavel].fg} opcoes={(["I.A", "Humano"] as const).map((r) => ({ v: r, cor: RESP_COR[r].fg }))} onChange={(v) => setResponsavel(lead.id, v as ResponsavelLead)} />
-            } />
             <Linha k="Status" v={
               <Seletor disabled={!canEdit} valor={lead.status} cor={corLead(lead.status)} opcoes={LEAD_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setLeadStatus(lead.id, v as LeadStatus)} />
             } />
