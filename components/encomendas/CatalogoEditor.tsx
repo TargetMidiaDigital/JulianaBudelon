@@ -142,6 +142,7 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
     foto: produto?.foto ?? null as string | null,
     ativo: produto?.ativo ?? true,
     produtoEstoqueId: produto?.produtoEstoqueId ?? null,
+    preparoDias: String(produto?.preparoDias ?? 0),
   }));
   const { produtos: estoque } = useApp();
   // Itens do Estoque agrupados por categoria — "Encomendas" primeiro (é onde ficam as tortas inteiras).
@@ -166,6 +167,7 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
       porcoes: f.porcoes.trim(), peso: f.peso.trim(), descricao: f.descricao.trim() || undefined,
       camadas: f.camadas.split("\n").map((s) => s.trim()).filter(Boolean), foto: f.foto, ativo: f.ativo,
       produtoEstoqueId: f.produtoEstoqueId,
+      preparoDias: Math.min(60, Math.max(0, Math.floor(Number(f.preparoDias) || 0))),
     });
   };
   const enviarFoto = async (arq?: File) => {
@@ -237,11 +239,15 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
             )}
           </div>
 
-          <div className="m-grid-2" style={css("display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;")}>
+          <div className="m-grid-2" style={css("display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px;")}>
             <label style={css(rot)}>Preço (R$) *<input inputMode="decimal" value={f.preco} onChange={(e) => setF({ ...f, preco: e.target.value.replace(/[^\d,.]/g, "") })} placeholder="159,90" style={css(campo)} /></label>
             <label style={css(rot)}>Porções<input value={f.porcoes} onChange={(e) => setF({ ...f, porcoes: e.target.value })} placeholder="8 a 10 porções" style={css(campo)} /></label>
             <label style={css(rot)}>Peso<input value={f.peso} onChange={(e) => setF({ ...f, peso: e.target.value })} placeholder="1,3 kg" style={css(campo)} /></label>
+            <label style={css(rot)} title="Dias mínimos entre o dia do pedido e o dia da entrega/retirada. 0 = vale só a antecedência geral (Configurações).">Preparo mínimo (dias)
+              <input inputMode="numeric" value={f.preparoDias} onChange={(e) => setF({ ...f, preparoDias: e.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="0" style={css(campo)} />
+            </label>
           </div>
+          {Number(f.preparoDias) > 0 && <div style={css("margin-top:-4px; font-size:12px; color:#7A8090;")}>O cliente só consegue escolher a partir de <b>{Number(f.preparoDias)} dia{Number(f.preparoDias) === 1 ? "" : "s"}</b> depois do dia do pedido (ex.: pedido hoje → a partir de {new Date(Date.now() + Number(f.preparoDias) * 86400000).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}).</div>}
 
           <label style={css(rot)}>Descrição <span style={css("font-weight:500; color:#9398A6;")}>(opcional — um item por linha; o cliente vê em lista, um abaixo do outro)</span>
             <textarea value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} rows={6} placeholder={"Creme belga\nPão de ló\nMorangos frescos\nFinalizado com suspiros"} style={css(campo + " resize:vertical;")} />

@@ -6,7 +6,7 @@ import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
   CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia,
-  itensDescricao, numeroPedido, pixCopiaECola, respeitaAntecedencia, useEncomendas, vitrineDe,
+  itensDescricao, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
   type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type Vitrine,
 } from "@/lib/encomendas";
 
@@ -80,7 +80,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     1: !!produto && produto.ativo,
     2: qtd >= 1 && qtd <= cfg.maxPorPedido,
     3: tipo === "Retirada" ? !!unidade : tipo === "Entrega" ? cfg.entregaAtiva && endOk : false,
-    4: !!data && !!hora,
+    4: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), produto?.preparoDias ?? 0),
     5: nome.trim().length >= 2 && normalizePhone(whats).length >= 10,
     6: true,
   };
@@ -201,6 +201,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                   <span style={css(`font-size:26px; font-weight:800; color:${COR}; letter-spacing:-.3px; margin-right:4px;`)}>{brl(produto.preco)}</span>
                   {produto.peso && <Etiqueta icone={<><path d="M6 8h12l2 12H4z" /><circle cx="12" cy="5.5" r="2.2" /></>}>{produto.peso}</Etiqueta>}
                   {produto.porcoes && <Etiqueta icone={<><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5V12l6 6" /></>}>{produto.porcoes}</Etiqueta>}
+                  {!!produto.preparoDias && <Etiqueta icone={<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>}>{textoPreparo(produto.preparoDias)}</Etiqueta>}
                 </div>
 
                 {itensDescricao(produto.descricao).length > 0 && (
@@ -288,7 +289,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             </>
           )}
 
-          {passo === 4 && <PassoData cfg={cfg} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
+          {passo === 4 && <PassoData cfg={cfg} preparoDias={produto?.preparoDias ?? 0} produtoNome={produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
 
           {passo === 5 && produto && tipo && data && hora && (
             <>
@@ -429,12 +430,13 @@ function CardCategoria({ grupo, largo, vitrine: v, onClick }: { grupo: { categor
   );
 }
 
-function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
+function PassoData({ cfg, preparoDias, produtoNome, data, hora, onData, onHora }: { cfg: ConfigEncomendas; preparoDias: number; produtoNome?: string; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
   const hoje = new Date();
-  // Primeiro dia com algum horário que respeita a antecedência (busca até 60 dias).
-  const disponivel = (iso: string) => horariosDoDia(cfg, iso).some((h) => respeitaAntecedencia(cfg, iso, h));
+  // Primeiro dia com algum horário que respeita a antecedência e o preparo do produto (busca até 90 dias).
+  const respeita = (iso: string, h: string) => respeitaAntecedencia(cfg, iso, h, new Date(), preparoDias);
+  const disponivel = (iso: string) => horariosDoDia(cfg, iso).some((h) => respeita(iso, h));
   const primeiro = useMemo(() => {
-    for (let i = 0; i < 60; i++) { const d = new Date(hoje); d.setDate(d.getDate() + i); if (disponivel(isoDia(d))) return d; }
+    for (let i = 0; i < 90; i++) { const d = new Date(hoje); d.setDate(d.getDate() + i); if (disponivel(isoDia(d))) return d; }
     return hoje;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -445,12 +447,14 @@ function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas;
   const podeVoltar = mes > new Date(primeiro.getFullYear(), primeiro.getMonth(), 1);
   const podeAvancar = new Date(mes.getFullYear(), mes.getMonth() + 1, 1) <= limite;
   const horarios = data ? horariosDoDia(cfg, data) : [];
-  const algum = horarios.some((h) => respeitaAntecedencia(cfg, data!, h));
+  const algum = horarios.some((h) => respeita(data!, h));
 
   return (
     <>
       <h1 style={css("margin:0 0 4px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>Quando você quer receber?</h1>
-      <p style={css(`margin:0 0 14px; font-size:15.5px; color:${FRACA};`)}>Precisamos de pelo menos <b>{cfg.antecedenciaHoras}h</b> de antecedência.</p>
+      <p style={css(`margin:0 0 14px; font-size:15.5px; color:${FRACA};`)}>{preparoDias > 0
+        ? <>{produtoNome ? <>{produtoNome} precisa de </> : "Precisa de "}<b>{textoPreparo(preparoDias)}</b>: a primeira data disponível é <b>{dataBR(isoDia(primeiro))}</b>.</>
+        : <>Precisamos de pelo menos <b>{cfg.antecedenciaHoras}h</b> de antecedência.</>}</p>
       <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:12px;`)}>
         <div style={css("display:flex; align-items:center; margin-bottom:8px;")}>
           <span style={css("flex:1; font-size:18px; font-weight:800; text-transform:capitalize;")}>{MESES[mes.getMonth()]} {mes.getFullYear()}</span>
@@ -473,7 +477,7 @@ function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas;
       {data && (
         <>
           <div style={css("margin:18px 0 8px; font-size:16.5px; font-weight:800;")}>Horário · {dataBR(data)}</div>
-          {!algum && <div style={css("font-size:15px; color:#CC3338; font-weight:600;")}>Nenhum horário desse dia atende a antecedência de {cfg.antecedenciaHoras}h. Escolha um dia depois.</div>}
+          {!algum && <div style={css("font-size:15px; color:#CC3338; font-weight:600;")}>{preparoDias > 0 ? `Esse dia não dá tempo para os ${textoPreparo(preparoDias)}.` : `Nenhum horário desse dia atende a antecedência de ${cfg.antecedenciaHoras}h.`} Escolha um dia depois.</div>}
           {PERIODOS.map((p) => {
             const hs = horarios.filter((h) => { const n = Number(h.slice(0, 2)); return n >= p.de && n < p.ate; });
             if (!hs.length) return null;
@@ -482,7 +486,7 @@ function PassoData({ cfg, data, hora, onData, onHora }: { cfg: ConfigEncomendas;
                 <div style={css(`font-size:14px; font-weight:700; color:${FRACA}; margin-bottom:7px;`)}>{p.label}</div>
                 <div style={css("display:grid; grid-template-columns:repeat(4,1fr); gap:8px;")}>
                   {hs.map((h) => {
-                    const ok = respeitaAntecedencia(cfg, data, h);
+                    const ok = respeita(data, h);
                     const sel = h === hora;
                     return <button key={h} disabled={!ok} onClick={() => onHora(h)} style={css(`height:50px; border-radius:999px; border:1.5px solid ${sel ? COR : BORDA}; background:${sel ? COR : "#fff"}; color:${sel ? "#fff" : TINTA}; font-size:16.5px; font-weight:700; opacity:${ok ? 1 : 0.3}; cursor:${ok ? "pointer" : "default"};`)}>{h}</button>;
                   })}

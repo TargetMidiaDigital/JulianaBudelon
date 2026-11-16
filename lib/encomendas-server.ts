@@ -21,7 +21,7 @@ type SB = SupabaseClient;
 type RowCategoria = { id: string; nome: string; ordem: number; descricao: string | null; foto: string | null; ativa: boolean; destaque: boolean };
 type RowProduto = {
   id: string; nome: string; categoria_id: string | null; preco: number | string; porcoes: string; peso: string; descricao: string | null;
-  camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number;
+  camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number; preparo_dias?: number | null;
 };
 type RowContato = { id: string; numero: string; nome: string; status: string; responsavel: string; resumo: string | null; criado_em: string; ultimo_contato: string };
 type RowPedido = {
@@ -34,7 +34,7 @@ type RowCompromisso = { id: string; titulo: string; data: string; hora: string; 
 const paraProduto = (r: RowProduto): ProdutoEncomenda => ({
   id: r.id, nome: r.nome, categoriaId: r.categoria_id, preco: Number(r.preco), porcoes: r.porcoes ?? "", peso: r.peso ?? "",
   descricao: r.descricao ?? undefined, camadas: Array.isArray(r.camadas) ? (r.camadas as unknown[]).map(String) : [], foto: r.foto, ativo: r.ativo,
-  produtoEstoqueId: r.produto_estoque_id,
+  produtoEstoqueId: r.produto_estoque_id, preparoDias: Number(r.preparo_dias ?? 0) || 0,
 });
 const paraLead = (r: RowContato): Lead => ({
   id: r.id, numero: r.numero, nome: r.nome, status: r.status as Lead["status"], responsavel: r.responsavel as Lead["responsavel"],
@@ -116,6 +116,7 @@ export function colunasProduto(p: ProdutoEncomenda, ordem: number): Record<strin
     camadas: (Array.isArray(p.camadas) ? p.camadas : []).map((c) => txt(c, 120)).filter(Boolean).slice(0, 30),
     foto: typeof p.foto === "string" && p.foto ? p.foto.slice(0, 2000) : null, ativo: p.ativo !== false,
     produto_estoque_id: p.produtoEstoqueId && idValido(p.produtoEstoqueId) ? p.produtoEstoqueId : null, ordem,
+    preparo_dias: Math.min(60, Math.max(0, Math.floor(Number(p.preparoDias) || 0))),
   };
 }
 

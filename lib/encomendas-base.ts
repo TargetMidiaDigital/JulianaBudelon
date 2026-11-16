@@ -42,6 +42,8 @@ export type ProdutoEncomenda = {
   ativo: boolean;
   /** Produto do Estoque que esta encomenda movimenta (produção soma na Fábrica → loja recebe → entregue dá baixa). */
   produtoEstoqueId?: string | null;
+  /** Tempo mínimo de preparo em dias (0 = só a antecedência geral): com 2, pedido hoje só para depois de amanhã em diante. */
+  preparoDias?: number;
 };
 
 /**
@@ -277,9 +279,15 @@ export const horariosDoDia = (cfg: ConfigEncomendas, iso: string) => horariosDaJ
 /** Instante de uma data + hora de Brasília (UTC−3, sem horário de verão): igual no navegador e no servidor (UTC). */
 export const instanteBR = (iso: string, hora: string) => new Date(`${iso}T${hora}:00-03:00`);
 
-/** O horário respeita a antecedência mínima? */
-export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date()) =>
-  instanteBR(iso, hora).getTime() - agora.getTime() >= cfg.antecedenciaHoras * 3600_000;
+/** Dia de hoje em Brasília (AAAA-MM-DD) + N dias — igual no navegador e no servidor. */
+export const diaBR = (agora = new Date(), mais = 0) => new Date(agora.getTime() - 3 * 3600_000 + mais * 86400_000).toISOString().slice(0, 10);
+
+/** O horário respeita a antecedência mínima (a geral, em horas, e o preparo do produto, em dias)? */
+export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date(), preparoDias = 0) =>
+  instanteBR(iso, hora).getTime() - agora.getTime() >= cfg.antecedenciaHoras * 3600_000 && iso >= diaBR(agora, preparoDias);
+
+/** "2 dias de preparo" (texto para a tela). */
+export const textoPreparo = (dias?: number) => (dias && dias > 0 ? `${dias} dia${dias === 1 ? "" : "s"} de preparo` : "");
 
 /** Problemas que impedem salvar a configuração (mensagens para a tela). */
 export function validarConfig(c: ConfigEncomendas): string | null {
@@ -423,7 +431,9 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
   } else return { erro: "Escolha retirada ou entrega." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(n.data ?? "") || !/^\d{2}:\d{2}$/.test(n.hora ?? "")) return { erro: "Escolha a data e o horário." };
   if (!horariosDoDia(cfg, n.data).includes(n.hora)) return { erro: "Esse horário não está disponível. Escolha outro." };
-  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora)) return { erro: `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
+  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, produto.preparoDias)) {
+    return { erro: produto.preparoDias ? `${produto.nome} precisa de ${textoPreparo(produto.preparoDias)}: escolha a partir de ${dataBR(diaBR(agora, produto.preparoDias))}.` : `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
+  }
   const nome = (n.nome ?? "").trim().slice(0, 80);
   if (nome.length < 2) return { erro: "Informe seu nome." };
   if (normalizePhone(n.whatsapp).length < 10) return { erro: "Informe um WhatsApp válido, com DDD." };
