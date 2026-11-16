@@ -42,7 +42,7 @@ function seed() {
   };
   const pedidos: PedidoEncomenda[] = [
     ped("p-0a1b2c3d-1", "l1", "morango", 1, "Retirada", diaRel(2), "10:00", "Verificar pagamento", ts(-1, "15:20"), { unidadeId: "u-centro", mensagem: "Escrever: Feliz aniversário, Lu!" }),
-    ped("p-4e5f6a7b-2", "l2", "brigadeiro", 2, "Retirada", diaRel(1), "15:00", "Em fila", ts(-2, "11:05"), { unidadeId: "u-coqueiros" }),
+    ped("p-4e5f6a7b-2", "l2", "brigadeiro", 2, "Retirada", diaRel(1), "15:00", "Confirmado com o cliente", ts(-2, "11:05"), { unidadeId: "u-coqueiros" }),
     ped("p-8c9d0e1f-3", "l3", "bem-casado", 1, "Retirada", diaRel(0), "16:00", "Em produção", ts(-4, "09:40"), { unidadeId: "u-santa-monica" }),
     ped("p-2a3b4c5d-4", "l8", "pudim", 1, "Retirada", diaRel(-3), "11:00", "Entregue", ts(-18, "10:30"), { unidadeId: "u-pagani" }),
     ped("p-6e7f8a9b-5", "l3", "prestigio", 1, "Retirada", diaRel(-8), "14:00", "Entregue", ts(-12, "09:00"), { unidadeId: "u-centro" }),

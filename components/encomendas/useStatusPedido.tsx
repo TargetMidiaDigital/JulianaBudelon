@@ -76,7 +76,7 @@ export function useMudarStatusPedido() {
 
   const pc = confirmar ? pedidos.find((x) => x.id === confirmar) : undefined;
   const lc = pc ? leads.find((l) => l.id === pc.leadId) : undefined;
-  const msg = pc ? mensagemDe(pc) : "";
+  const msg = pc ? mensagemDe({ ...pc, status: "Confirmado com o cliente" }) : ""; // a mensagem já fala do pagamento confirmado
   const popup = pc && lc ? (
     <ConfirmarWhatsapp
       nome={lc.nome || "o cliente"}

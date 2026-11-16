@@ -218,7 +218,7 @@ async function logNoProduto(sb: SB, produtoId: string, estoque: Record<string, n
 
 /**
  * Tarefa da Produção de uma encomenda foi para "Em produção" (status "em andamento") → o pedido
- * no CRM de Encomendas sai de "Em fila" ou "Confirmado com o cliente" e vai para "Em produção". Só avança (nunca volta nem
+ * no CRM de Encomendas sai de "Confirmado com o cliente" e vai para "Em produção". Só avança (nunca volta nem
  * pula "Verificar pagamento"/"Entregue"). O pedido vem do id da tarefa (`…-encp-<pedido>`) ou,
  * nas tarefas criadas antes disso, do "Encomenda #XXXXXXXX" da descrição. Nunca lança.
  */
@@ -237,7 +237,7 @@ export async function sincronizarEncomendaPelaProducao(sb: SB, tarefaId: string)
     }
     const { data: ped } = await sb.from("enc_pedido").select("status").eq("id", pedidoId).maybeSingle();
     const st = (ped as { status: PedidoStatus } | null)?.status;
-    if (st !== "Em fila" && st !== "Confirmado com o cliente") return;
+    if (st !== "Confirmado com o cliente") return;
     const erro = await mudarStatusPedido(sb, pedidoId, "Em produção", "sistema");
     if (erro) console.error("[encomendas] falha ao mover pedido para Em produção:", erro);
   } catch (e) {
@@ -247,7 +247,7 @@ export async function sincronizarEncomendaPelaProducao(sb: SB, tarefaId: string)
 
 /**
  * Muda o status do pedido e aplica os efeitos (uma vez só, mesmo com cliques repetidos):
- *  - pagamento confirmado (Verificar pagamento → Em fila/Confirmado com o cliente/Em produção): cria a tarefa da Produção e a
+ *  - pagamento confirmado (Verificar pagamento → Confirmado com o cliente/Em produção): cria a tarefa da Produção e a
  *    da loja (Lojas → Encomendas), com o produto do estoque quando a torta está ligada a um;
  *  - Entregue: dá baixa no estoque da loja de retirada; sair de Entregue devolve.
  */

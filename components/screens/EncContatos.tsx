@@ -38,13 +38,13 @@ export default function EncContatos() {
   const ordenar = (col: Col) => setSort((s) => (s.col === col ? { col, dir: s.dir === 1 ? -1 : 1 } : { col, dir: col === "data" || col === "ultimo" || col === "pedidos" ? -1 : 1 }));
 
   const vendas = leads.filter((l) => l.status === "Venda").length;
-  const naFila = pedidos.filter((p) => p.status !== "Verificar pagamento");
+  const pagos = pedidos.filter((p) => p.status !== "Verificar pagamento");
   const entregues = pedidos.filter((p) => p.status === "Entregue");
   const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
   const kpis = [
     { t: "Total de contatos", v: String(leads.length), s: "no WhatsApp e no autoatendimento" },
     { t: "Pedidos", v: String(pedidos.length), s: `${pct(vendas, leads.length)} dos contatos fecharam` },
-    { t: "Entregues", v: String(entregues.length), s: `${pct(entregues.length, naFila.length)} dos que entraram na fila` },
+    { t: "Entregues", v: String(entregues.length), s: `${pct(entregues.length, pagos.length)} dos pedidos pagos` },
     { t: "Faturamento", v: brl(entregues.reduce((s, p) => s + p.total, 0)), s: "pedidos entregues" },
   ];
   const ultimoBR = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", " às");

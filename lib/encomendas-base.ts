@@ -325,7 +325,6 @@ export const corLead = (s: string) => LEAD_STATUS.find((x) => x.key === s)?.cor 
 /** Status do pedido (o funil do contato e o do pedido são independentes). */
 export const PEDIDO_STATUS = [
   { key: "Verificar pagamento", cor: "#EAB308", agenda: "#2563EB" },
-  { key: "Em fila", cor: "#F5B942", agenda: "#A16207" },
   { key: "Confirmado com o cliente", cor: "#0EA5E9", agenda: "#0369A1" },
   { key: "Em produção", cor: "#F97316", agenda: "#D97706" },
   { key: "Entregue", cor: "#10B981", agenda: "#16A34A" },
@@ -444,8 +443,8 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
   return { produto, unidade, quantidade, numero: numeroCanonico(n.whatsapp), nome, mensagem, subtotal, taxa, total, resumo };
 }
 
-/** Pagamento confirmado: o pedido sai de "Verificar pagamento" para qualquer etapa depois dele, menos "Entregue". */
-export const confirmaPagamento = (de: PedidoStatus, para: PedidoStatus) => de === "Verificar pagamento" && (para === "Em fila" || para === "Confirmado com o cliente" || para === "Em produção");
+/** Pagamento confirmado: o pedido sai de "Verificar pagamento" para "Confirmado com o cliente" (ou direto para a produção). */
+export const confirmaPagamento = (de: PedidoStatus, para: PedidoStatus) => de === "Verificar pagamento" && (para === "Confirmado com o cliente" || para === "Em produção");
 
 /** Primeiro nome com a inicial maiúscula ("maria da silva" → "Maria"). */
 const primeiroNomeCliente = (nome: string) => {

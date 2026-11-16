@@ -134,7 +134,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
               })}
             </div>
             {!config.pixChave && meus.some((p) => p.status === "Verificar pagamento") && (
-              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Em fila</b> — ele entra na fila de produção e aparece em amarelo na Agenda. Depois, use o botão do WhatsApp ao lado do telefone para confirmar com o cliente e mude para <b>Confirmado com o cliente</b>.</div>
+              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Confirmado com o cliente</b>: o WhatsApp abre com a mensagem de confirmação pronta e o pedido entra na fila de produção.</div>
             )}
           </div>
         </div>
