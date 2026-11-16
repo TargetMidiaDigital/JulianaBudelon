@@ -335,9 +335,19 @@ export const PEDIDO_STATUS = [
   { key: "Verificar pagamento", cor: "#EAB308", agenda: "#2563EB" },
   { key: "Confirmado com o cliente", cor: "#0EA5E9", agenda: "#0369A1" },
   { key: "Em produção", cor: "#F97316", agenda: "#D97706" },
+  { key: "Pronto para retirada", cor: "#8B5CF6", agenda: "#7C3AED" },
   { key: "Entregue", cor: "#10B981", agenda: "#16A34A" },
 ] as const;
 export type PedidoStatus = (typeof PEDIDO_STATUS)[number]["key"];
+/**
+ * No CRM só a primeira mudança é manual (pagamento conferido → "Confirmado com o cliente").
+ * Depois o pedido anda sozinho, pelas tarefas: Produção em produção → "Em produção";
+ * loja marcou Recebido → "Pronto para retirada"; loja marcou Entregue → "Entregue".
+ */
+export const mudancaManualPermitida = (de: PedidoStatus, para: PedidoStatus) => de === "Verificar pagamento" && para === "Confirmado com o cliente";
+/** Posição no funil (para só avançar, nunca voltar). */
+export const ordemPedido = (s: string) => PEDIDO_STATUS.findIndex((x) => x.key === s);
+
 /** Próximo status do pedido no funil (null em "Entregue"). */
 export const proximoPedido = (s: PedidoStatus): PedidoStatus | null => {
   const i = PEDIDO_STATUS.findIndex((x) => x.key === s);
@@ -541,7 +551,7 @@ export function tarefasDaEncomenda(
       `<p><strong>Cliente:</strong> ${escHtml(x.cliente)}${fone}</p>` +
       `<ul><li>${escHtml(itens)}</li></ul>${obs}` +
       `<p><strong>Valor:</strong> ${brl(p.total)} (PIX)</p>` +
-      `<p>Confira a encomenda que chegou da produção (o recebido entra no estoque da loja) e entregue ao cliente no horário combinado. Ao entregar, marque o pedido como <strong>Entregue</strong> no CRM: o estoque da loja dá baixa.</p>`,
+      `<p>Quando a encomenda chegar da produção, marque <strong>Recebido</strong> e confira a quantidade (entra no estoque da loja; no CRM o pedido fica <strong>Pronto para retirada</strong>). Ao entregar ao cliente, marque <strong>Entregue</strong>: o estoque da loja dá baixa e o CRM acompanha.</p>`,
     comentarios: log(),
   };
   return [producao, lojaT];

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, validarNovoPedido, vitrineDe,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
 
@@ -175,6 +175,28 @@ async function ligarRealtime() {
 
 /** Recarrega do servidor (banco) — ex.: depois de uma ação cujo efeito o servidor completa. */
 export const recarregarEncomendas = () => { if (meta.modo === "banco") void buscar(); };
+
+/**
+ * Uma tarefa de encomenda mudou de status → o pedido acompanha no CRM (só avança):
+ *  Produção "em andamento" → "Em produção"; loja Recebido → "Pronto para retirada"; loja Entregue → "Entregue".
+ * Com banco quem grava é /api/tarefas (lib/encomendas-server): aqui só busca de novo.
+ */
+export function avancarPedidoPelaTarefa(t: { id: string; desc?: string; categoria?: string; tipo?: string }, status: string) {
+  const loja = t.categoria === "encomenda";
+  const producao = !loja && t.tipo === "Encomenda";
+  if (!loja && !producao) return;
+  if (meta.modo === "banco") { void buscar(); return; }
+  const para: PedidoStatus | null = loja
+    ? status === "em andamento" ? "Pronto para retirada" : status === "concluida" || status === "validada" ? "Entregue" : null
+    : status === "em andamento" ? "Em produção" : null;
+  if (!para) return;
+  const id = (loja ? /-encl-(.+)$/ : /-encp-(.+)$/).exec(t.id)?.[1];
+  const num = /Encomenda #([0-9A-Z]{8})\b/.exec(t.desc ?? "")?.[1];
+  const p = carregar().pedidos.find((x) => (id ? x.id === id : !!num && numeroPedido(x.id) === num));
+  if (!p || p.status === "Verificar pagamento" || ordemPedido(p.status) >= ordemPedido(para)) return;
+  // No demo a baixa do estoque da loja é feita pelo app (tarefa Entregue): marca para não repetir.
+  muda((e) => ({ pedidos: e.pedidos.map((x) => (x.id === p.id ? { ...x, status: para, ...(para === "Entregue" ? { estoqueBaixado: true } : {}) } : x)) }));
+}
 
 /** Ação no servidor. Erro → avisa e recarrega (desfaz o otimista). Devolve a resposta ou null. */
 async function acao<T = unknown>(nome: string, dados: Record<string, unknown>, recarregarDepois = false): Promise<T | null> {

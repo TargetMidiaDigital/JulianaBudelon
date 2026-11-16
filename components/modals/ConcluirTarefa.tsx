@@ -5,6 +5,7 @@ import { css } from "@/lib/css";
 import { corDaCategoria } from "@/lib/estoque";
 import { linhasDaTarefa, rotuloRealizado, type LinhaConferencia } from "@/lib/conferencia";
 import { statusInfo } from "@/lib/theme";
+import { rotuloEncomenda } from "@/lib/tarefas";
 import { useFecharComEsc } from "../ui/useFecharComEsc";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
@@ -40,7 +41,9 @@ function Corpo() {
   const totPed = linhas.reduce((s, l) => s + l.pedido, 0);
   const totFeito = valores.reduce<number>((s, v) => s + (v ?? 0), 0);
   const confirmar = () => { if (completo) resolverConclusao(t.id, linhas.map((l, i) => ({ ...l, feito: valores[i] }))); };
-  const destino = item.status === "validada" ? statusInfo.validada.label : statusInfo.concluida.label;
+  const destino = rotuloEncomenda(item.status, t) ?? (item.status === "validada" ? statusInfo.validada.label : statusInfo.concluida.label);
+  // Encomenda da loja: a conferência é no Recebido (a tarefa ainda não termina aqui).
+  const verbo = item.status === "em andamento" ? `marcar como ${destino}` : "concluir";
   // No celular as colunas fixas (278px) engoliam o nome do produto: lá elas encolhem (como na Conferência).
   const mobile = useIsMobile();
   const grid = mobile
@@ -54,7 +57,7 @@ function Corpo() {
         <div style={css("display:flex; align-items:flex-start; gap:10px; padding:18px 20px 14px; border-bottom:1px solid #ECEDF1;")}>
           <span style={css("flex:none; width:34px; height:34px; border-radius:9px; background:#E7F6EE; color:#1B7F4D; display:flex; align-items:center; justify-content:center;")}><Svg size={17} sw={2.4}><path d="M20 6 9 17l-5-5" /></Svg></span>
           <div style={css("flex:1; min-width:0;")}>
-            <div style={css("font-size:16.5px; font-weight:800; letter-spacing:-0.3px;")}>Confirmar {rot.toLowerCase()} e concluir</div>
+            <div style={css("font-size:16.5px; font-weight:800; letter-spacing:-0.3px;")}>{item.status === "em andamento" ? "Conferir o que chegou" : `Confirmar ${rot.toLowerCase()} e ${verbo}`}</div>
             <div style={css("font-size:13px; color:#5B6472; font-weight:600; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{t.titulo}</div>
           </div>
           {conclusoesPendentes.length > 1 && <span style={css("flex:none; font-size:12px; font-weight:700; color:#7A8090; background:#F4F4F7; padding:4px 9px; border-radius:999px;")}>1 de {conclusoesPendentes.length}</span>}
@@ -96,9 +99,9 @@ function Corpo() {
           </Hoverable>
         </div>
         <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; padding:14px 20px; border-top:1px solid #ECEDF1;")}>
-          <span className="m-full" style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{completo ? `A tarefa vai para "${destino}".` : "Preencha todos os produtos para concluir."}</span>
+          <span className="m-full" style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{completo ? `A tarefa vai para "${destino}".` : `Preencha todos os produtos para ${verbo}.`}</span>
           <Hoverable as="button" onClick={cancelar} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
-          <Hoverable as="button" onClick={confirmar} {...{ disabled: !completo }} s={css(`border:none; background:#1B7F4D; color:#fff; cursor:${completo ? "pointer" : "not-allowed"}; opacity:${completo ? 1 : 0.45}; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;`)} hover={completo ? "filter:brightness(1.1)" : undefined}>Confirmar e concluir</Hoverable>
+          <Hoverable as="button" onClick={confirmar} {...{ disabled: !completo }} s={css(`border:none; background:#1B7F4D; color:#fff; cursor:${completo ? "pointer" : "not-allowed"}; opacity:${completo ? 1 : 0.45}; font-size:13.5px; font-weight:700; padding:10px 18px; border-radius:10px;`)} hover={completo ? "filter:brightness(1.1)" : undefined}>Confirmar e {verbo}</Hoverable>
         </div>
       </div>
     </>

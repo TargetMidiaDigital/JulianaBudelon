@@ -18,7 +18,7 @@ import LogLine from "../ui/LogLine";
 import { DEFAULT_DUE_TIME } from "@/lib/format";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, proximoStatusTarefa, statusEscolhiveis, useApp } from "../store";
 import { pedidoStatusInfo } from "@/lib/pedido";
-import { ehExpedicao, semEtapaProducao } from "@/lib/tarefas";
+import { ehEncomendaLoja, ehExpedicao, rotuloEncomenda, semEtapaDoMeio } from "@/lib/tarefas";
 import { htmlRomaneio, imprimirRomaneio } from "@/lib/romaneio";
 import Conferencia from "../ui/Conferencia";
 import { UnidadePill } from "../screens/ListaView";
@@ -41,10 +41,11 @@ function TaskDetailBody({ t }: { t: Task }) {
     if (!ok) window.alert("Libere pop-ups para gerar o romaneio.");
   };
   const pedido = t.pedidoId ? pedidos.find((p) => p.id === t.pedidoId) : undefined;
-  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, semEtapaProducao(t)); // sem "Atrasada"; Expedição sem "Em produção"
+  const statusOpts: TaskStatus[] = statusEscolhiveis(canSeeAll, semEtapaDoMeio(t)); // sem "Atrasada"; Expedição e Unidades sem "Em produção"
+  const nomeStatus = (s: TaskStatus) => rotuloEncomenda(s, t) ?? statusInfo[s].label; // Encomendas da loja: Recebido / Entregue / Validado
   // Botão "›": avança para o próximo status do fluxo (A verificar → Em produção → Concluída → Validada).
   // "Atrasada" também segue para Concluída; "Validada" só para quem vê tudo (Head/Admin).
-  const proximo = proximoStatusTarefa(t.status, statusOpts);
+  const proximo = proximoStatusTarefa(t.status, statusOpts, ehEncomendaLoja(t));
   const podeAvancar = !!proximo;
   const close = () => setTaskDetailOpen(null);
   useFecharComEsc(true, close);
@@ -120,14 +121,14 @@ function TaskDetailBody({ t }: { t: Task }) {
               <Row label="Data criada"><span style={css("font-size:13.5px; font-weight:600; color:#5B6472;")}>{t.criada}{t.criadaHora ? ` ${t.criadaHora}` : ""}</span></Row>
               <Row label="Status">
                 <Menu trigger={(tg) => (
-                  <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:7px; cursor:pointer; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg};`)}><span style={css(`width:7px; height:7px; border-radius:50%; background:${statusInfo[t.status].dot};`)} />{statusInfo[t.status].label}<Svg size={11} sw={2.4} style={css("flex:none; opacity:.6;")}><path d="m6 9 6 6 6-6" /></Svg></span>
+                  <span onClick={tg} style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:7px; cursor:pointer; background:${statusInfo[t.status].bg}; color:${statusInfo[t.status].fg};`)}><span style={css(`width:7px; height:7px; border-radius:50%; background:${statusInfo[t.status].dot};`)} />{nomeStatus(t.status)}<Svg size={11} sw={2.4} style={css("flex:none; opacity:.6;")}><path d="m6 9 6 6 6-6" /></Svg></span>
                 )} width={190} z={64}>
-                  {(c) => statusOpts.map((s) => (<MenuItem key={s} checked={t.status === s} onClick={() => { updateTask(t.id, { status: s }); c(); }}><span style={css(`width:9px; height:9px; border-radius:50%; background:${statusInfo[s].dot};`)} /><span style={{ flex: 1 }}>{statusInfo[s].label}</span></MenuItem>))}
+                  {(c) => statusOpts.map((s) => (<MenuItem key={s} checked={t.status === s} onClick={() => { updateTask(t.id, { status: s }); c(); }}><span style={css(`width:9px; height:9px; border-radius:50%; background:${statusInfo[s].dot};`)} /><span style={{ flex: 1 }}>{nomeStatus(s)}</span></MenuItem>))}
                 </Menu>
                 {podeAvancar && proximo && (
-                  <Hoverable as="button" onClick={() => updateTask(t.id, { status: proximo })} title={`Avançar para "${statusInfo[proximo].label}"`} s={css(`display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 10px 0 8px; margin-left:4px; border:1px solid ${statusInfo[proximo].dot}55; background:#fff; color:${statusInfo[proximo].fg}; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700;`)} hover={`background:${statusInfo[proximo].bg}`}>
+                  <Hoverable as="button" onClick={() => updateTask(t.id, { status: proximo })} title={`Avançar para "${nomeStatus(proximo)}"`} s={css(`display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 10px 0 8px; margin-left:4px; border:1px solid ${statusInfo[proximo].dot}55; background:#fff; color:${statusInfo[proximo].fg}; border-radius:7px; cursor:pointer; font-size:12px; font-weight:700;`)} hover={`background:${statusInfo[proximo].bg}`}>
                     <Svg size={13} sw={2.6}><path d="m9 6 6 6-6 6" /></Svg>
-                    {statusInfo[proximo].label}
+                    {nomeStatus(proximo)}
                   </Hoverable>
                 )}
               </Row>

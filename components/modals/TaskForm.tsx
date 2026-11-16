@@ -13,7 +13,7 @@ import Menu, { MenuItem } from "../ui/Menu";
 import DatePicker from "../ui/DatePicker";
 import CommentEditor from "../ui/CommentEditor";
 import { PRIO_ORDER, gestorOf, responsaveisDoScope, statusEscolhiveis, useApp } from "../store";
-import { categoriaDaPage, pageSemProducao } from "@/lib/tarefas";
+import { categoriaDaPage, pageSemEtapaDoMeio, pageSemProducao } from "@/lib/tarefas";
 import { corDaCategoria, parseQuantidade } from "@/lib/estoque";
 
 /** Tipos de tarefa oferecidos no formulário (a lista pode ser agrupada por tipo). */
@@ -26,7 +26,7 @@ const horaBR = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(
 
 export default function TaskForm() {
   const { taskFormOpen, setTaskFormOpen, team, produtos, addTask, taskFormPrefill, setTaskFormPrefill, currentUser, screen, ownScopeOnly, canSeeAll } = useApp();
-  const statusOpts = statusEscolhiveis(canSeeAll, pageSemProducao(screen)); // sem "Atrasada"; Expedição sem "Em produção"
+  const statusOpts = statusEscolhiveis(canSeeAll, pageSemEtapaDoMeio(screen)); // sem "Atrasada"; Expedição sem "Em produção"
   const [titulo, setTitulo] = useState("");
   const [resp, setResp] = useState<string | null>(currentUser.id || null);
   const [prio, setPrio] = useState<Prioridade | null>(null);

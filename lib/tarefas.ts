@@ -35,3 +35,21 @@ export const pageSemProducao = (page: ScreenPage): boolean => page === "expedica
 
 /** Tarefas de uma tela (Produção, Expedição, Unidades ou Encomendas). */
 export const tarefasDaPage = <T extends Pick<Task, "categoria">>(tasks: T[], page: ScreenPage): T[] => tasks.filter((t) => pageDaTarefa(t) === page);
+
+// ── Encomendas da loja: A verificar → Recebido → Entregue → Validado ───────────────────────
+// Usam os mesmos status do banco (verificar / em andamento / concluida / validada); só o nome muda.
+
+/** Expedição e Unidades não têm a etapa do meio ("em andamento"); nas Encomendas da loja ela é o "Recebido". */
+export const semEtapaDoMeio = (t: ComCategoria): boolean => ehExpedicao(t) || ehUnidade(t);
+export const pageSemEtapaDoMeio = (page: ScreenPage): boolean => page === "expedicao" || page === "unidades";
+
+/** Nome do status nas Encomendas da loja. */
+export const ROTULO_ENCOMENDA: Partial<Record<string, string>> = { "em andamento": "Recebido", concluida: "Entregue", validada: "Validado" };
+export const rotuloEncomenda = (status: string, t: ComCategoria): string | undefined => (ehEncomendaLoja(t) ? ROTULO_ENCOMENDA[status] : undefined);
+
+/**
+ * Passou do momento da conferência (quando o realizado é registrado e o estoque entra na loja)?
+ * Encomendas da loja: ao marcar Recebido (ou depois). Demais tarefas: ao concluir.
+ */
+export const passouDaConferencia = (t: ComCategoria, status?: string | null): boolean =>
+  ehEncomendaLoja(t) ? status === "em andamento" || status === "concluida" || status === "validada" : status === "concluida" || status === "validada";

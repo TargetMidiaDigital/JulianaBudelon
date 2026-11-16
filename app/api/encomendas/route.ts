@@ -4,7 +4,7 @@ import { nivelNaTela, requireSession, type Sessao } from "@/lib/auth-admin";
 import {
   colunasCategoria, colunasCompromisso, colunasProduto, lerTudo, mudarStatusPedido, statusLeadValido, statusPedidoValido, subirFotoSeNova, validarConfigServidor,
 } from "@/lib/encomendas-server";
-import type { Categoria, Compromisso, ConfigEncomendas, ProdutoEncomenda } from "@/lib/encomendas-base";
+import { mudancaManualPermitida, type Categoria, type Compromisso, type ConfigEncomendas, type PedidoStatus, type ProdutoEncomenda } from "@/lib/encomendas-base";
 import type { ScreenPage } from "@/lib/types";
 
 /**
@@ -117,6 +117,11 @@ export async function POST(req: Request) {
     }
     case "pedidoStatus": {
       if (!statusPedidoValido(b.status)) return erro("Status inválido.");
+      // Só "Verificar pagamento" → "Confirmado com o cliente" é manual; o resto vem das tarefas.
+      const { data: atualPed } = await sb.from("enc_pedido").select("status").eq("id", id).maybeSingle();
+      const de = (atualPed as { status: PedidoStatus } | null)?.status;
+      if (!de) return erro("Pedido não encontrado.", 404);
+      if (de !== b.status && !mudancaManualPermitida(de, b.status)) return erro("Depois de confirmado, o status do pedido muda sozinho: pela Produção (Em produção) e pela loja (Pronto para retirada e Entregue).", 409);
       const falha = await mudarStatusPedido(sb, id, b.status, sess.userId);
       return falha ? erro(falha, 500) : ok();
     }

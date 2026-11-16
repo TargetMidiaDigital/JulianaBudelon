@@ -5,6 +5,7 @@ import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
 import { parseItens } from "./pedido";
 import { parseConferencia } from "./conferencia";
 import type { TaskStatus } from "./types";
+import { passouDaConferencia } from "./tarefas";
 
 /**
  * "Atrasada" é status SÓ do sistema: ninguém escolhe à mão. Tarefa "A verificar" ou
@@ -13,9 +14,11 @@ import type { TaskStatus } from "./types";
  */
 export async function marcarAtrasadas(sb: SupabaseClient): Promise<number> {
   try {
-    const { data } = await sb.from("tarefas").select("id, vence_em, ultimos_comentarios, pedido_id")
+    const { data } = await sb.from("tarefas").select("id, vence_em, ultimos_comentarios, pedido_id, status, categoria")
       .in("status", ["verificar", "em andamento"]).lt("vence_em", new Date().toISOString()).limit(500);
-    const rows = (data ?? []) as { id: string; vence_em: string; ultimos_comentarios: unknown; pedido_id: string | null }[];
+    // Encomenda já Recebida na loja ("em andamento") não vira Atrasada: está esperando o cliente.
+    const rows = ((data ?? []) as { id: string; vence_em: string; ultimos_comentarios: unknown; pedido_id: string | null; status: string; categoria: string | null }[])
+      .filter((r) => !(r.categoria === "encomenda" && r.status === "em andamento"));
     if (!rows.length) return 0;
     const pedidos = new Set<string>();
     for (const r of rows) {
@@ -86,7 +89,8 @@ export async function aplicarEstoqueProducao(sb: SupabaseClient, t: TarefaEstoqu
 export async function aplicarEstoqueRecebimento(sb: SupabaseClient, t: TarefaEstoque, novoStatus: TaskStatus): Promise<void> {
   try {
     if ((t.categoria !== "unidade" && t.categoria !== "encomenda") || !t.local || t.local === "fabrica") return;
-    const antes = feita(t.status ?? ""), depois = feita(novoStatus);
+    // Encomenda: entra no estoque da loja ao marcar Recebido; unidade: ao concluir o recebimento.
+    const antes = passouDaConferencia(t, t.status), depois = passouDaConferencia(t, novoStatus);
     if (antes === depois) return;
     const local = t.local;
     const label = LOCAIS_ESTOQUE.find((l) => l.id === local)?.label ?? local;

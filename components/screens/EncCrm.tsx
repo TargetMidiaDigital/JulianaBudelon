@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
-import { PEDIDO_STATUS, corPedido, linkWhatsapp, proximoPedido, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
+import { PEDIDO_STATUS, corPedido, linkWhatsapp, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail, { Seletor } from "../encomendas/LeadDetail";
@@ -75,9 +75,12 @@ export default function EncCrm() {
           {chip(<>{p.tipo === "Retirada" ? "📍" : "🛵"} {p.tipo}{local ? ` · ${local}` : ""}</>)}
         </div>
         <div style={css("display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid #F0F1F4; flex-wrap:wrap;")}>
-          <Seletor disabled={!editavel} valor={p.status} cor={cor} opcoes={PEDIDO_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
+          {/* Só a confirmação é manual; depois o status anda sozinho (Produção e loja). */}
+          <span title={p.status === "Verificar pagamento" ? undefined : "Muda sozinho: Produção (Em produção) e loja (Pronto para retirada / Entregue)"} style={{ display: "inline-flex" }}>
+            <Seletor disabled={!editavel || p.status !== "Verificar pagamento"} valor={p.status} cor={cor} opcoes={[{ v: "Verificar pagamento", cor: corPedido("Verificar pagamento") }, { v: "Confirmado com o cliente", cor: corPedido("Confirmado com o cliente") }]} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
+          </span>
           <span style={{ flex: 1 }} />
-          {editavel && proximoPedido(p.status) && <BotaoAvancar proximo={proximoPedido(p.status)!} onClick={() => setPedidoStatus(p.id, proximoPedido(p.status)!)} />}
+          {editavel && p.status === "Verificar pagamento" && <BotaoAvancar proximo="Confirmado com o cliente" onClick={() => setPedidoStatus(p.id, "Confirmado com o cliente")} />}
         </div>
       </Hoverable>
     );
@@ -88,7 +91,7 @@ export default function EncCrm() {
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 14px; flex:none;")}>
         <div>
           <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>CRM</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>Pedidos de encomenda, do pagamento à entrega</p>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>Pedidos de encomenda, do pagamento à entrega · depois de confirmado, o status anda sozinho pela Produção e pela loja</p>
         </div>
       </div>
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:12px; padding:0 30px 12px; flex:none;")}>

@@ -6,7 +6,7 @@ import { brl, foneBR, normalizePhone, parseBR } from "@/lib/format";
 import { ACCENT, statusInfo } from "@/lib/theme";
 import type { Task } from "@/lib/types";
 import { LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
-import { tarefasDaPage } from "@/lib/tarefas";
+import { rotuloEncomenda, tarefasDaPage } from "@/lib/tarefas";
 import { isoDia, linkWhatsapp, numeroPedido, useEncomendas, type Lead, type PedidoEncomenda } from "@/lib/encomendas";
 import { proximoStatusTarefa, statusEscolhiveis, useApp } from "../store";
 import { Foto } from "../encomendas/FunilEncomenda";
@@ -32,6 +32,7 @@ const NA_PRODUCAO: Record<string, { texto: string; cor: string }> = {
   "Verificar pagamento": { texto: "Aguardando pagamento", cor: "#A16207" },
   "Confirmado com o cliente": { texto: "Aguardando a produção", cor: "#0369A1" },
   "Em produção": { texto: "Sendo feita na produção", cor: "#C2410C" },
+  "Pronto para retirada": { texto: "Na loja, esperando o cliente", cor: "#7C3AED" },
   Entregue: { texto: "Entregue ao cliente", cor: "#15803D" },
 };
 
@@ -42,7 +43,7 @@ export default function LojaEncomendas() {
   const { pedidos, leads, produtos, produtoDe, unidadeDe, carregado, erroCarga } = useEncomendas();
   const mobile = useIsMobile();
   const editavel = canEditPage("lojas-encomendas");
-  const opcoes = statusEscolhiveis(canSeeAll, true);
+  const opcoes = statusEscolhiveis(canSeeAll, false); // A verificar → Recebido → Entregue (→ Validado)
   const [aba, setAba] = useState<"pendentes" | "concluidas">("pendentes");
   const [loja, setLoja] = useState<string>("");
   const [busca, setBusca] = useState("");
@@ -119,7 +120,8 @@ export default function LojaEncomendas() {
     const lojaNome = p?.unidadeNome ?? unidadeDe(p?.unidadeId)?.nome ?? LOCAIS_ESTOQUE.find((l) => l.id === t.local)?.label ?? "";
     const atrasada = !feita(t) && !!i.iso && i.iso < hoje;
     const si = statusInfo[t.status];
-    const prox = editavel ? proximoStatusTarefa(t.status, opcoes) : null;
+    const prox = editavel ? proximoStatusTarefa(t.status, opcoes, true) : null;
+    const nome = (s: Task["status"]) => rotuloEncomenda(s, t) ?? statusInfo[s].label;
     const prod = p ? NA_PRODUCAO[p.status] : undefined;
     const msg = `Oi${i.cliente ? `, ${i.cliente.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}${lojaNome ? `, loja ${lojaNome}` : ""}. Sobre a sua encomenda${p ? ` #${numeroPedido(p.id)}` : ""} (${p ? `${p.quantidade}× ` : ""}${i.produto}), com retirada ${i.iso === hoje ? "hoje" : `em ${i.iso.split("-").reverse().join("/")}`}${i.hora ? ` às ${i.hora}` : ""}:`;
     const href = i.numero ? linkWhatsapp(i.numero, msg) : null;
@@ -160,14 +162,14 @@ export default function LojaEncomendas() {
           )}
 
           <div style={css("display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:2px;")}>
-            <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${si.dot};`)} />{si.label}</span>
+            <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${si.dot};`)} />{nome(t.status)}</span>
             {prod && !feita(t) && <span title="Situação na produção" style={css(`font-size:11px; font-weight:700; color:${prod.cor}; white-space:nowrap;`)}>{prod.texto}</span>}
             <span style={{ flex: 1 }} />
             <Hoverable as="button" onClick={() => setTaskDetailOpen(t.id)} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12px; font-weight:700; padding:5px 9px; border-radius:8px;")} hover="background:#F4F4F7">Detalhes</Hoverable>
             {prox && (
-              <Hoverable as="button" onClick={() => updateTask(t.id, { status: prox })} title={`Passar para "${statusInfo[prox].label}"`} s={css(`border:none; background:${prox === "concluida" ? "#1B7F4D" : "#2F80ED"}; color:#fff; cursor:pointer; font-size:12px; font-weight:800; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;`)} hover="filter:brightness(1.08)">
-                <Svg size={12} sw={2.8}>{prox === "concluida" ? <path d="M20 6 9 17l-5-5" /> : <path d="M5 12h14M13 6l6 6-6 6" />}</Svg>
-                {prox === "concluida" ? "Concluir" : prox === "validada" ? "Validar" : statusInfo[prox].label}
+              <Hoverable as="button" onClick={() => updateTask(t.id, { status: prox })} title={`Passar para "${nome(prox)}"`} s={css(`border:none; background:${prox === "concluida" ? "#1B7F4D" : prox === "em andamento" ? "#7C3AED" : "#2F80ED"}; color:#fff; cursor:pointer; font-size:12px; font-weight:800; padding:6px 10px; border-radius:8px; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;`)} hover="filter:brightness(1.08)">
+                <Svg size={12} sw={2.8}>{prox === "validada" ? <path d="M5 12h14M13 6l6 6-6 6" /> : <path d="M20 6 9 17l-5-5" />}</Svg>
+                {prox === "validada" ? "Validar" : nome(prox)}
               </Hoverable>
             )}
           </div>
@@ -210,7 +212,7 @@ export default function LojaEncomendas() {
       <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;")}>
         <div style={css("display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;")}>
           {chip(aba === "pendentes", () => setAba("pendentes"), <>Para entregar <span style={css("color:#9398A6;")}>{pendentes.length}</span></>)}
-          {chip(aba === "concluidas", () => setAba("concluidas"), <>Concluídas <span style={css("color:#9398A6;")}>{concluidas.length}</span></>, "#1B7F4D")}
+          {chip(aba === "concluidas", () => setAba("concluidas"), <>Entregues <span style={css("color:#9398A6;")}>{concluidas.length}</span></>, "#1B7F4D")}
         </div>
         <span style={{ flex: 1 }} />
         {/* Mesmo filtro da Ordem de Serviço: botão com menu, destacado quando há uma unidade escolhida. */}
@@ -250,7 +252,7 @@ export default function LojaEncomendas() {
           {grade(g.itens)}
         </section>
       )))}
-      {aba === "concluidas" && (concluidas.length === 0 ? vazio("Nenhuma encomenda concluída") : <div style={css("margin-top:18px;")}>{grade(concluidas)}</div>)}
+      {aba === "concluidas" && (concluidas.length === 0 ? vazio("Nenhuma encomenda entregue") : <div style={css("margin-top:18px;")}>{grade(concluidas)}</div>)}
     </div>
   );
 }

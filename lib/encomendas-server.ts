@@ -4,7 +4,7 @@ import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
 import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
-  CONFIG_PADRAO, CORES_DESTAQUE, LEAD_STATUS, PEDIDO_STATUS, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
+  CONFIG_PADRAO, CORES_DESTAQUE, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
@@ -228,22 +228,47 @@ export async function sincronizarEncomendaPelaProducao(sb: SB, tarefaId: string)
     const { data } = await sb.from("tarefas").select("id, status, categoria, tipo, descricao").eq("id", tarefaId).maybeSingle();
     const t = data as { id: string; status: string; categoria: string | null; tipo: string | null; descricao: string | null } | null;
     if (!t || t.status !== "em andamento" || t.tipo !== "Encomenda" || (t.categoria ?? "operacional") !== "operacional") return;
-    let pedidoId = /-encp-(.+)$/.exec(t.id)?.[1];
-    if (!pedidoId) {
-      const num = /Encomenda #([0-9A-F]{8})\b/.exec(t.descricao ?? "")?.[1];
-      if (!num) return;
-      const { data: achados } = await sb.from("enc_pedido").select("id").ilike("id", `${num.toLowerCase()}%`).limit(2);
-      if (achados?.length !== 1) return;
-      pedidoId = (achados[0] as { id: string }).id;
-    }
-    const { data: ped } = await sb.from("enc_pedido").select("status").eq("id", pedidoId).maybeSingle();
-    const st = (ped as { status: PedidoStatus } | null)?.status;
-    if (st !== "Confirmado com o cliente") return;
-    const erro = await mudarStatusPedido(sb, pedidoId, "Em produção", "sistema");
-    if (erro) console.error("[encomendas] falha ao mover pedido para Em produção:", erro);
+    await avancarPedido(sb, await pedidoDaTarefa(sb, t, /-encp-(.+)$/), "Em produção");
   } catch (e) {
     console.error("[encomendas] falha ao sincronizar pela produção:", e);
   }
+}
+
+/**
+ * Tarefa da loja (Lojas → Encomendas) mudou → o pedido acompanha no CRM:
+ * Recebido ("em andamento") → "Pronto para retirada"; Entregue/Validado → "Entregue" (dá a baixa
+ * no estoque da loja). Só avança. Nunca lança.
+ */
+export async function sincronizarEncomendaPelaLoja(sb: SB, tarefaId: string): Promise<void> {
+  try {
+    const { data } = await sb.from("tarefas").select("id, status, categoria, descricao").eq("id", tarefaId).maybeSingle();
+    const t = data as { id: string; status: string; categoria: string | null; descricao: string | null } | null;
+    if (!t || t.categoria !== "encomenda") return;
+    const para: PedidoStatus | null = t.status === "em andamento" ? "Pronto para retirada" : t.status === "concluida" || t.status === "validada" ? "Entregue" : null;
+    if (para) await avancarPedido(sb, await pedidoDaTarefa(sb, t, /-encl-(.+)$/), para);
+  } catch (e) {
+    console.error("[encomendas] falha ao sincronizar pela loja:", e);
+  }
+}
+
+/** Pedido de uma tarefa de encomenda: pelo id (`…-encp-<pedido>` / `…-encl-<pedido>`) ou, nas antigas, pelo "Encomenda #XXXXXXXX" da descrição. */
+async function pedidoDaTarefa(sb: SB, t: { id: string; descricao: string | null }, doId: RegExp): Promise<string | null> {
+  const id = doId.exec(t.id)?.[1];
+  if (id) return id;
+  const num = /Encomenda #([0-9A-F]{8})\b/.exec(t.descricao ?? "")?.[1];
+  if (!num) return null;
+  const { data: achados } = await sb.from("enc_pedido").select("id").ilike("id", `${num.toLowerCase()}%`).limit(2);
+  return achados?.length === 1 ? (achados[0] as { id: string }).id : null;
+}
+
+/** Leva o pedido para `para` só se for um passo à frente (nunca volta, nunca sai de "Verificar pagamento"). */
+async function avancarPedido(sb: SB, pedidoId: string | null, para: PedidoStatus): Promise<void> {
+  if (!pedidoId) return;
+  const { data: ped } = await sb.from("enc_pedido").select("status").eq("id", pedidoId).maybeSingle();
+  const st = (ped as { status: PedidoStatus } | null)?.status;
+  if (!st || st === "Verificar pagamento" || ordemPedido(st) >= ordemPedido(para)) return;
+  const erro = await mudarStatusPedido(sb, pedidoId, para, "sistema");
+  if (erro) console.error(`[encomendas] falha ao mover pedido para ${para}:`, erro);
 }
 
 /**

@@ -3,11 +3,11 @@ import { getSupabase } from "@/lib/supabase";
 import { toISO } from "@/lib/data";
 import type { Task, TaskStatus } from "@/lib/types";
 import { sincronizarStatusPedido } from "@/lib/pedido-server";
-import { sincronizarEncomendaPelaProducao } from "@/lib/encomendas-server";
+import { sincronizarEncomendaPelaLoja, sincronizarEncomendaPelaProducao } from "@/lib/encomendas-server";
 import { aplicarEstoqueProducao, aplicarEstoqueRecebimento } from "@/lib/tarefas-server";
 import { parseQuantidade } from "@/lib/estoque";
 import { conferenciaCompleta, parseConferencia, rotuloRealizado } from "@/lib/conferencia";
-import { pageDaTarefa, semEtapaProducao } from "@/lib/tarefas";
+import { pageDaTarefa, passouDaConferencia, semEtapaDoMeio } from "@/lib/tarefas";
 import { requireSession, nivelNaTela } from "@/lib/auth-admin";
 
 /**
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
   const sess = await editorDaTarefa(req, sb, task);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaProducao(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+  const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaDoMeio(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
   if (!sess.acessoTotal && task.gestor && task.gestor !== sess.userId) {
     return NextResponse.json({ error: "Sem permissão para atribuir a outra pessoa." }, { status: 403 });
@@ -104,13 +104,13 @@ export async function PATCH(req: Request) {
 
   const cols = mapPatch(patch ?? {});
   if ("status" in cols) {
-    const recusa = validarStatusManual(cols.status as string, sess.acessoTotal) ?? (semEtapaProducao(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+    const recusa = validarStatusManual(cols.status as string, sess.acessoTotal) ?? (semEtapaDoMeio(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
-  // Conferência: concluir exige todas as linhas preenchidas; tarefa concluída não muda os números
-  // (reabra primeiro — o estoque já foi movido com os valores da conclusão).
-  const jaFeita = atual.status === "concluida" || atual.status === "validada";
-  const vaiFeita = cols.status === "concluida" || cols.status === "validada";
+  // Conferência: concluir (nas Encomendas da loja: marcar Recebido) exige todas as linhas preenchidas;
+  // depois disso os números não mudam (reabra primeiro — o estoque já foi movido com esses valores).
+  const jaFeita = passouDaConferencia(atual, atual.status);
+  const vaiFeita = "status" in cols && passouDaConferencia(atual, cols.status as string);
   const linhasFinais = "conferencia" in cols ? (cols.conferencia as ReturnType<typeof parseConferencia>) : parseConferencia(atual.conferencia);
   if ("conferencia" in cols && jaFeita && (!("status" in cols) || vaiFeita)) return NextResponse.json({ error: "Reabra a tarefa para alterar as quantidades." }, { status: 409 });
   if (vaiFeita && !jaFeita && !conferenciaCompleta(linhasFinais)) return NextResponse.json({ error: `Preencha a quantidade ${rotuloRealizado(atual.categoria).toLowerCase()} de todos os produtos antes de concluir.` }, { status: 400 });
@@ -122,6 +122,8 @@ export async function PATCH(req: Request) {
   if (pedidoId && "status" in cols) await sincronizarStatusPedido(sb, pedidoId);
   // Tarefa da Produção de uma encomenda foi para "Em produção" → o pedido acompanha no CRM de Encomendas.
   if (cols.status === "em andamento") await sincronizarEncomendaPelaProducao(sb, id);
+  // Tarefa da loja de uma encomenda: Recebido → "Pronto para retirada"; Entregue → "Entregue" (CRM).
+  if ("status" in cols && atual.categoria === "encomenda") await sincronizarEncomendaPelaLoja(sb, id);
   // Produção concluída → soma a quantidade no estoque da Fábrica (reaberta → estorna).
   const comLinhas = { ...atual, conferencia: linhasFinais };
   if ("status" in cols) await aplicarEstoqueProducao(sb, comLinhas, cols.status as TaskStatus);

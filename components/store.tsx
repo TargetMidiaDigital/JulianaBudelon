@@ -14,7 +14,8 @@ import { CARGOS_PADRAO, DEFAULT_ESCOPO, cargosDoSetor, isCargoFull, matrizEfetiv
 import { clienteDe } from "@/lib/selectors";
 import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
-import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehEncomendaLoja, ehProducao, ehUnidade } from "@/lib/tarefas";
+import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehEncomendaLoja, ehProducao, ehUnidade, passouDaConferencia } from "@/lib/tarefas";
+import { avancarPedidoPelaTarefa } from "@/lib/encomendas";
 import { faltamPreencher, linhasDaTarefa, qtdEfetiva, rotuloRealizado } from "@/lib/conferencia";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
@@ -510,7 +511,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // a soma da produção e a transferência do recebimento se perdiam no modo demo.
       return { ...sincronizarPedidoLocal(comEstoque, old.pedidoId, demo), produtos: comEstoque.produtos };
     });
-    void persist("/api/tarefas", "PATCH", { id, patch: fp });
+    const salvo = persist("/api/tarefas", "PATCH", { id, patch: fp });
+    // Encomenda: o pedido acompanha no CRM (demo: aqui; banco: o servidor grava e a tela busca de novo).
+    if (patch.status && patch.status !== old.status) { const st = patch.status; void salvo.then(() => avancarPedidoPelaTarefa(old, st)); }
   };
 
   const value: Store = {
@@ -669,8 +672,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!old) return;
       // Conferência: concluir uma tarefa com produtos abre o popup para registrar/confirmar o
       // realizado (produzido / separado / recebido). Só o popup conclui de fato.
-      const feitaS = (s?: TaskStatus) => s === "concluida" || s === "validada";
-      if (patch.status && feitaS(patch.status) && !feitaS(old.status) && linhasDaTarefa({ ...old, ...patch }).length) {
+      if (patch.status && passouDaConferencia(old, patch.status) && !passouDaConferencia(old, old.status) && linhasDaTarefa({ ...old, ...patch }).length) {
         const resto: Partial<Task> = { ...patch };
         delete resto.status;
         if (Object.keys(resto).length) aplicarUpdateTask(old, resto);
@@ -982,6 +984,7 @@ function marcarAtrasadasLocal(tasks: Task[]): Task[] {
   const agora = Date.now();
   return tasks.map((t) => {
     if (t.status !== "verificar" && t.status !== "em andamento") return t;
+    if (ehEncomendaLoja(t) && t.status === "em andamento") return t; // Recebida: esperando o cliente
     const d = parseBR(t.venc);
     if (!d) return t;
     const m = /^(\d{1,2}):(\d{2})/.exec(t.vencHora ?? "");
@@ -1046,12 +1049,33 @@ function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, d
   };
 }
 
-/** Espelho local de aplicarEstoqueRecebimento: concluir o recebimento move Fábrica → unidade. */
-function aplicarRecebimentoLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
+/**
+ * Encomenda da loja Entregue: o recebido sai do estoque da loja (no banco, quem dá a baixa é o
+ * pedido do CRM ao ir para "Entregue"; aqui a tela antecipa). Reaberta, devolve.
+ */
+function aplicarEntregaEncomendaLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
   const feita = (s: TaskStatus) => s === "concluida" || s === "validada";
-  if ((!ehUnidade(t) && !ehEncomendaLoja(t)) || !t.local || t.local === "fabrica" || feita(de) === feita(para)) return d;
+  if (!ehEncomendaLoja(t) || !t.local || t.local === "fabrica" || feita(de) === feita(para)) return d;
+  const linhas = linhasDaTarefa(t);
+  if (!linhas.length) return d;
+  const local = t.local, sinal = feita(para) ? -1 : 1;
+  return {
+    ...d,
+    produtos: d.produtos.map((p) => {
+      const q = linhas.filter((l) => l.produtoId === p.id).reduce((s, l) => s + qtdEfetiva(l), 0);
+      if (q <= 0) return p;
+      return { ...p, quantidades: { ...p.quantidades, [local]: Math.max(0, qtdEm(p.quantidades, local) + sinal * q) }, atualizada: new Date().toISOString() };
+    }),
+  };
+}
+
+/** Espelho local de aplicarEstoqueRecebimento: o recebimento move Fábrica → unidade (encomenda: no Recebido). */
+function aplicarRecebimentoLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus): Db {
+  const d2 = aplicarEntregaEncomendaLocal(d, t, de, para);
+  if ((!ehUnidade(t) && !ehEncomendaLoja(t)) || !t.local || t.local === "fabrica" || passouDaConferencia(t, de) === passouDaConferencia(t, para)) return d2;
+  d = d2;
   const ped = t.pedidoId ? d.pedidos.find((p) => p.id === t.pedidoId) : undefined;
-  const local = t.local, ida = feita(para);
+  const local = t.local, ida = passouDaConferencia(t, para);
   const linhas = linhasDaTarefa(t);
   const qtdDe = (pid: string) => (linhas.length ? linhas.filter((l) => l.produtoId === pid).reduce((s, l) => s + qtdEfetiva(l), 0) : ped ? itemQtd(ped.itens, pid, local) : 0);
   return {
@@ -1150,9 +1174,10 @@ export const statusEscolhiveis = (canSeeAll: boolean, expedicao = false /* Exped
   (["verificar", "em andamento", "concluida", "validada"] as TaskStatus[]).filter((s) => (canSeeAll || s !== "validada") && (!expedicao || s !== "em andamento"));
 /** Próximo status do fluxo (A verificar → Em produção → Concluída → Validada), entre os que a pessoa
  *  pode escolher (`opcoes` = statusEscolhiveis). "Atrasada" segue para Concluída. null = fim do fluxo. */
-export const proximoStatusTarefa = (atual: TaskStatus, opcoes: TaskStatus[]): TaskStatus | null => {
+export const proximoStatusTarefa = (atual: TaskStatus, opcoes: TaskStatus[], encomendaLoja = false): TaskStatus | null => {
   const fluxo: TaskStatus[] = ["verificar", "em andamento", "concluida", "validada"];
-  const i = atual === "atrasada" ? fluxo.indexOf("em andamento") : fluxo.indexOf(atual);
+  // Atrasada: produção segue para Concluída; encomenda da loja (ainda não recebida) para Recebido.
+  const i = atual === "atrasada" ? fluxo.indexOf(encomendaLoja ? "verificar" : "em andamento") : fluxo.indexOf(atual);
   if (i < 0) return null;
   return fluxo.slice(i + 1).find((s) => opcoes.includes(s)) ?? null;
 };

@@ -12,7 +12,7 @@ import { Foto } from "./FunilEncomenda";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
 import { useApp } from "../store";
 import {
-  LEAD_STATUS, PEDIDO_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
+  LEAD_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
   type LeadStatus, type PedidoStatus,
 } from "@/lib/encomendas";
 
@@ -114,7 +114,10 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
                     {ab && (
                       <div style={css("border-top:1px solid #F0F1F4; padding:10px 14px 12px; display:flex; flex-direction:column; gap:2px;")}>
                         <Linha k="Status do pedido" v={
-                          <Seletor disabled={!canEdit} valor={p.status} cor={corPedido(p.status)} opcoes={PEDIDO_STATUS.map((s) => ({ v: s.key, cor: s.cor }))} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
+                          <span style={css("display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;")}>
+                            <Seletor disabled={!canEdit || p.status !== "Verificar pagamento"} valor={p.status} cor={corPedido(p.status)} opcoes={[{ v: "Verificar pagamento", cor: corPedido("Verificar pagamento") }, { v: "Confirmado com o cliente", cor: corPedido("Confirmado com o cliente") }]} onChange={(v) => setPedidoStatus(p.id, v as PedidoStatus)} />
+                            {p.status !== "Verificar pagamento" && <span style={css("font-size:11.5px; color:#9398A6; font-weight:600;")}>muda sozinho pela Produção e pela loja</span>}
+                          </span>
                         } />
                         <Linha k="Itens" v={`${p.quantidade}× ${nomeProd} (${brl(p.subtotal / p.quantidade)} cada)`} />
                         {p.mensagem && <Linha k="Observação" v={p.mensagem} />}
@@ -134,7 +137,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
               })}
             </div>
             {!config.pixChave && meus.some((p) => p.status === "Verificar pagamento") && (
-              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Confirmado com o cliente</b>: o WhatsApp abre com a mensagem de confirmação pronta e o pedido entra na fila de produção.</div>
+              <div style={css("margin-top:10px; font-size:12px; color:#7A8090;")}>Confirmou o PIX? Mude o pedido para <b>Confirmado com o cliente</b>: o WhatsApp abre com a mensagem de confirmação pronta e o pedido entra na fila de produção. Depois o status anda sozinho: <b>Em produção</b> (Produção começou), <b>Pronto para retirada</b> (loja recebeu) e <b>Entregue</b> (loja entregou).</div>
             )}
           </div>
         </div>
