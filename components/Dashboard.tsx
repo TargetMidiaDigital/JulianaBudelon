@@ -7,6 +7,7 @@ import { AppProvider, useApp } from "./store";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import ListaView from "./screens/ListaView";
+import LojaEncomendas from "./screens/LojaEncomendas";
 import Indicadores from "./screens/Indicadores";
 import Pedidos from "./screens/Pedidos";
 import Estoque from "./screens/Estoque";
@@ -37,7 +38,7 @@ function Screens() {
       {screen === "listaview" && <ListaView selectable page="listaview" />}
       {screen === "expedicao" && <ListaView selectable page="expedicao" />}
       {screen === "unidades" && <ListaView selectable page="unidades" />}
-      {screen === "lojas-encomendas" && <ListaView selectable page="lojas-encomendas" />}
+      {screen === "lojas-encomendas" && <LojaEncomendas />}
       {screen === "pedidos" && <Pedidos />}
       {screen === "estoque" && <Estoque />}
       {screen === "recrutamento-talentos" && <BancoTalentos />}

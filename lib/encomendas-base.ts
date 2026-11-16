@@ -522,7 +522,8 @@ export function tarefasDaEncomenda(
   };
   const lojaT: Task = {
     ...comum,
-    id: `t-${x.base}-encl`,
+    // O id do pedido vai no id da tarefa: a tela da loja mostra a foto e os dados do pedido.
+    id: `t-${x.base}-encl-${p.id}`,
     titulo: `Encomenda - ${x.cliente} - ${loja} - ${venc}`,
     categoria: "encomenda",
     desc:

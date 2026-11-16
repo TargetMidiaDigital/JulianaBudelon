@@ -9,7 +9,8 @@ import type { ScreenPage } from "@/lib/types";
 
 /**
  * Encomendas no painel (tabelas enc_*).
- *  - GET  → { categorias, produtos, config, leads, pedidos, compromissos }  (nível ≥ "ver" em alguma tela de Encomendas)
+ *  - GET  → { categorias, produtos, config, leads, pedidos, compromissos }  (nível ≥ "ver" em alguma tela de Encomendas).
+ *           Só com Lojas → Encomendas: a versão da loja (pedidos com foto do produto e o contato de quem encomendou).
  *  - POST { acao, ... } → { ok }   cada ação exige "editar" na tela correspondente:
  *      Autoatendimento: produto, excluirProduto, categoria, excluirCategoria, ordemCategorias, config
  *      CRM (ou Contatos, para o contato): pedidoStatus, leadStatus, responsavel
@@ -35,9 +36,14 @@ export async function GET(req: Request) {
   const sess = await requireSession(req, sb);
   if (!sess.ok) return erro(sess.error, sess.status);
   const niveis = await Promise.all(PAGES.map((p) => nivelNaTela(sb, sess.cargo, p)));
-  if (niveis.every((n) => n === "nenhum")) return erro("Sem acesso às Encomendas.", 403);
+  const soLoja = niveis.every((n) => n === "nenhum");
+  if (soLoja && (await nivelNaTela(sb, sess.cargo, "lojas-encomendas")) === "nenhum") return erro("Sem acesso às Encomendas.", 403);
   try {
-    return NextResponse.json(await lerTudo(sb));
+    const tudo = await lerTudo(sb);
+    if (!soLoja) return NextResponse.json(tudo);
+    // Loja: só o necessário para a tela de encomendas da loja (sem a lista inteira de contatos nem a agenda).
+    const comPedido = new Set(tudo.pedidos.map((p) => p.leadId));
+    return NextResponse.json({ ...tudo, leads: tudo.leads.filter((l) => comPedido.has(l.id)).map((l) => ({ ...l, resumo: undefined })), compromissos: [] });
   } catch (e) {
     return erro(e instanceof Error ? e.message : "Falha ao carregar.", 500);
   }
