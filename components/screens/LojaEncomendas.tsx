@@ -34,11 +34,11 @@ const NA_PRODUCAO: Record<string, { texto: string; cor: string }> = {
   Entregue: { texto: "Entregue ao cliente", cor: "#15803D" },
 };
 
-type Item = { t: Task; p?: PedidoEncomenda; lead?: Lead; iso: string; hora: string; produto: string; foto: string | null; cliente: string; numero?: string };
+type Item = { t: Task; p?: PedidoEncomenda; lead?: Lead; iso: string; hora: string; qtd?: number; produto: string; foto: string | null; cliente: string; numero?: string };
 
 export default function LojaEncomendas() {
   const { tasks, updateTask, setTaskDetailOpen, canEditPage, canSeeAll, workspace } = useApp();
-  const { pedidos, leads, produtoDe, unidadeDe, carregado, erroCarga } = useEncomendas();
+  const { pedidos, leads, produtos, produtoDe, unidadeDe, carregado, erroCarga } = useEncomendas();
   const mobile = useIsMobile();
   const editavel = canEditPage("lojas-encomendas");
   const opcoes = statusEscolhiveis(canSeeAll, true);
@@ -52,7 +52,7 @@ export default function LojaEncomendas() {
   const pedidoDe = (t: Task): PedidoEncomenda | undefined => {
     const id = /-encl-(.+)$/.exec(t.id)?.[1];
     if (id) return pedidos.find((p) => p.id === id);
-    const num = /Encomenda #([0-9A-F]{8})\b/.exec(t.desc ?? "")?.[1];
+    const num = /Encomenda #([0-9A-Z]{8})\b/.exec(t.desc ?? "")?.[1];
     return num ? pedidos.find((p) => numeroPedido(p.id) === num) : undefined;
   };
 
@@ -62,13 +62,21 @@ export default function LojaEncomendas() {
     const prod = p ? produtoDe(p.produtoId) : undefined;
     const d = parseBR(t.venc);
     const iso = p?.data ?? (d ? isoDia(d) : "");
-    // Sem pedido (tarefa manual ou pedido apagado): o nome sai do título "Encomenda - Cliente - Loja - data".
-    const cliente = lead?.nome || (/^Encomenda - (.+?) - /.exec(t.titulo)?.[1] ?? "");
+    // Sem pedido (tarefa manual ou pedido apagado): os dados saem da descrição gerada pelo CRM
+    // ("<li>2× Torta de Morango</li>", "Cliente: Nome · (48) 9…") e do título "Encomenda - Cliente - Loja - data".
+    const desc = (t.desc ?? "").replace(/&amp;/g, "&");
+    const item = /<li>(\d+)× ([^<]+)<\/li>/.exec(desc);
+    const doCliente = /Cliente:<\/strong> ([^<·]+?)(?: · ([^<]+))?<\/p>/.exec(desc);
+    const nomeProd = prod?.nome ?? p?.produtoNome ?? item?.[2]?.trim();
+    const prodPorNome = !prod && nomeProd ? produtos.find((x) => x.nome === nomeProd) : undefined;
+    const foneDesc = doCliente?.[2] ? normalizePhone(doCliente[2]) : "";
+    const cliente = lead?.nome || doCliente?.[1]?.trim() || (/^Encomenda [-–] (.+?) [-–] /.exec(t.titulo)?.[1] ?? "");
     return {
       t, p, lead, iso, hora: p?.hora ?? t.vencHora ?? "",
-      produto: prod?.nome ?? p?.produtoNome ?? t.titulo,
-      foto: prod?.foto ?? null,
-      cliente, numero: lead?.numero,
+      qtd: p?.quantidade ?? (item ? Number(item[1]) : undefined),
+      produto: nomeProd ?? t.titulo,
+      foto: (prod ?? prodPorNome)?.foto ?? null,
+      cliente, numero: lead?.numero ?? (foneDesc.length >= 10 ? foneDesc.replace(/^(?!55)/, "55") : undefined),
     };
   });
 
@@ -113,7 +121,7 @@ export default function LojaEncomendas() {
       <div key={t.id} style={css(`background:#fff; border:1px solid ${atrasada ? "#F3B4BC" : "#ECEDF1"}; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 1px 3px rgba(16,24,40,.05); ${feita(t) ? "opacity:.82;" : ""}`)}>
         <div onClick={() => setTaskDetailOpen(t.id)} style={css("position:relative; cursor:pointer;")}>
           <Foto src={i.foto} alt={i.produto} proporcao="16/10" cortar miniatura />
-          {p && <span style={css("position:absolute; top:10px; left:10px; background:rgba(27,27,40,.82); color:#fff; font-size:15px; font-weight:800; padding:5px 11px; border-radius:999px;")}>{p.quantidade}×</span>}
+          {i.qtd && <span style={css("position:absolute; top:10px; left:10px; background:rgba(27,27,40,.82); color:#fff; font-size:15px; font-weight:800; padding:5px 11px; border-radius:999px;")}>{i.qtd}×</span>}
           {i.hora && (
             <span style={css(`position:absolute; top:10px; right:10px; display:inline-flex; align-items:center; gap:5px; background:${atrasada ? "#CC3338" : "#fff"}; color:${atrasada ? "#fff" : "#1B1B28"}; font-size:14px; font-weight:800; padding:5px 11px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,.15);`)}>
               <Svg size={14} sw={2.4}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>{i.hora}
@@ -154,7 +162,7 @@ export default function LojaEncomendas() {
           )}
         </div>
 
-        <div style={css("display:flex; align-items:center; gap:8px; padding:12px 16px 14px; margin-top:12px; border-top:1px solid #F0F1F4;")}>
+        <div style={css("display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:12px 16px 14px; margin-top:12px; border-top:1px solid #F0F1F4;")}>
           <span style={css(`display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 10px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:7px; height:7px; border-radius:50%; background:${si.dot};`)} />{si.label}</span>
           <span style={{ flex: 1 }} />
           <Hoverable as="button" onClick={() => setTaskDetailOpen(t.id)} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13px; font-weight:700; padding:8px 12px; border-radius:10px;")} hover="background:#F4F4F7">Detalhes</Hoverable>
@@ -170,10 +178,10 @@ export default function LojaEncomendas() {
   };
 
   const grade = (lista: Item[]) => (
-    <div style={css(`display:grid; grid-template-columns:${mobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))"}; gap:16px;`)}>{lista.map(cartao)}</div>
+    <div style={css(`display:grid; grid-template-columns:${mobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))"}; gap:16px;`)}>{lista.map(cartao)}</div>
   );
-  const chip = (ativo: boolean, onClick: () => void, conteudo: React.ReactNode, cor = COR) => (
-    <button onClick={onClick} style={css(`flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid ${ativo ? cor : "#E2E3E9"}; background:${ativo ? `${cor}14` : "#fff"}; color:${ativo ? "#1B1B28" : "#5B6472"}; border-radius:999px; padding:8px 14px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;`)}>{conteudo}</button>
+  const chip = (ativo: boolean, onClick: () => void, conteudo: React.ReactNode, cor = COR, key?: string) => (
+    <button key={key} onClick={onClick} style={css(`flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid ${ativo ? cor : "#E2E3E9"}; background:${ativo ? `${cor}14` : "#fff"}; color:${ativo ? "#1B1B28" : "#5B6472"}; border-radius:999px; padding:8px 14px; font-size:13.5px; font-weight:700; cursor:pointer; white-space:nowrap;`)}>{conteudo}</button>
   );
   const vazio = (texto: string) => (
     <div style={css("padding:56px 16px; text-align:center; color:#9398A6;")}>
@@ -204,7 +212,7 @@ export default function LojaEncomendas() {
         {chip(aba === "concluidas", () => setAba("concluidas"), <>Concluídas <span style={css("color:#9398A6;")}>{concluidas.length}</span></>, "#1B7F4D")}
         {lojas.length > 1 && <span style={css("flex:none; width:1px; background:#E2E3E9; margin:4px 4px;")} />}
         {lojas.length > 1 && chip(!loja, () => setLoja(""), "Todas as lojas", "#3A3F4C")}
-        {lojas.length > 1 && lojas.map((l) => chip(loja === l, () => setLoja(loja === l ? "" : l), <><span style={css(`width:8px; height:8px; border-radius:50%; background:${corDoLocal(l)};`)} />{LOCAIS_ESTOQUE.find((x) => x.id === l)?.label ?? l}</>, corDoLocal(l)))}
+        {lojas.length > 1 && lojas.map((l) => chip(loja === l, () => setLoja(loja === l ? "" : l), <><span style={css(`width:8px; height:8px; border-radius:50%; background:${corDoLocal(l)};`)} />{LOCAIS_ESTOQUE.find((x) => x.id === l)?.label ?? l}</>, corDoLocal(l), l))}
       </div>
 
       {erroCarga && <div style={css("margin:8px 0; padding:10px 14px; border-radius:10px; background:#FDECEC; color:#CC3338; font-size:13px; font-weight:600;")}>Não foi possível carregar as fotos e os dados dos pedidos: {erroCarga}</div>}
