@@ -33,7 +33,7 @@ export type Guia = {
   blocos: Bloco[];
 };
 
-export const SETORES_TREINAMENTO = ["Visão geral", "Produção", "Lojas", "RH", "Administrativo"];
+export const SETORES_TREINAMENTO = ["Visão geral", "Produção", "Lojas", "Encomendas", "RH", "Administrativo"];
 
 const COR = {
   verificar: "#9398A6", andamento: "#F76808", atrasada: "#E5484D", concluida: "#16A34A", validada: "#2563EB",
@@ -72,6 +72,39 @@ const BASE: Guia[] = [
       },
       { tipo: "dica", texto: "O status da ordem muda sozinho conforme as tarefas andam. Ninguém precisa atualizar a ordem à mão — só validar no final." },
       { tipo: "atencao", texto: "Pedidos só para a Fábrica (sem loja) geram apenas tarefa de produção: não há expedição nem recebimento." },
+      { tipo: "dica", texto: "Encomendas de clientes seguem outro caminho (sem ordem de serviço e sem expedição) — veja “Como uma encomenda percorre o sistema”." },
+    ],
+  },
+  {
+    id: "fluxo-encomenda",
+    setor: "Visão geral",
+    titulo: "Como uma encomenda percorre o sistema",
+    resumo: "Do pedido do cliente pela página de encomendas até a retirada na loja: quem faz cada etapa e o que o sistema faz sozinho.",
+    page: "encomendas-crm",
+    quem: "Atendimento, Produção e Lojas",
+    blocos: [
+      {
+        tipo: "fluxo",
+        itens: [
+          { rotulo: "Cliente", texto: "Monta o pedido na página de encomendas (um ou vários produtos), escolhe a loja, a data e o horário e paga por PIX." },
+          { rotulo: "CRM", texto: "O pedido chega em “Verificar pagamento”. Quem atende confere o PIX e passa para “Confirmado com o cliente”." },
+          { rotulo: "Produção", texto: "Recebe a tarefa da encomenda com todos os produtos e a observação de cada um. Ao começar, o CRM vai para “Em produção”." },
+          { rotulo: "Loja", texto: "Recebe a encomenda da produção (Recebido → “Pronto para retirada”) e entrega ao cliente (Entregue → “Entregue”)." },
+          { rotulo: "Cliente", texto: "Acompanha cada etapa pelo link do pedido, que vai na mensagem de confirmação." },
+        ],
+      },
+      {
+        tipo: "status",
+        titulo: "Status do pedido no CRM",
+        itens: [
+          { rotulo: "Verificar pagamento", cor: "#EAB308", texto: "Pedido feito; falta conferir o PIX." },
+          { rotulo: "Confirmado com o cliente", cor: "#0EA5E9", texto: "PIX conferido. O sistema cria as tarefas da Produção e da loja." },
+          { rotulo: "Em produção", cor: "#F97316", texto: "Automático: a Produção colocou a tarefa em “Em produção”." },
+          { rotulo: "Pronto para retirada", cor: "#8B5CF6", texto: "Automático: a loja marcou “Recebido”." },
+          { rotulo: "Entregue", cor: "#10B981", texto: "Automático: a loja marcou “Entregue”." },
+        ],
+      },
+      { tipo: "dica", texto: "Só a confirmação do pagamento é feita à mão no CRM. Depois disso o pedido anda sozinho, conforme a Produção e a loja atualizam as tarefas delas." },
     ],
   },
 
@@ -92,7 +125,7 @@ const BASE: Guia[] = [
           "Em Produção → Ordem de Serviço, clique em “+ Nova ordem”.",
           "O título já vem preenchido com a data (ex.: “Pedido 24/10/2026”); troque se quiser.",
           "Escolha a data de Entrega — é obrigatória e vira o prazo de todas as tarefas.",
-          "Na tabela de produtos, digite a quantidade de cada produto em cada loja (Fábrica, Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani). Use a busca para achar o produto.",
+          "Na tabela de produtos, digite a quantidade de cada produto para a Fábrica e para cada loja (Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani). Use a busca para achar o produto.",
           "Confira o rodapé: ele mostra quantos produtos e lojas entram e quantas tarefas serão criadas.",
           "Clique em “Criar ordem”. As tarefas de Produção, Expedição e Lojas aparecem na hora nas listas de cada setor.",
         ],
@@ -124,20 +157,21 @@ const BASE: Guia[] = [
     id: "tarefas-producao",
     setor: "Produção",
     titulo: "Produção: tarefas e conferência",
-    resumo: "As tarefas que chegam da ordem de serviço para a fábrica, como andar com elas e registrar o que foi produzido.",
+    resumo: "As tarefas que chegam para a fábrica (da ordem de serviço e das encomendas), como andar com elas e registrar o que foi produzido.",
     page: "listaview",
     quem: "Equipe de Produção",
     blocos: [
       { tipo: "lista", titulo: "Como a tarefa chega", itens: [
-        { rotulo: "Uma tarefa por produto e loja", texto: "Ex.: “Banoffinha - Centro: 10”. O prazo é a data de entrega da ordem." },
-        { rotulo: "Vínculo com a ordem", texto: "Dentro da tarefa aparece a ordem de serviço de origem; clique para abrir." },
+        { rotulo: "Da ordem de serviço", texto: "Uma tarefa por produto e loja. Ex.: “Banoffinha - Centro: 10”. O prazo é a data de entrega da ordem; dentro da tarefa aparece a ordem de origem." },
+        { rotulo: "Das encomendas", texto: "Uma tarefa por pedido de cliente, criada quando o pagamento é confirmado no CRM. Ex.: “Encomenda - 2× Cheesecake Pistache + 2 itens - Maria - 20/12/2026”. A descrição lista todos os produtos, a observação de cada um, a loja e o horário de retirada (o prazo)." },
+        { rotulo: "Filtro no topo", texto: "Todas / Ordem de serviço / Encomendas mostra só as tarefas de cada origem." },
       ] },
       {
         tipo: "status",
         titulo: "Status da tarefa de produção",
         itens: [
           { rotulo: "A verificar", cor: COR.verificar, texto: "Chegou e ainda não começou." },
-          { rotulo: "Em produção", cor: COR.andamento, texto: "Começou a ser feita. Use o botão › no cartão para avançar." },
+          { rotulo: "Em produção", cor: COR.andamento, texto: "Começou a ser feita. Use o botão › no cartão para avançar. Numa encomenda, o pedido no CRM também vai para “Em produção”." },
           { rotulo: "Atrasada", cor: COR.atrasada, texto: "Colocado pelo sistema quando o prazo passa sem a tarefa ser concluída. Ninguém escolhe à mão." },
           { rotulo: "Concluída", cor: COR.concluida, texto: "Feita e conferida. O produzido soma no estoque da Fábrica." },
           { rotulo: "Validada", cor: COR.validada, texto: "Gerente ou Administrador conferiu. Some da visão padrão (botão ✓ mostra)." },
@@ -153,6 +187,7 @@ const BASE: Guia[] = [
         ],
       },
       { tipo: "dica", texto: "Use o Quadro (colunas por status) para enxergar o dia e a Lista para filtrar por responsável, prazo ou status." },
+      { tipo: "atencao", texto: "Encomenda não passa pela Expedição: a tarefa já diz para qual loja ela vai e o horário em que o cliente retira. Ela precisa estar pronta e na loja antes disso." },
       { tipo: "atencao", texto: "Reabrir uma tarefa concluída desfaz a entrada no estoque. Só reabra se a conferência estiver errada." },
     ],
   },
@@ -206,6 +241,7 @@ const BASE: Guia[] = [
       { tipo: "fluxo", titulo: "O que muda os números", itens: [
         { rotulo: "Produção concluída", texto: "Soma o produzido na Fábrica." },
         { rotulo: "Recebimento concluído", texto: "Tira da Fábrica e coloca na loja que recebeu." },
+        { rotulo: "Encomenda", texto: "Só para produtos de encomenda ligados a um item do Estoque: a produção soma na Fábrica, o “Recebido” da loja tira da Fábrica e coloca na loja, e o “Entregue” dá baixa na loja." },
         { rotulo: "Ajuste manual", texto: "Quem tem permissão de edição pode corrigir o número na célula; fica no histórico." },
       ] },
       { tipo: "passos", titulo: "Relatório de estoque", itens: [
@@ -236,6 +272,110 @@ const BASE: Guia[] = [
         "Confirme. O recebido sai do estoque da Fábrica e entra no estoque da sua loja.",
       ] },
       { tipo: "dica", texto: "Diferença entre separado e recebido aparece no relatório da ordem — por isso digite o número real, não o do romaneio." },
+      { tipo: "dica", texto: "As encomendas de clientes ficam em outra tela, Lojas → Encomendas — veja o guia “Encomendas na loja: receber e entregar”." },
+    ],
+  },
+  {
+    id: "lojas-encomendas",
+    setor: "Lojas",
+    titulo: "Encomendas na loja: receber e entregar",
+    resumo: "As encomendas de clientes que vão ser retiradas na sua loja: conferir quando chegam da produção e marcar a entrega ao cliente.",
+    page: "lojas-encomendas",
+    quem: "Líder (Loja)",
+    blocos: [
+      { tipo: "lista", titulo: "O que aparece na tela", itens: [
+        { rotulo: "Quando aparece", texto: "Assim que o pagamento é confirmado no CRM. Antes disso a encomenda não chega à loja." },
+        { rotulo: "Para entregar", texto: "Agrupadas por dia de retirada: Atrasadas, Hoje, Amanhã e os próximos dias. O topo mostra quantas são para hoje." },
+        { rotulo: "Cartão", texto: "Foto, cliente e telefone, horário de retirada, os produtos (“N produtos” quando há mais de um) e a observação de cada produto em amarelo." },
+        { rotulo: "Situação na produção", texto: "Mostra se a encomenda ainda está aguardando a produção, sendo feita ou já na loja." },
+        { rotulo: "Filtro de loja", texto: "“Todas as lojas” ou só a sua. A aba Entregues guarda as já entregues." },
+      ] },
+      {
+        tipo: "status",
+        titulo: "Status da encomenda na loja",
+        itens: [
+          { rotulo: "A verificar", cor: COR.verificar, texto: "Ainda não chegou da produção." },
+          { rotulo: "Recebido", cor: COR.andamento, texto: "Chegou na loja e foi conferida. O cliente vê “Pronto para retirada”." },
+          { rotulo: "Atrasada", cor: COR.atrasada, texto: "Passou do horário de retirada sem ser entregue (automático)." },
+          { rotulo: "Entregue", cor: COR.concluida, texto: "O cliente retirou. O CRM fecha o pedido como “Entregue”." },
+        ],
+      },
+      { tipo: "passos", titulo: "Passo a passo", itens: [
+        "Quando a encomenda chegar da produção, confira os produtos e a observação de cada um.",
+        "Clique no botão do cartão para passar para “Recebido”. Se pedir conferência, digite o RECEBIDO de cada produto.",
+        "Na retirada, confira o nome do cliente e entregue.",
+        "Clique no botão do cartão para passar para “Entregue”.",
+      ] },
+      { tipo: "dica", texto: "Não precisa avisar ninguém: o “Recebido” e o “Entregue” atualizam sozinhos o CRM e a página de acompanhamento do cliente." },
+      { tipo: "atencao", texto: "Só marque “Recebido” com a encomenda fisicamente na loja: nesse momento o cliente passa a ver que o pedido está pronto para retirada." },
+    ],
+  },
+
+  // ───────────── Encomendas ─────────────
+  {
+    id: "encomendas-autoatendimento",
+    setor: "Encomendas",
+    titulo: "Autoatendimento: a página de encomendas",
+    resumo: "O que o cliente vê ao encomendar, como cadastrar produtos e categorias e as regras de loja, data, horário e PIX.",
+    page: "encomendas-autoatendimento",
+    quem: "Gestão / Atendimento",
+    blocos: [
+      { tipo: "passos", titulo: "O caminho do cliente na página", itens: [
+        "Escolhe uma categoria na vitrine e toca no produto (foto, descrição, porções e preço).",
+        "Escolhe a quantidade, escreve uma observação se quiser (ex.: “Feliz aniversário, Ana”) e toca em “Adicionar ao pedido”.",
+        "Vê a tela “Seu pedido”: os produtos escolhidos, a quantidade de cada um e o total. Pode tirar, mudar a quantidade ou tocar em “Adicionar mais produtos”.",
+        "Escolhe a loja de retirada.",
+        "Escolhe a data e o horário. Só aparecem horários que respeitam a antecedência mínima, o preparo dos produtos e o funcionamento da loja.",
+        "Informa nome e WhatsApp. Nessa tela aparece o resumo do pedido: todos os produtos, observações, loja, data e total.",
+        "Paga por PIX (QR Code ou copia e cola), toca em “Já fiz o PIX” e recebe o link para acompanhar o pedido.",
+      ] },
+      { tipo: "lista", titulo: "Abas da tela", itens: [
+        { rotulo: "Página de encomendas", texto: "O link para divulgar (botão Copiar) e uma prévia de como o cliente vê a página." },
+        { rotulo: "Produtos", texto: "Categorias (nome, frase, foto de capa, ordem e mostrar/ocultar) e produtos (nome, foto, descrição, porções, peso, preço, preparo mínimo e produto no estoque)." },
+        { rotulo: "Configurações", texto: "Vitrine, ordem das categorias, lojas de retirada (endereço e horário de funcionamento), horários gerais, regras do pedido, PIX e WhatsApp de contato." },
+      ] },
+      { tipo: "lista", titulo: "Regras que valem para o pedido", itens: [
+        { rotulo: "Antecedência mínima", texto: "Em Configurações (hoje 48 horas): vale para todos os produtos." },
+        { rotulo: "Preparo mínimo (dias)", texto: "No cadastro do produto. Para produtos que precisam de mais tempo: o cliente só escolhe datas a partir de N dias depois do pedido. Num pedido com vários produtos vale o maior preparo." },
+        { rotulo: "Máximo de cada produto", texto: "Quantas unidades de um mesmo produto o cliente pode pôr no pedido." },
+        { rotulo: "Horário da loja", texto: "Cada loja pode ter o próprio horário de funcionamento; sem isso, valem os horários gerais." },
+        { rotulo: "Produto no estoque", texto: "Ligando o produto a um item do Estoque, a produção soma na Fábrica, o “Recebido” da loja transfere e o “Entregue” dá baixa. “Não movimentar o estoque” deixa o estoque de fora." },
+      ] },
+      { tipo: "atencao", texto: "Sem chave PIX em Configurações → Pagamento e contato, a página não mostra o QR Code: avisa o cliente que a equipe vai mandar o PIX pelo WhatsApp." },
+    ],
+  },
+  {
+    id: "encomendas-crm",
+    setor: "Encomendas",
+    titulo: "CRM: do pagamento à entrega",
+    resumo: "Conferir o PIX, confirmar o pedido com o cliente pelo WhatsApp e acompanhar a encomenda até a entrega.",
+    page: "encomendas-crm",
+    quem: "Atendimento / Gestão",
+    blocos: [
+      { tipo: "lista", titulo: "Como o pedido chega", itens: [
+        { rotulo: "Pedido novo", texto: "Cai na aba “Verificar pagamento” com cliente, WhatsApp, produtos, data, horário, loja e total." },
+        { rotulo: "Contato", texto: "O cliente entra em Contatos (ou é atualizado, se o WhatsApp já existir) com o status “Venda”." },
+        { rotulo: "Agenda", texto: "A retirada aparece na Agenda no dia e horário escolhidos, com a cor do status." },
+      ] },
+      { tipo: "passos", titulo: "Confirmar o pagamento", itens: [
+        "Abra a aba “Verificar pagamento” e confira no banco se o PIX do valor do pedido entrou.",
+        "Clique na seta › do cartão (“Passar para Confirmado com o cliente”).",
+        "Abre a mensagem de confirmação pronta: produtos, observações, loja, data, horário, total e o link de acompanhamento.",
+        "Clique em “Abrir WhatsApp” para enviar ao cliente, ou em “Só mudar o status” se já falou com ele.",
+        "Pronto: as tarefas da Produção e da loja são criadas na hora.",
+      ] },
+      { tipo: "lista", titulo: "Depois da confirmação (sozinho)", itens: [
+        { rotulo: "Em produção", texto: "Quando a Produção coloca a tarefa em “Em produção”." },
+        { rotulo: "Pronto para retirada", texto: "Quando a loja marca “Recebido”." },
+        { rotulo: "Entregue", texto: "Quando a loja marca “Entregue”." },
+      ] },
+      { tipo: "lista", titulo: "No cartão e no detalhe", itens: [
+        { rotulo: "Botão do WhatsApp", texto: "Abre a conversa com o cliente já com a mensagem do pedido." },
+        { rotulo: "Ícone de link", texto: "Copia o link de acompanhamento do pedido para mandar ao cliente." },
+        { rotulo: "Clique no cartão", texto: "Abre o contato com todos os pedidos dele e, em cada um, os itens com preço e observação." },
+      ] },
+      { tipo: "dica", texto: "O cliente acompanha tudo pelo link: Pedido recebido → Pagamento confirmado → Em produção → Pronto para retirada → Retirado. A página não mostra as observações do pedido nem o telefone da loja." },
+      { tipo: "atencao", texto: "Só passe para “Confirmado com o cliente” com o PIX conferido: é isso que manda o pedido para a Produção." },
     ],
   },
 
@@ -293,6 +433,10 @@ const BASE: Guia[] = [
         "Leia o resumo e a nota da IA (Qualidade: Ótimo / Bom / Ruim). Abra o currículo anexado se precisar.",
         "Use o botão do WhatsApp: a conversa abre com a mensagem de primeiro contato já escrita com o nome e a vaga.",
         "Conforme o andamento, troque o Status no detalhe do candidato — o cartão muda de coluna.",
+      ] },
+      { tipo: "lista", titulo: "Filtros do topo", itens: [
+        { rotulo: "Lojas", texto: "“Todas as lojas” ou uma loja só (com o número de candidatos de cada). “Sem loja” mostra quem foi cadastrado sem loja." },
+        { rotulo: "Status / Vaga", texto: "Combina com o filtro de loja — ex.: só os candidatos de Coqueiros para Atendente." },
       ] },
       { tipo: "dica", texto: "Mudou a vaga do candidato? A análise antiga fica marcada como desatualizada — clique em “Reanalisar”." },
     ],
@@ -420,6 +564,8 @@ const R = {
   candidato: { id: "candidato", rotulo: "Candidato", cor: "#2563EB" },
   ia: { id: "ia", rotulo: "Agente IA", cor: "#7C3AED" },
   fin: { id: "fin", rotulo: "Financeiro", cor: "#1B7F4D" },
+  cliente: { id: "cliente", rotulo: "Cliente", cor: "#2563EB" },
+  atendimento: { id: "atendimento", rotulo: "Atendimento", cor: "#C2410C" },
 };
 const linhas = (r: Raia, n: number): Raia => ({ ...r, linhas: n });
 const enc = (pares: [string, string, string?][]): Seta[] => pares.map(([de, para, rotulo]) => ({ de, para, rotulo }));
@@ -440,6 +586,64 @@ const DIAGRAMAS: Record<string, Diagrama> = {
       { id: "i", raia: "gestao", col: 8, forma: "fim", texto: "Valida a ordem" },
     ],
     setas: enc([["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"], ["e", "f"], ["f", "g"], ["g", "h"], ["h", "i"]]),
+  },
+  "fluxo-encomenda": {
+    tipo: "diagrama", titulo: "O caminho da encomenda",
+    raias: [R.cliente, R.atendimento, R.producao, R.loja, R.sistema],
+    nos: [
+      { id: "a", raia: "cliente", col: 0, forma: "inicio", texto: "Monta o pedido e paga o PIX" },
+      { id: "b", raia: "atendimento", col: 1, texto: "Confere o PIX e confirma no WhatsApp" },
+      { id: "c", raia: "sistema", col: 2, forma: "sistema", texto: "Cria as tarefas da Produção e da loja" },
+      { id: "d", raia: "producao", col: 3, texto: "Produz e leva para a loja" },
+      { id: "e", raia: "loja", col: 4, texto: "Marca Recebido" },
+      { id: "f", raia: "cliente", col: 5, texto: "Retira na loja" },
+      { id: "g", raia: "loja", col: 6, texto: "Marca Entregue" },
+      { id: "h", raia: "sistema", col: 7, forma: "fim", texto: "CRM e link do cliente: Entregue" },
+    ],
+    setas: enc([["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"], ["e", "f"], ["f", "g"], ["g", "h"]]),
+  },
+  "lojas-encomendas": {
+    tipo: "diagrama",
+    raias: [R.sistema, R.loja, R.cliente],
+    nos: [
+      { id: "a", raia: "sistema", col: 0, forma: "inicio", texto: "Pagamento confirmado: encomenda aparece na loja" },
+      { id: "b", raia: "loja", col: 1, texto: "Encomenda chega da produção" },
+      { id: "c", raia: "loja", col: 2, texto: "Confere e marca Recebido" },
+      { id: "d", raia: "sistema", col: 3, forma: "sistema", texto: "CRM: Pronto para retirada" },
+      { id: "e", raia: "cliente", col: 4, texto: "Vem retirar no horário" },
+      { id: "f", raia: "loja", col: 5, texto: "Entrega e marca Entregue" },
+      { id: "g", raia: "sistema", col: 6, forma: "fim", texto: "CRM: Entregue" },
+    ],
+    setas: enc([["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"], ["e", "f"], ["f", "g"]]),
+  },
+  "encomendas-autoatendimento": {
+    tipo: "diagrama", titulo: "O caminho do cliente",
+    raias: [linhas(R.cliente, 2), R.sistema],
+    nos: [
+      { id: "a", raia: "cliente", col: 0, forma: "inicio", texto: "Escolhe o produto" },
+      { id: "b", raia: "cliente", col: 1, texto: "Quantidade e observação" },
+      { id: "c", raia: "cliente", col: 2, texto: "Seu pedido (total)" },
+      { id: "d", raia: "cliente", col: 3, forma: "decisao", texto: "Quer mais alguma coisa?" },
+      { id: "e", raia: "cliente", col: 4, texto: "Loja, data e horário" },
+      { id: "f", raia: "cliente", col: 5, texto: "Nome e WhatsApp + resumo" },
+      { id: "g", raia: "cliente", col: 6, texto: "Paga o PIX" },
+      { id: "h", raia: "sistema", col: 7, forma: "fim", texto: "CRM: Verificar pagamento" },
+    ],
+    setas: [...enc([["a", "b"], ["b", "c"], ["c", "d"], ["d", "e", "Não"], ["e", "f"], ["f", "g"], ["g", "h"]]), { de: "d", para: "a", rotulo: "Sim", tracejada: true }],
+  },
+  "encomendas-crm": {
+    tipo: "diagrama",
+    raias: [linhas(R.atendimento, 2), R.sistema],
+    nos: [
+      { id: "a", raia: "atendimento", col: 0, forma: "inicio", texto: "Pedido em Verificar pagamento" },
+      { id: "b", raia: "atendimento", col: 1, forma: "decisao", texto: "O PIX entrou?" },
+      { id: "c", raia: "atendimento", col: 2, texto: "› Confirmado com o cliente" },
+      { id: "x", raia: "atendimento", col: 2, linha: 1, texto: "Fala com o cliente pelo WhatsApp" },
+      { id: "d", raia: "atendimento", col: 3, texto: "Envia a confirmação no WhatsApp" },
+      { id: "e", raia: "sistema", col: 4, forma: "sistema", texto: "Cria as tarefas da Produção e da loja" },
+      { id: "f", raia: "sistema", col: 5, forma: "sistema", texto: "Em produção → Pronto → Entregue (sozinho)" },
+    ],
+    setas: [...enc([["a", "b"], ["b", "c", "Sim"], ["b", "x", "Não"], ["c", "d"], ["d", "e"], ["e", "f"]]), { de: "x", para: "b", rotulo: "pagou", tracejada: true }],
   },
   "ordem-servico": {
     tipo: "diagrama",

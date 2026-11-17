@@ -99,8 +99,8 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
                 <div className="m-wrap" style={css("display:flex; align-items:center; gap:8px;")}>
                   <span className="m-hide" style={{ display: "flex" }}><Svg size={16} stroke="#9398A6" style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
                   {/* No celular: nome e endereço em linhas inteiras; chave e lixeira na linha de baixo. */}
-                  <input className="m-full" disabled={ro} value={u.nome} onChange={(e) => mudarUnidade(u.id, { nome: e.target.value })} placeholder="Nome (ex.: Centro)" aria-label="Nome da unidade" style={css(campo("flex:1; min-width:150px;"))} />
-                  <input className="m-full" disabled={ro} value={u.endereco} onChange={(e) => mudarUnidade(u.id, { endereco: e.target.value })} placeholder="Endereço (aparece para o cliente)" aria-label="Endereço da unidade" style={css(campo("flex:1.6; min-width:220px;"))} />
+                  <input className="m-full" disabled={ro} value={u.nome} onChange={(e) => mudarUnidade(u.id, { nome: e.target.value })} placeholder="Nome (ex.: Centro)" aria-label="Nome da loja" style={css(campo("flex:1; min-width:150px;"))} />
+                  <input className="m-full" disabled={ro} value={u.endereco} onChange={(e) => mudarUnidade(u.id, { endereco: e.target.value })} placeholder="Endereço (aparece para o cliente)" aria-label="Endereço da loja" style={css(campo("flex:1.6; min-width:220px;"))} />
                   <span style={css("display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#7A8090; margin-right:auto;")}>
                     <Chave ligado={u.ativo} onChange={(v) => !ro && mudarUnidade(u.id, { ativo: v })} />{u.ativo ? "Ativa" : "Inativa"}
                   </span>
@@ -126,7 +126,7 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
               </div>
             );
           })}
-          {!ro && <AddLink onClick={() => { const id = crypto.randomUUID(); mudar({ unidades: [...c.unidades, { id, nome: "", endereco: "", ativo: true, horarios: structuredClone(c.janelas) }] }); setAbertaUnidade(id); }}>Adicionar unidade</AddLink>}
+          {!ro && <AddLink onClick={() => { const id = crypto.randomUUID(); mudar({ unidades: [...c.unidades, { id, nome: "", endereco: "", ativo: true, horarios: structuredClone(c.janelas) }] }); setAbertaUnidade(id); }}>Adicionar loja</AddLink>}
         </div>
       </Cartao>
 

@@ -92,7 +92,7 @@ export default function EncAutoatendimento() {
                     {config.entregaAtiva && ` — entrega com taxa de ${brl(config.taxaEntrega)}`}.</li>
                   <li><b>Data e horário</b>, com {config.antecedenciaHoras}h de antecedência mínima.</li>
                   <li><b>Nome e WhatsApp</b>, com o extrato do pedido (todos os produtos e o total).</li>
-                  <li><b>PIX</b>{config.pixChave ? "" : " (de exemplo, sem chave configurada)"}. O pedido entra no CRM em <b>Venda</b> e na Agenda como <b>Verificar pagamento</b>.</li>
+                  <li><b>PIX</b>{config.pixChave ? "" : " (de exemplo, sem chave configurada)"}. O pedido entra no CRM e na Agenda em <b>Verificar pagamento</b>, e o contato fica como <b>Venda</b>.</li>
                 </ol>
                 {editavel && (
                   <div style={css("display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;")}>
