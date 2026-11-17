@@ -158,7 +158,6 @@ function Conteudo({ p, atualizado, onAtualizar }: { p: Acompanhamento; atualizad
             <div style={css("width:88px; flex:none; border-radius:14px; overflow:hidden;")}><Foto src={p.foto} alt={p.produto} proporcao="1/1" cortar miniatura /></div>
             <div style={css("flex:1; min-width:0;")}>
               <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{p.quantidade}× {p.produto}</div>
-              {p.mensagem && <div style={css("margin-top:6px; font-size:13.5px; color:#7A5512; background:#FFF8E6; border-radius:9px; padding:6px 9px; line-height:1.35;")}><b>Observação:</b> {p.mensagem}</div>}
               <div style={css("display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:8px;")}>
                 <span style={css(`font-size:13.5px; color:${FRACA}; font-weight:600;`)}>Total · PIX</span>
                 <span style={css("font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(p.total)}</span>

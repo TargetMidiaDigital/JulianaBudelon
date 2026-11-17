@@ -665,7 +665,6 @@ export type Acompanhamento = {
   produto: string;
   foto: string | null;
   quantidade: number;
-  mensagem?: string;
   tipo: TipoEntrega;
   data: string;
   hora: string;
@@ -673,7 +672,6 @@ export type Acompanhamento = {
   criadoEm: string;
   unidade?: { nome: string; endereco: string; horario: string };
   bairro?: string; // entrega: só o bairro
-  whatsappLoja: string;
 };
 
 /** Pedido com id de UUID (os do banco). Os do modo demo ("p-…") só abrem no navegador do demo. */
@@ -686,11 +684,10 @@ export function montarAcompanhamento(p: PedidoEncomenda, x: { produto?: Pick<Pro
   const primeiro = x.clienteNome.trim().split(/\s+/)[0] ?? "";
   return {
     id: p.id, numero: numeroPedido(p.id), status: p.status, cliente: primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : "",
-    produto: p.produtoNome || x.produto?.nome || "Encomenda", foto: x.produto?.foto ?? null, quantidade: p.quantidade, mensagem: p.mensagem,
+    produto: p.produtoNome || x.produto?.nome || "Encomenda", foto: x.produto?.foto ?? null, quantidade: p.quantidade,
     tipo: p.tipo, data: p.data, hora: p.hora, total: p.total, criadoEm: p.criadoEm,
     unidade: p.tipo === "Retirada" ? { nome: u?.nome || p.unidadeNome || "", endereco: u?.endereco ?? "", horario: resumoHorario(u?.horarios) } : undefined,
     bairro: p.tipo === "Entrega" ? p.endereco?.bairro : undefined,
-    whatsappLoja: x.cfg.whatsappContato,
   };
 }
 
