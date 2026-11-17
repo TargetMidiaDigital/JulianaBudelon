@@ -5,7 +5,7 @@ import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
   CONFIG_PADRAO, CORES_DESTAQUE, DIAS, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, itensDoPedido, localDaUnidade, montarPedidoNovo, quantidadesPorEstoque, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
-  idAcompanhamentoValido, montarAcompanhamento,
+  idAcompanhamentoValido, montarAcompanhamento, MAX_ANTECEDENCIA_HORAS,
   type Acompanhamento, type Categoria, type ItemPedido, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
@@ -22,7 +22,7 @@ type SB = SupabaseClient;
 type RowCategoria = { id: string; nome: string; ordem: number; descricao: string | null; foto: string | null; ativa: boolean; destaque: boolean };
 type RowProduto = {
   id: string; nome: string; categoria_id: string | null; preco: number | string; porcoes: string; peso: string; descricao: string | null;
-  camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number; preparo_dias?: number | null;
+  camadas: unknown; foto: string | null; ativo: boolean; produto_estoque_id: string | null; ordem: number; preparo_dias?: number | null; antecedencia_horas?: number | null;
 };
 type RowContato = { id: string; numero: string; nome: string; status: string; responsavel: string; resumo: string | null; criado_em: string; ultimo_contato: string };
 type RowPedido = {
@@ -36,6 +36,7 @@ const paraProduto = (r: RowProduto): ProdutoEncomenda => ({
   id: r.id, nome: r.nome, categoriaId: r.categoria_id, preco: Number(r.preco), porcoes: r.porcoes ?? "", peso: r.peso ?? "",
   descricao: r.descricao ?? undefined, camadas: Array.isArray(r.camadas) ? (r.camadas as unknown[]).map(String) : [], foto: r.foto, ativo: r.ativo,
   produtoEstoqueId: r.produto_estoque_id, preparoDias: Number(r.preparo_dias ?? 0) || 0,
+  antecedenciaHoras: r.antecedencia_horas == null ? null : Number(r.antecedencia_horas),
 });
 const paraLead = (r: RowContato): Lead => ({
   id: r.id, numero: r.numero, nome: r.nome, status: r.status as Lead["status"], responsavel: r.responsavel as Lead["responsavel"],
@@ -126,6 +127,8 @@ export function colunasProduto(p: ProdutoEncomenda, ordem: number): Record<strin
     foto: typeof p.foto === "string" && p.foto ? p.foto.slice(0, 2000) : null, ativo: p.ativo !== false,
     produto_estoque_id: p.produtoEstoqueId && idValido(p.produtoEstoqueId) ? p.produtoEstoqueId : null, ordem,
     preparo_dias: Math.min(60, Math.max(0, Math.floor(Number(p.preparoDias) || 0))),
+    antecedencia_horas: p.antecedenciaHoras == null || p.antecedenciaHoras === ("" as unknown) || !Number.isFinite(Number(p.antecedenciaHoras))
+      ? null : Math.min(MAX_ANTECEDENCIA_HORAS, Math.max(0, Math.floor(Number(p.antecedenciaHoras)))),
   };
 }
 

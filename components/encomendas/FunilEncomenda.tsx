@@ -6,7 +6,7 @@ import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
   CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia, resumoHorario,
-  MAX_ITENS_PEDIDO, itensDescricao, itensDoPedido, maiorPreparo, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
+  MAX_ITENS_PEDIDO, antecedenciaDoPedido, itensDescricao, itensDoPedido, maiorPreparo, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
   type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type UnidadeRetirada, type Vitrine,
 } from "@/lib/encomendas";
 
@@ -77,6 +77,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const taxa = tipo === "Entrega" ? cfg.taxaEntrega : 0;
   const total = subtotal + taxa;
   const preparo = maiorPreparo(itens, produtoDe);
+  const ant = antecedenciaDoPedido(itens, produtoDe, cfg);
   const endOk = end.cidade.trim().length >= 3 && end.bairro.trim().length >= 2 && end.rua.trim().length >= 3 && end.numero.trim().length >= 1;
   const unidade = unidades.find((u) => u.id === unidadeId);
   // Só uma forma ligada (ex.: só retirada): já vem escolhida, sem a pergunta "Entrega ou retirada?".
@@ -93,7 +94,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
     2: !!produto && produto.ativo && qtd >= 1 && qtd <= cfg.maxPorPedido && (itens.length < MAX_ITENS_PEDIDO || itens.some((i) => i.produtoId === produto.id && !i.mensagem && !mensagem.trim())),
     3: itens.length > 0 && itens.every((i) => i.quantidade >= 1 && i.quantidade <= cfg.maxPorPedido),
     4: tipo === "Retirada" ? !!unidade : tipo === "Entrega" ? cfg.entregaAtiva && endOk : false,
-    5: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), preparo.dias) && horariosDoDia(cfg, data, tipo === "Retirada" ? unidade : null).includes(hora),
+    5: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), preparo.dias, ant.horas) && horariosDoDia(cfg, data, tipo === "Retirada" ? unidade : null).includes(hora),
     6: nome.trim().length >= 2 && normalizePhone(whats).length >= 10,
     7: true,
   };
@@ -245,6 +246,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                   <span style={css(`font-size:26px; font-weight:800; color:${COR}; letter-spacing:-.3px; margin-right:4px;`)}>{brl(produto.preco)}</span>
                   {produto.peso && <Etiqueta icone={<><path d="M6 8h12l2 12H4z" /><circle cx="12" cy="5.5" r="2.2" /></>}>{produto.peso}</Etiqueta>}
                   {produto.porcoes && <Etiqueta icone={<><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5V12l6 6" /></>}>{produto.porcoes}</Etiqueta>}
+                  {typeof produto.antecedenciaHoras === "number" && produto.antecedenciaHoras !== cfg.antecedenciaHoras && <Etiqueta icone={<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>}>Encomende com {produto.antecedenciaHoras}h de antecedência</Etiqueta>}
                   {!!produto.preparoDias && <Etiqueta icone={<><rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>}>{textoPreparo(produto.preparoDias)}</Etiqueta>}
                 </div>
 
@@ -338,6 +340,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <div style={css(`margin-top:16px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; font-size:15px;`)}>
                   <Linha k={`Subtotal · ${nItens(unidadesNoPedido)}`} v={brl(subtotal)} />
                   {preparo.dias > 0 && preparo.produto && <div style={css(`font-size:13.5px; color:${FRACA};`)}>{preparo.produto.nome} precisa de {textoPreparo(preparo.dias)}: isso vale para o pedido todo.</div>}
+                  {itens.length > 1 && ant.produto && ant.horas > cfg.antecedenciaHoras && <div style={css(`font-size:13.5px; color:${FRACA};`)}>{ant.produto.nome} precisa de {ant.horas}h de antecedência: isso vale para o pedido todo.</div>}
                 </div>
               )}
             </>
@@ -385,7 +388,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             </>
           )}
 
-          {passo === 5 && <PassoData key={`${tipo === "Retirada" ? unidadeId ?? "" : "entrega"}-${preparo.dias}`} cfg={cfg} unidade={tipo === "Retirada" ? unidade : undefined} preparoDias={preparo.dias} produtoNome={preparo.produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
+          {passo === 5 && <PassoData key={`${tipo === "Retirada" ? unidadeId ?? "" : "entrega"}-${preparo.dias}-${ant.horas}`} cfg={cfg} unidade={tipo === "Retirada" ? unidade : undefined} preparoDias={preparo.dias} produtoNome={preparo.produto?.nome} horas={ant.horas} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
 
           {passo === 6 && itens.length > 0 && tipo && data && hora && (
             <>
@@ -548,10 +551,10 @@ function CardCategoria({ grupo, largo, vitrine: v, onClick }: { grupo: { categor
   );
 }
 
-function PassoData({ cfg, unidade, preparoDias, produtoNome, data, hora, onData, onHora }: { cfg: ConfigEncomendas; unidade?: UnidadeRetirada; preparoDias: number; produtoNome?: string; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
+function PassoData({ cfg, unidade, preparoDias, produtoNome, horas, data, hora, onData, onHora }: { cfg: ConfigEncomendas; unidade?: UnidadeRetirada; preparoDias: number; produtoNome?: string; horas: number; data: string | null; hora: string | null; onData: (d: string) => void; onHora: (h: string) => void }) {
   const hoje = new Date();
   // Primeiro dia com algum horário que respeita a antecedência e o preparo do produto (busca até 90 dias).
-  const respeita = (iso: string, h: string) => respeitaAntecedencia(cfg, iso, h, new Date(), preparoDias);
+  const respeita = (iso: string, h: string) => respeitaAntecedencia(cfg, iso, h, new Date(), preparoDias, horas);
   const disponivel = (iso: string) => horariosDoDia(cfg, iso, unidade).some((h) => respeita(iso, h));
   const primeiro = useMemo(() => {
     for (let i = 0; i < 90; i++) { const d = new Date(hoje); d.setDate(d.getDate() + i); if (disponivel(isoDia(d))) return d; }
@@ -572,7 +575,7 @@ function PassoData({ cfg, unidade, preparoDias, produtoNome, data, hora, onData,
       <h1 style={css("margin:0 0 4px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>Quando você quer receber?</h1>
       <p style={css(`margin:0 0 14px; font-size:15.5px; color:${FRACA};`)}>{preparoDias > 0
         ? <>{produtoNome ? <>{produtoNome} precisa de </> : "Precisa de "}<b>{textoPreparo(preparoDias)}</b>: a primeira data disponível é <b>{dataBR(isoDia(primeiro))}</b>.</>
-        : <>Precisamos de pelo menos <b>{cfg.antecedenciaHoras}h</b> de antecedência.</>}</p>
+        : <>Precisamos de pelo menos <b>{horas}h</b> de antecedência.</>}</p>
       <div style={css(`border:1px solid ${BORDA}; border-radius:16px; padding:12px;`)}>
         <div style={css("display:flex; align-items:center; margin-bottom:8px;")}>
           <span style={css("flex:1; font-size:18px; font-weight:800; text-transform:capitalize;")}>{MESES[mes.getMonth()]} {mes.getFullYear()}</span>
@@ -595,7 +598,7 @@ function PassoData({ cfg, unidade, preparoDias, produtoNome, data, hora, onData,
       {data && (
         <>
           <div style={css("margin:18px 0 8px; font-size:16.5px; font-weight:800;")}>Horário · {dataBR(data)}</div>
-          {!algum && <div style={css("font-size:15px; color:#CC3338; font-weight:600;")}>{preparoDias > 0 ? `Esse dia não dá tempo para os ${textoPreparo(preparoDias)}.` : `Nenhum horário desse dia atende a antecedência de ${cfg.antecedenciaHoras}h.`} Escolha um dia depois.</div>}
+          {!algum && <div style={css("font-size:15px; color:#CC3338; font-weight:600;")}>{preparoDias > 0 ? `Esse dia não dá tempo para os ${textoPreparo(preparoDias)}.` : `Nenhum horário desse dia atende a antecedência de ${horas}h.`} Escolha um dia depois.</div>}
           {PERIODOS.map((p) => {
             const hs = horarios.filter((h) => { const n = Number(h.slice(0, 2)); return n >= p.de && n < p.ate; });
             if (!hs.length) return null;

@@ -44,7 +44,15 @@ export type ProdutoEncomenda = {
   produtoEstoqueId?: string | null;
   /** Tempo mínimo de preparo em dias (0 = só a antecedência geral): com 2, pedido hoje só para depois de amanhã em diante. */
   preparoDias?: number;
+  /** Antecedência mínima deste produto, em horas (null/ausente = a geral de Configurações). Pode ser menor ou maior que a geral. */
+  antecedenciaHoras?: number | null;
 };
+
+/** Limite da antecedência por produto (30 dias). */
+export const MAX_ANTECEDENCIA_HORAS = 720;
+/** Antecedência que vale para o produto: a dele, se tiver; senão a geral. */
+export const antecedenciaDoProduto = (p: Pick<ProdutoEncomenda, "antecedenciaHoras"> | undefined, cfg: Pick<ConfigEncomendas, "antecedenciaHoras">) =>
+  p && typeof p.antecedenciaHoras === "number" && p.antecedenciaHoras >= 0 ? p.antecedenciaHoras : cfg.antecedenciaHoras;
 
 /**
  * Descrição em itens, um abaixo do outro: cada linha é um item (aceita "- " ou "• " no começo,
@@ -305,9 +313,9 @@ export const instanteBR = (iso: string, hora: string) => new Date(`${iso}T${hora
 /** Dia de hoje em Brasília (AAAA-MM-DD) + N dias — igual no navegador e no servidor. */
 export const diaBR = (agora = new Date(), mais = 0) => new Date(agora.getTime() - 3 * 3600_000 + mais * 86400_000).toISOString().slice(0, 10);
 
-/** O horário respeita a antecedência mínima (a geral, em horas, e o preparo do produto, em dias)? */
-export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date(), preparoDias = 0) =>
-  instanteBR(iso, hora).getTime() - agora.getTime() >= cfg.antecedenciaHoras * 3600_000 && iso >= diaBR(agora, preparoDias);
+/** O horário respeita a antecedência mínima (em horas: a do pedido, ou a geral) e o preparo antigo do produto (em dias)? */
+export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date(), preparoDias = 0, horas = cfg.antecedenciaHoras) =>
+  instanteBR(iso, hora).getTime() - agora.getTime() >= horas * 3600_000 && iso >= diaBR(agora, preparoDias);
 
 /** "2 dias de preparo" (texto para a tela). */
 export const textoPreparo = (dias?: number) => (dias && dias > 0 ? `${dias} dia${dias === 1 ? "" : "s"} de preparo` : "");
@@ -476,6 +484,20 @@ export function maiorPreparo(itens: { produtoId: string }[], produtoDe: (id: str
   return r;
 }
 
+/**
+ * Antecedência do pedido, em horas: a maior entre os produtos (cada um usa a sua ou a geral).
+ * `produto` = o produto que decide, quando ele tem antecedência própria (para o aviso na tela).
+ */
+export function antecedenciaDoPedido(itens: { produtoId: string }[], produtoDe: (id: string) => ProdutoEncomenda | undefined, cfg: Pick<ConfigEncomendas, "antecedenciaHoras">): { horas: number; produto?: ProdutoEncomenda } {
+  let r: { horas: number; produto?: ProdutoEncomenda } | null = null;
+  for (const i of itens) {
+    const p = produtoDe(i.produtoId);
+    const h = antecedenciaDoProduto(p, cfg);
+    if (!r || h > r.horas) r = { horas: h, produto: p && typeof p.antecedenciaHoras === "number" ? p : undefined };
+  }
+  return r ?? { horas: cfg.antecedenciaHoras };
+}
+
 /** WhatsApp canônico (55 + DDD + número). */
 export const numeroCanonico = (whatsapp: string) => normalizePhone(whatsapp).replace(/^(?!55)/, "55");
 
@@ -511,8 +533,12 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
   if (!/^\d{4}-\d{2}-\d{2}$/.test(n.data ?? "") || !/^\d{2}:\d{2}$/.test(n.hora ?? "")) return { erro: "Escolha a data e o horário." };
   if (!horariosDoDia(cfg, n.data, unidade).includes(n.hora)) return { erro: unidade?.horarios ? `Esse horário está fora do funcionamento da loja ${unidade.nome}. Escolha outro.` : "Esse horário não está disponível. Escolha outro." };
   const prep = maiorPreparo(itens, (id) => produtos.find((p) => p.id === id));
-  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, prep.dias)) {
-    return { erro: prep.produto ? `${prep.produto.nome} precisa de ${textoPreparo(prep.dias)}: escolha a partir de ${dataBR(diaBR(agora, prep.dias))}.` : `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
+  const ant = antecedenciaDoPedido(itens, (id) => produtos.find((p) => p.id === id), cfg);
+  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, 0, ant.horas)) {
+    return { erro: ant.produto ? `${ant.produto.nome} precisa de ${ant.horas} h de antecedência. Escolha outro horário.` : `Os pedidos precisam de ${ant.horas} h de antecedência. Escolha outro horário.` };
+  }
+  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, prep.dias, 0)) {
+    return { erro: `${prep.produto?.nome ?? "Um dos produtos"} precisa de ${textoPreparo(prep.dias)}: escolha a partir de ${dataBR(diaBR(agora, prep.dias))}.` };
   }
   const nome = (n.nome ?? "").trim().slice(0, 80);
   if (nome.length < 2) return { erro: "Informe seu nome." };

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
-import { catalogoPorCategoria, categoriaAtiva, pedidoTemProduto, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
+import { MAX_ANTECEDENCIA_HORAS, catalogoPorCategoria, categoriaAtiva, pedidoTemProduto, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
@@ -85,6 +85,7 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
                     <div style={css("display:flex; gap:5px; flex-wrap:wrap; margin-top:auto;")}>
                       {p.porcoes && <Tag>{p.porcoes}</Tag>}
                       {p.peso && <Tag>{p.peso}</Tag>}
+                      {typeof p.antecedenciaHoras === "number" && <Tag cor="#9A3412" bg="#FFF1E8">{p.antecedenciaHoras}h de antecedência</Tag>}
                       <Tag cor={p.ativo ? "#1B7F4D" : "#7A8090"} bg={p.ativo ? "#E7F6EE" : "#F2F3F6"}>{p.ativo ? "Ativo" : "Inativo"}</Tag>
                     </div>
                   </div>
@@ -130,7 +131,8 @@ export default function CatalogoEditor({ editavel }: { editavel: boolean }) {
 /** Drawer de criar/editar produto. */
 function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto: ProdutoEncomenda | null; categoriaInicial: string | null; onClose: () => void; onSalvar: (p: ProdutoEncomenda) => void }) {
   useFecharComEsc(true, onClose);
-  const { categorias, salvarCategoria, excluirProduto, pedidos } = useEncomendas();
+  const { categorias, salvarCategoria, excluirProduto, pedidos, config } = useEncomendas();
+  const geral = config.antecedenciaHoras;
   const [f, setF] = useState(() => ({
     nome: produto?.nome ?? "",
     categoriaId: produto ? produto.categoriaId : categoriaInicial,
@@ -142,8 +144,10 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
     foto: produto?.foto ?? null as string | null,
     ativo: produto?.ativo ?? true,
     produtoEstoqueId: produto?.produtoEstoqueId ?? null,
-    preparoDias: String(produto?.preparoDias ?? 0),
+    // Antecedência do produto em horas: já vem com a geral (48h); o antigo "preparo em dias" vira horas.
+    antecedencia: String(produto?.antecedenciaHoras ?? (produto?.preparoDias ? Math.max(geral, produto.preparoDias * 24) : geral)),
   }));
+  const horasDigitadas = f.antecedencia.trim() === "" ? null : Math.min(MAX_ANTECEDENCIA_HORAS, Math.floor(Number(f.antecedencia)));
   const { produtos: estoque } = useApp();
   // Itens do Estoque agrupados por categoria — "Encomendas" primeiro (é onde ficam as tortas inteiras).
   const gruposEstoque = [...CATEGORIAS_ESTOQUE.map((c) => c.v), ...estoque.map((p) => p.categoria)]
@@ -167,7 +171,9 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
       porcoes: f.porcoes.trim(), peso: f.peso.trim(), descricao: f.descricao.trim() || undefined,
       camadas: f.camadas.split("\n").map((s) => s.trim()).filter(Boolean), foto: f.foto, ativo: f.ativo,
       produtoEstoqueId: f.produtoEstoqueId,
-      preparoDias: Math.min(60, Math.max(0, Math.floor(Number(f.preparoDias) || 0))),
+      preparoDias: 0,
+      // Igual à geral (ou em branco) = segue Configurações; diferente = vale só para este produto.
+      antecedenciaHoras: horasDigitadas === null || horasDigitadas === geral ? null : horasDigitadas,
     });
   };
   const enviarFoto = async (arq?: File) => {
@@ -243,11 +249,15 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
             <label style={css(rot)}>Preço (R$) *<input inputMode="decimal" value={f.preco} onChange={(e) => setF({ ...f, preco: e.target.value.replace(/[^\d,.]/g, "") })} placeholder="159,90" style={css(campo)} /></label>
             <label style={css(rot)}>Porções<input value={f.porcoes} onChange={(e) => setF({ ...f, porcoes: e.target.value })} placeholder="8 a 10 porções" style={css(campo)} /></label>
             <label style={css(rot)}>Peso<input value={f.peso} onChange={(e) => setF({ ...f, peso: e.target.value })} placeholder="1,3 kg" style={css(campo)} /></label>
-            <label style={css(rot)} title="Dias mínimos entre o dia do pedido e o dia da entrega/retirada. 0 = vale só a antecedência geral (Configurações).">Preparo mínimo (dias)
-              <input inputMode="numeric" value={f.preparoDias} onChange={(e) => setF({ ...f, preparoDias: e.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="0" style={css(campo)} />
+            <label style={css(rot)} title="Com quantas horas de antecedência o cliente pode encomendar este produto. Vem com a regra geral de Configurações; mude para este produto aceitar menos (ou pedir mais) tempo.">Antecedência (horas)
+              <input inputMode="numeric" value={f.antecedencia} onChange={(e) => setF({ ...f, antecedencia: e.target.value.replace(/\D/g, "").slice(0, 3) })} placeholder={String(geral)} style={css(campo)} />
             </label>
           </div>
-          {Number(f.preparoDias) > 0 && <div style={css("margin-top:-4px; font-size:12px; color:#7A8090;")}>O cliente só consegue escolher a partir de <b>{Number(f.preparoDias)} dia{Number(f.preparoDias) === 1 ? "" : "s"}</b> depois do dia do pedido (ex.: pedido hoje → a partir de {new Date(Date.now() + Number(f.preparoDias) * 86400000).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}).</div>}
+          <div style={css("margin-top:-4px; font-size:12px; color:#7A8090; line-height:1.45;")}>
+            {horasDigitadas === null || horasDigitadas === geral
+              ? <>Antecedência mínima: <b>{geral}h</b>, a regra geral de Configurações. Mude o número para este produto aceitar menos tempo (ex.: 24) ou pedir mais.</>
+              : <>Este produto aceita encomenda com <b>{horasDigitadas}h</b> de antecedência ({horasDigitadas < geral ? "menos" : "mais"} que a regra geral de {geral}h). Num pedido com outros produtos vale o maior prazo.</>}
+          </div>
 
           <label style={css(rot)}>Descrição <span style={css("font-weight:500; color:#9398A6;")}>(opcional — um item por linha; o cliente vê em lista, um abaixo do outro)</span>
             <textarea value={f.descricao} onChange={(e) => setF({ ...f, descricao: e.target.value })} rows={6} placeholder={"Creme belga\nPão de ló\nMorangos frescos\nFinalizado com suspiros"} style={css(campo + " resize:vertical;")} />

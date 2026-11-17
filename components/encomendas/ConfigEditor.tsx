@@ -144,7 +144,7 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
       </Cartao>
 
       <Cartao titulo="Regras do pedido" sub="Antecedência, intervalo entre horários e quantidade" icone={<path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />}>
-        <Param rotulo="Antecedência mínima" dica="Não aceita encomenda para menos que isso a partir de agora." unidade="horas">
+        <Param rotulo="Antecedência mínima" dica="Regra geral: não aceita encomenda para menos que isso a partir de agora. Cada produto pode ter a sua, menor ou maior (Produtos → Antecedência)." unidade="horas">
           <input disabled={ro} type="number" min={0} value={Number.isNaN(c.antecedenciaHoras) ? "" : c.antecedenciaHoras} onChange={(e) => mudar({ antecedenciaHoras: num(e.target.value) })} style={css(campo("width:90px;"))} />
         </Param>
         <Param rotulo="Oferecer um horário a cada" dica="Ex.: 60 = 09:00, 10:00, 11:00…" unidade="min">
