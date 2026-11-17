@@ -23,7 +23,7 @@ export const spacesTree: Sector[] = [
     id: "lojas",
     label: "Lojas",
     children: [
-      { label: "Unidades", page: "unidades" }, // conferência do recebimento em cada loja (categoria "unidade")
+      { label: "Lojas", page: "unidades" }, // conferência do recebimento em cada loja (categoria "unidade")
       { label: "Encomendas", page: "lojas-encomendas" }, // encomendas de clientes a entregar na loja (categoria "encomenda")
     ],
   },

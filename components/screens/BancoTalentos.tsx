@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { css } from "@/lib/css";
 import { foneBR } from "@/lib/format";
-import { BRAND } from "@/lib/theme";
+import { ACCENT, BRAND } from "@/lib/theme";
 import type { Talento } from "@/lib/types";
 import { TALENTO_STATUS, QUALIDADE_TALENTO, corDeTexto, statusPill } from "@/lib/talento-dims";
 import BotaoWhatsapp from "../ui/BotaoWhatsapp";
@@ -99,6 +99,7 @@ function TalentoFiltro({ talentos, filtro, onChange, statusPermitidos }: { talen
 }
 
 const vagaCor = (v?: string) => corDeTexto(v);
+const SEM_UNIDADE = "__sem__";
 
 // Status "de arquivo": saem da visão por padrão (igual às tarefas validadas). Um único botão
 // na toolbar mostra/esconde os três de uma vez.
@@ -109,6 +110,8 @@ export default function BancoTalentos() {
   const unidadeDe = (id?: string) => unidades.find((u) => u.id === id);
   const [vista, setVista] = useState<"list" | "board">("board");
   const [filtro, setFiltro] = useState<Filtro>(null);
+  // Filtro por unidade (soma com o de Status/Vaga). "" = todas; SEM_UNIDADE = candidatos sem unidade.
+  const [unidadeF, setUnidadeF] = useState("");
   const [showArq, setShowArq] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -128,7 +131,13 @@ export default function BancoTalentos() {
   // Os status "de arquivo" só aparecem com o botão ligado.
   const oculto = (k?: string) => !!k && ARQUIVO_KEYS.includes(k) && !showArq;
   const base = talentos.filter((t) => !oculto(t.status));
-  const visiveis = base.filter((t) => matchFiltro(t, filtro));
+  const daUnidade = (t: Talento, u: string) => !u || (u === SEM_UNIDADE ? !unidadeDe(t.unidadeId) : t.unidadeId === u);
+  const semUnidade = base.filter((t) => matchFiltro(t, filtro));
+  const visiveis = semUnidade.filter((t) => daUnidade(t, unidadeF));
+  // Unidades no filtro: as cadastradas (ativas ou com candidato) e "Sem unidade" se houver alguém sem.
+  const unidadesFiltro = unidades.filter((u) => u.ativa !== false || talentos.some((t) => t.unidadeId === u.id))
+    .sort((a, b) => unidadeLabel(a).localeCompare(unidadeLabel(b), "pt"));
+  const temSemUnidade = semUnidade.some((t) => !unidadeDe(t.unidadeId));
   const colunas = TALENTO_STATUS.filter((s) => !oculto(s.key));
   const talentosDo = (status: string) => visiveis.filter((t) => t.status === status);
   const linhas = sort
@@ -239,6 +248,31 @@ export default function BancoTalentos() {
         >
           <Svg size={17} sw={2.2}><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></Svg>
         </Hoverable>
+        <Menu align="right" width={250} trigger={(toggle) => (
+          <Hoverable as="button" onClick={toggle} title="Filtrar por unidade" s={css(`display:inline-flex; align-items:center; gap:8px; background:${unidadeF ? "#FDF1F4" : "#fff"}; border:1px solid ${unidadeF ? ACCENT : "#E2E3E9"}; color:${unidadeF ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:13px; font-weight:700; padding:9px 14px; border-radius:10px; max-width:100%;`)} hover={unidadeF ? undefined : "background:#FAFAFB"}>
+            <Svg size={15} sw={2.2} style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>
+            <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{!unidadeF ? "Todas as unidades" : unidadeF === SEM_UNIDADE ? "Sem unidade" : unidadeLabel(unidadeDe(unidadeF))}</span>
+            <Svg size={13} sw={2.4} stroke="#9398A6" style={css("flex:none;")}><path d="m6 9 6 6 6-6" /></Svg>
+          </Hoverable>
+        )}>
+          {(close) => (
+            <>
+              <MenuItem checked={!unidadeF} accent={ACCENT} onClick={() => { setUnidadeF(""); close(); }}><span style={{ flex: 1 }}>Todas as unidades</span><span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.length}</span></MenuItem>
+              {unidadesFiltro.map((u) => (
+                <MenuItem key={u.id} checked={unidadeF === u.id} accent={ACCENT} onClick={() => { setUnidadeF(u.id); close(); }}>
+                  <span style={{ flex: 1 }}>{unidadeLabel(u)}</span>
+                  <span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.filter((t) => t.unidadeId === u.id).length}</span>
+                </MenuItem>
+              ))}
+              {(temSemUnidade || unidadeF === SEM_UNIDADE) && (
+                <MenuItem checked={unidadeF === SEM_UNIDADE} accent={ACCENT} onClick={() => { setUnidadeF(SEM_UNIDADE); close(); }}>
+                  <span style={{ flex: 1, color: "#7A8090" }}>Sem unidade</span>
+                  <span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.filter((t) => !unidadeDe(t.unidadeId)).length}</span>
+                </MenuItem>
+              )}
+            </>
+          )}
+        </Menu>
         <TalentoFiltro talentos={talentos} filtro={filtro} onChange={setFiltro} statusPermitidos={colunas.map((c) => c.key)} />
       </div>
 

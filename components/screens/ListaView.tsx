@@ -107,7 +107,7 @@ export default function ListaView({
     ...(contaOrigem("avulsa") || origem === "avulsa" ? [{ key: "avulsa" as const, label: "Avulsas", n: contaOrigem("avulsa"), cor: "#7A8090" }] : []),
   ];
   const tasks = page === "listaview" && origem ? tarefasPagina.filter((t) => origemProducao(t) === origem) : tarefasPagina;
-  const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Unidades" : page === "lojas-encomendas" ? "Encomendas" : "Produção";
+  const titulo = page === "expedicao" ? "Expedição" : page === "unidades" ? "Lojas" : page === "lojas-encomendas" ? "Encomendas" : "Produção";
   const abrir = setTaskDetailOpen;
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
