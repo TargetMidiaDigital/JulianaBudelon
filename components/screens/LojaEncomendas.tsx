@@ -7,7 +7,7 @@ import { ACCENT, statusInfo } from "@/lib/theme";
 import type { Task } from "@/lib/types";
 import { LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
 import { rotuloEncomenda, tarefasDaPage } from "@/lib/tarefas";
-import { isoDia, linkWhatsapp, numeroPedido, useEncomendas, type Lead, type PedidoEncomenda } from "@/lib/encomendas";
+import { isoDia, itensDoPedido, linkWhatsapp, numeroPedido, resumoItens, useEncomendas, type ItemPedido, type Lead, type PedidoEncomenda } from "@/lib/encomendas";
 import { proximoStatusTarefa, statusEscolhiveis, useApp } from "../store";
 import { Foto } from "../encomendas/FunilEncomenda";
 import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
@@ -36,7 +36,7 @@ const NA_PRODUCAO: Record<string, { texto: string; cor: string }> = {
   Entregue: { texto: "Entregue ao cliente", cor: "#15803D" },
 };
 
-type Item = { t: Task; p?: PedidoEncomenda; lead?: Lead; iso: string; hora: string; qtd?: number; produto: string; foto: string | null; cliente: string; numero?: string };
+type Item = { t: Task; p?: PedidoEncomenda; lead?: Lead; iso: string; hora: string; qtd?: number; produto: string; itens?: ItemPedido[]; foto: string | null; cliente: string; numero?: string };
 
 export default function LojaEncomendas() {
   const { tasks, updateTask, setTaskDetailOpen, canEditPage, canSeeAll, workspace } = useApp();
@@ -61,7 +61,8 @@ export default function LojaEncomendas() {
   const itens: Item[] = tarefasDaPage(tasks, "lojas-encomendas").map((t) => {
     const p = pedidoDe(t);
     const lead = p ? leads.find((l) => l.id === p.leadId) : undefined;
-    const prod = p ? produtoDe(p.produtoId) : undefined;
+    const lista = p ? itensDoPedido(p) : undefined;
+    const prod = lista ? produtoDe(lista[0].produtoId) : undefined;
     const d = parseBR(t.venc);
     const iso = p?.data ?? (d ? isoDia(d) : "");
     // Sem pedido (tarefa manual ou pedido apagado): os dados saem da descrição gerada pelo CRM
@@ -75,8 +76,9 @@ export default function LojaEncomendas() {
     const cliente = lead?.nome || doCliente?.[1]?.trim() || (/^Encomenda [-–] (.+?) [-–] /.exec(t.titulo)?.[1] ?? "");
     return {
       t, p, lead, iso, hora: p?.hora ?? t.vencHora ?? "",
-      qtd: p?.quantidade ?? (item ? Number(item[1]) : undefined),
-      produto: nomeProd ?? t.titulo,
+      qtd: lista ? (lista.length === 1 ? lista[0].quantidade : undefined) : item ? Number(item[1]) : undefined,
+      produto: lista && lista.length > 1 ? resumoItens(lista) : nomeProd ?? t.titulo,
+      itens: lista,
       foto: (prod ?? prodPorNome)?.foto ?? null,
       cliente, numero: lead?.numero ?? (foneDesc.length >= 10 ? foneDesc.replace(/^(?!55)/, "55") : undefined),
     };
@@ -123,19 +125,24 @@ export default function LojaEncomendas() {
     const prox = editavel ? proximoStatusTarefa(t.status, opcoes, true) : null;
     const nome = (s: Task["status"]) => rotuloEncomenda(s, t) ?? statusInfo[s].label;
     const prod = p ? NA_PRODUCAO[p.status] : undefined;
-    const msg = `Oi${i.cliente ? `, ${i.cliente.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}${lojaNome ? `, loja ${lojaNome}` : ""}. Sobre a sua encomenda${p ? ` #${numeroPedido(p.id)}` : ""} (${p ? `${p.quantidade}× ` : ""}${i.produto}), com retirada ${i.iso === hoje ? "hoje" : `em ${i.iso.split("-").reverse().join("/")}`}${i.hora ? ` às ${i.hora}` : ""}:`;
+    const msg = `Oi${i.cliente ? `, ${i.cliente.trim().split(/\s+/)[0]}` : ""}, tudo bem? Aqui é da ${workspace.nome || "Ju Budelon"}${lojaNome ? `, loja ${lojaNome}` : ""}. Sobre a sua encomenda${p ? ` #${numeroPedido(p.id)}` : ""} (${i.itens ? resumoItens(i.itens) : i.produto}), com retirada ${i.iso === hoje ? "hoje" : `em ${i.iso.split("-").reverse().join("/")}`}${i.hora ? ` às ${i.hora}` : ""}:`;
     const href = i.numero ? linkWhatsapp(i.numero, msg) : null;
     return (
       <div key={t.id} style={css(`background:#fff; border:1px solid ${atrasada ? "#F3B4BC" : "#ECEDF1"}; border-radius:14px; overflow:hidden; display:flex; box-shadow:0 1px 3px rgba(16,24,40,.05); ${feita(t) ? "opacity:.82;" : ""}`)}>
         <div className="loja-enc-foto" onClick={() => setTaskDetailOpen(t.id)} style={css(`position:relative; flex:none; width:${mobile ? 92 : 108}px; cursor:pointer; background:#FDF1F4;`)}>
           <div style={css("position:absolute; inset:0;")}><Foto src={i.foto} alt={i.produto} proporcao="1/1" cortar miniatura /></div>
-          {i.qtd && <span style={css("position:absolute; top:7px; left:7px; background:rgba(27,27,40,.82); color:#fff; font-size:12.5px; font-weight:800; padding:2px 8px; border-radius:999px;")}>{i.qtd}×</span>}
+          {(i.qtd || (i.itens && i.itens.length > 1)) && <span style={css("position:absolute; top:7px; left:7px; background:rgba(27,27,40,.82); color:#fff; font-size:12.5px; font-weight:800; padding:2px 8px; border-radius:999px;")}>{i.itens && i.itens.length > 1 ? `${i.itens.length} itens` : `${i.qtd}×`}</span>}
         </div>
 
         <div style={css("flex:1; min-width:0; padding:10px 12px 10px; display:flex; flex-direction:column; gap:6px;")}>
           <div onClick={() => setTaskDetailOpen(t.id)} style={css("display:flex; align-items:flex-start; gap:8px; cursor:pointer;")}>
             <div style={css("flex:1; min-width:0;")}>
-              <div style={css("font-size:14.5px; font-weight:800; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")} title={i.produto}>{i.produto}</div>
+              <div style={css("font-size:14.5px; font-weight:800; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")} title={i.produto}>{i.itens && i.itens.length > 1 ? `${i.itens.length} produtos` : i.produto}</div>
+              {i.itens && i.itens.length > 1 && (
+                <div style={css("margin-top:3px; display:flex; flex-direction:column; gap:1px; font-size:12.5px; font-weight:700; color:#3A3F4C; line-height:1.3;")}>
+                  {i.itens.map((x, k) => <span key={k} style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{x.quantidade}× {x.produtoNome}</span>)}
+                </div>
+              )}
               <div style={css("display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:2px; font-size:11.5px; font-weight:700; color:#9398A6;")}>
                 {lojaNome && <span style={css(`display:inline-flex; align-items:center; gap:4px; color:${corDoLocal(t.local)};`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${corDoLocal(t.local)};`)} />{lojaNome}</span>}
                 {p && <span>#{numeroPedido(p.id)}</span>}
@@ -155,11 +162,11 @@ export default function LojaEncomendas() {
             {href && i.numero && <LinkWhatsapp href={href} mensagem={msg} para={i.cliente || foneBR(i.numero)} size={22} />}
           </div>
 
-          {p?.mensagem && (
-            <div title={p.mensagem} style={css("background:#FFF8E6; border:1px solid #F5DFA6; border-radius:8px; padding:4px 8px; font-size:12px; font-weight:700; color:#5B4300; line-height:1.35; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;")}>
-              <span style={css("color:#A16207;")}>Obs.: </span>{p.mensagem}
+          {i.itens?.filter((x) => x.mensagem).map((x, k) => (
+            <div key={k} title={x.mensagem} style={css("background:#FFF8E6; border:1px solid #F5DFA6; border-radius:8px; padding:4px 8px; font-size:12px; font-weight:700; color:#5B4300; line-height:1.35; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;")}>
+              <span style={css("color:#A16207;")}>Obs.{i.itens!.length > 1 ? ` (${x.produtoNome})` : ""}: </span>{x.mensagem}
             </div>
-          )}
+          ))}
 
           <div style={css("display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:2px;")}>
             <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:${si.bg}; color:${si.fg}; white-space:nowrap;`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${si.dot};`)} />{nome(t.status)}</span>

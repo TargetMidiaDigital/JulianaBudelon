@@ -399,13 +399,19 @@ export type Lead = {
 
 export type TipoEntrega = "Entrega" | "Retirada";
 
+/** Um produto do pedido (o pedido é um carrinho: um ou mais produtos). Nome e preço são o retrato da hora do pedido. */
+export type ItemPedido = { produtoId: string; produtoNome: string; quantidade: number; preco: number; mensagem?: string };
+
 export type PedidoEncomenda = {
   id: string;
   leadId: string;
+  /** Produtos do pedido. Pedidos antigos (de um produto só) não têm: use `itensDoPedido`. */
+  itens?: ItemPedido[];
+  // Primeiro produto e total de unidades (compatibilidade com os pedidos de um produto só).
   produtoId: string;
   produtoNome?: string; // retrato do nome no pedido (o produto pode ser editado/excluído depois)
   quantidade: number;
-  mensagem?: string; // escrita na torta / observação do cliente
+  mensagem?: string; // pedidos antigos: escrita na torta / observação do cliente (nos novos, fica em cada item)
   tipo: TipoEntrega;
   unidadeId?: string;
   unidadeNome?: string; // retrato da unidade no pedido
@@ -426,6 +432,21 @@ export type PedidoEncomenda = {
 
 export type Compromisso = { id: string; titulo: string; data: string; hora: string; horaFim: string; contato?: string; notas?: string };
 
+/** Produtos do pedido — os pedidos antigos (um produto só, sem `itens`) viram um item. */
+export function itensDoPedido(p: Pick<PedidoEncomenda, "itens" | "produtoId" | "produtoNome" | "quantidade" | "subtotal" | "mensagem">): ItemPedido[] {
+  if (p.itens?.length) return p.itens;
+  return [{ produtoId: p.produtoId, produtoNome: p.produtoNome ?? "Produto", quantidade: p.quantidade, preco: p.quantidade ? Math.round((p.subtotal / p.quantidade) * 100) / 100 : 0, mensagem: p.mensagem }];
+}
+/** "2× Cheesecake Pistache, 1× Empadão de Frango" */
+export const resumoItens = (itens: Pick<ItemPedido, "quantidade" | "produtoNome">[]) => itens.map((i) => `${i.quantidade}× ${i.produtoNome}`).join(", ");
+/** Versão curta para títulos e cards: "2× Cheesecake Pistache + 2 itens". */
+export const resumoItensCurto = (itens: Pick<ItemPedido, "quantidade" | "produtoNome">[]) =>
+  itens.length ? `${itens[0].quantidade}× ${itens[0].produtoNome}${itens.length > 1 ? ` + ${itens.length - 1} ${itens.length === 2 ? "item" : "itens"}` : ""}` : "";
+/** O pedido tem esse produto (em qualquer item)? */
+export const pedidoTemProduto = (p: Pick<PedidoEncomenda, "itens" | "produtoId">, produtoId: string) => p.produtoId === produtoId || !!p.itens?.some((i) => i.produtoId === produtoId);
+/** Máximo de produtos diferentes num pedido. */
+export const MAX_ITENS_PEDIDO = 20;
+
 export const numeroPedido = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase();
 export const enderecoLinha = (e?: PedidoEncomenda["endereco"]) =>
   e ? [`${e.rua}, ${e.numero}`, e.bairro, e.cidade, e.complemento].filter(Boolean).join(" · ") : "";
@@ -444,7 +465,16 @@ export function catalogoPorCategoria(categorias: Categoria[], produtos: ProdutoE
   return soAtivos ? grupos.filter((g) => g.produtos.length) : grupos;
 }
 
-export type NovoPedido = Pick<PedidoEncomenda, "produtoId" | "quantidade" | "mensagem" | "tipo" | "unidadeId" | "endereco" | "data" | "hora"> & { nome: string; whatsapp: string };
+/** Item do carrinho como a tela manda: preço e nome saem do catálogo, no servidor. */
+export type ItemNovo = { produtoId: string; quantidade: number; mensagem?: string };
+export type NovoPedido = Pick<PedidoEncomenda, "tipo" | "unidadeId" | "endereco" | "data" | "hora"> & { itens: ItemNovo[]; nome: string; whatsapp: string };
+
+/** Produto do carrinho que pede mais dias de preparo (decide a primeira data possível). */
+export function maiorPreparo(itens: { produtoId: string }[], produtoDe: (id: string) => ProdutoEncomenda | undefined): { dias: number; produto?: ProdutoEncomenda } {
+  let r: { dias: number; produto?: ProdutoEncomenda } = { dias: 0 };
+  for (const i of itens) { const p = produtoDe(i.produtoId); if (p?.preparoDias && p.preparoDias > r.dias) r = { dias: p.preparoDias, produto: p }; }
+  return r;
+}
 
 /** WhatsApp canônico (55 + DDD + número). */
 export const numeroCanonico = (whatsapp: string) => normalizePhone(whatsapp).replace(/^(?!55)/, "55");
@@ -455,11 +485,19 @@ export const numeroCanonico = (whatsapp: string) => normalizePhone(whatsapp).rep
  */
 export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], cfg: ConfigEncomendas, agora = new Date()):
   | { erro: string }
-  | { produto: ProdutoEncomenda; unidade?: UnidadeRetirada; quantidade: number; numero: string; nome: string; mensagem?: string; subtotal: number; taxa: number; total: number; resumo: string } {
-  const produto = produtos.find((p) => p.id === n.produtoId && p.ativo);
-  if (!produto) return { erro: "Esse produto não está mais disponível. Escolha outro." };
-  const quantidade = Math.floor(Number(n.quantidade));
-  if (!(quantidade >= 1) || quantidade > cfg.maxPorPedido) return { erro: `A quantidade precisa ser de 1 a ${cfg.maxPorPedido}.` };
+  | { itens: ItemPedido[]; unidade?: UnidadeRetirada; quantidade: number; numero: string; nome: string; subtotal: number; taxa: number; total: number; resumo: string } {
+  const lista = Array.isArray(n.itens) ? n.itens : [];
+  if (!lista.length) return { erro: "Seu pedido está vazio. Escolha pelo menos um produto." };
+  if (lista.length > MAX_ITENS_PEDIDO) return { erro: `O pedido pode ter até ${MAX_ITENS_PEDIDO} produtos.` };
+  const itens: ItemPedido[] = [];
+  for (const it of lista) {
+    const produto = produtos.find((p) => p.id === it?.produtoId && p.ativo);
+    if (!produto) return { erro: "Um dos produtos do seu pedido não está mais disponível. Tire ele do pedido e tente de novo." };
+    const quantidade = Math.floor(Number(it.quantidade));
+    if (!(quantidade >= 1) || quantidade > cfg.maxPorPedido) return { erro: `A quantidade de ${produto.nome} precisa ser de 1 a ${cfg.maxPorPedido}.` };
+    const mensagem = (typeof it.mensagem === "string" ? it.mensagem : "").trim().slice(0, 300) || undefined;
+    itens.push({ produtoId: produto.id, produtoNome: produto.nome, quantidade, preco: produto.preco, mensagem });
+  }
   let unidade: UnidadeRetirada | undefined;
   if (n.tipo === "Retirada") {
     if (!cfg.retiradaAtiva) return { erro: "A retirada não está disponível no momento." };
@@ -472,26 +510,35 @@ export function validarNovoPedido(n: NovoPedido, produtos: ProdutoEncomenda[], c
   } else return { erro: "Escolha retirada ou entrega." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(n.data ?? "") || !/^\d{2}:\d{2}$/.test(n.hora ?? "")) return { erro: "Escolha a data e o horário." };
   if (!horariosDoDia(cfg, n.data, unidade).includes(n.hora)) return { erro: unidade?.horarios ? `Esse horário está fora do funcionamento da loja ${unidade.nome}. Escolha outro.` : "Esse horário não está disponível. Escolha outro." };
-  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, produto.preparoDias)) {
-    return { erro: produto.preparoDias ? `${produto.nome} precisa de ${textoPreparo(produto.preparoDias)}: escolha a partir de ${dataBR(diaBR(agora, produto.preparoDias))}.` : `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
+  const prep = maiorPreparo(itens, (id) => produtos.find((p) => p.id === id));
+  if (!respeitaAntecedencia(cfg, n.data, n.hora, agora, prep.dias)) {
+    return { erro: prep.produto ? `${prep.produto.nome} precisa de ${textoPreparo(prep.dias)}: escolha a partir de ${dataBR(diaBR(agora, prep.dias))}.` : `Os pedidos precisam de ${cfg.antecedenciaHoras} h de antecedência. Escolha outro horário.` };
   }
   const nome = (n.nome ?? "").trim().slice(0, 80);
   if (nome.length < 2) return { erro: "Informe seu nome." };
   if (normalizePhone(n.whatsapp).length < 10) return { erro: "Informe um WhatsApp válido, com DDD." };
-  const mensagem = (n.mensagem ?? "").trim().slice(0, 300) || undefined;
-  const subtotal = Math.round(produto.preco * quantidade * 100) / 100;
+  const subtotal = Math.round(itens.reduce((s, i) => s + i.preco * i.quantidade, 0) * 100) / 100;
   const taxa = n.tipo === "Entrega" ? cfg.taxaEntrega : 0;
-  const total = subtotal + taxa;
+  const total = Math.round((subtotal + taxa) * 100) / 100;
   const resumo = [
     `Cliente: ${nome}`,
-    `Itens: ${quantidade}× ${produto.nome}`,
-    mensagem ? `Observação: ${mensagem}` : "",
+    `Itens: ${resumoItens(itens)}`,
+    ...itens.filter((i) => i.mensagem).map((i) => `Observação (${i.produtoNome}): ${i.mensagem}`),
     `Valor: ${brl(total)}`,
     "Pagamento: PIX",
     `${n.tipo}: ${dataBR(n.data)} às ${n.hora}`,
     unidade ? `Loja: ${unidade.nome}` : "",
   ].filter(Boolean).join("\n");
-  return { produto, unidade, quantidade, numero: numeroCanonico(n.whatsapp), nome, mensagem, subtotal, taxa, total, resumo };
+  return { itens, unidade, quantidade: itens.reduce((s, i) => s + i.quantidade, 0), numero: numeroCanonico(n.whatsapp), nome, subtotal, taxa, total, resumo };
+}
+
+/** Pedido novo (autoatendimento) a partir do que `validarNovoPedido` aprovou — o mesmo no demo e no servidor. */
+export function montarPedidoNovo(n: NovoPedido, v: Exclude<ReturnType<typeof validarNovoPedido>, { erro: string }>, leadId: string, agora: string): PedidoEncomenda {
+  return {
+    id: crypto.randomUUID(), leadId, itens: v.itens, produtoId: v.itens[0].produtoId, produtoNome: v.itens[0].produtoNome, quantidade: v.quantidade,
+    tipo: n.tipo, unidadeId: v.unidade?.id, unidadeNome: v.unidade?.nome, endereco: n.tipo === "Entrega" ? n.endereco : undefined, data: n.data, hora: n.hora,
+    subtotal: v.subtotal, taxa: v.taxa, total: v.total, status: "Verificar pagamento", criadoEm: agora, origem: "autoatendimento",
+  };
 }
 
 /** Pagamento confirmado: o pedido sai de "Verificar pagamento" para "Confirmado com o cliente" (ou direto para a produção). */
@@ -504,7 +551,7 @@ const primeiroNomeCliente = (nome: string) => {
 };
 
 /** Mensagem pronta para confirmar a encomenda com o cliente pelo WhatsApp (pagamento já conferido). */
-export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "id" | "status" | "total" | "quantidade" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; produto: string; link?: string }): string {
+export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pedido: Pick<PedidoEncomenda, "id" | "status" | "total" | "taxa" | "subtotal" | "itens" | "produtoId" | "produtoNome" | "quantidade" | "mensagem" | "tipo" | "data" | "hora" | "unidadeNome" | "endereco">; link?: string }): string {
   const nome = primeiroNomeCliente(x.nome);
   const p = x.pedido;
   const quando = `${dataBR(p.data)} às ${p.hora}`;
@@ -518,7 +565,13 @@ export function mensagemConfirmacaoPedido(x: { nome: string; empresa: string; pe
     pago
       ? "Acabamos de verificar o seu pagamento: a sua encomenda está confirmada e já está em processo!"
       : "Recebemos a sua encomenda e estamos verificando o pagamento. Assim que confirmar, ela entra em processo.",
-    [`Pedido #${numeroPedido(p.id)}`, `• ${p.quantidade}× ${x.produto}`, `• ${onde}`, `• Valor: ${brl(p.total)} (PIX)`].join("\n"),
+    [
+      `Pedido #${numeroPedido(p.id)}`,
+      ...itensDoPedido(p).map((i) => `• ${i.quantidade}× ${i.produtoNome}${i.mensagem ? ` (obs.: ${i.mensagem})` : ""}`),
+      p.taxa > 0 ? `• Taxa de entrega: ${brl(p.taxa)}` : "",
+      `• ${onde}`,
+      `• Valor total: ${brl(p.total)} (PIX)`,
+    ].filter(Boolean).join("\n"),
     x.link ? `Acompanhe o andamento do seu pedido por aqui:\n${x.link}` : "",
     "Pode confirmar se está tudo certinho? Qualquer dúvida, é só chamar por aqui!",
   ].filter(Boolean).join("\n\n");
@@ -547,27 +600,31 @@ const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").re
  */
 export function tarefasDaEncomenda(
   p: PedidoEncomenda,
-  x: { cliente: string; numero?: string; produto: string; produtoEstoqueId?: string | null; local?: string; responsavel: string; agora: { date: string; hora: string }; base: number },
+  x: { cliente: string; numero?: string; estoqueDe: (produtoId: string) => string | null | undefined; local?: string; responsavel: string; agora: { date: string; hora: string }; base: number },
 ): Task[] {
   const venc = dataBR(p.data);
   const num = numeroPedido(p.id);
   const loja = p.unidadeNome ?? "Loja";
-  const itens = `${p.quantidade}× ${x.produto}`;
-  const obs = p.mensagem ? `<p><strong>Observação do cliente:</strong> ${escHtml(p.mensagem)}</p>` : "";
+  const lista = itensDoPedido(p);
+  const itensLi = lista.map((i) => `<li>${i.quantidade}× ${escHtml(i.produtoNome)}${i.mensagem ? ` — <em>obs.: ${escHtml(i.mensagem)}</em>` : ""}</li>`).join("");
   const log = () => [{ id: crypto.randomUUID(), message: `🎂 Criada automaticamente pelo CRM de Encomendas (pedido #${num}, pagamento confirmado).`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }];
-  const conferencia = x.produtoEstoqueId ? [{ produtoId: x.produtoEstoqueId, pedido: p.quantidade }] : undefined;
+  // Conferência: uma linha por item do Estoque (produtos repetidos somam).
+  const porEstoque = new Map<string, number>();
+  for (const i of lista) { const e = x.estoqueDe(i.produtoId); if (e) porEstoque.set(e, (porEstoque.get(e) ?? 0) + i.quantidade); }
+  const conferencia = porEstoque.size ? [...porEstoque].map(([produtoId, pedido]) => ({ produtoId, pedido })) : undefined;
+  const umSo = conferencia?.length === 1 ? conferencia[0] : undefined;
   const comum = { gestor: x.responsavel, status: "verificar" as const, prio: "normal" as const, tipo: "Encomenda", local: x.local, criada: x.agora.date, criadaHora: x.agora.hora, venc, vencHora: p.hora, conferencia };
   const fone = x.numero ? ` · ${foneBR(x.numero)}` : "";
   const producao: Task = {
     ...comum,
     // O id do pedido vai no id da tarefa: quando a Produção coloca "Em produção", o pedido acompanha no CRM.
     id: `t-${x.base}-encp-${p.id}`,
-    titulo: `Encomenda - ${itens} - ${x.cliente} - ${venc}`,
+    titulo: `Encomenda - ${resumoItensCurto(lista)} - ${x.cliente} - ${venc}`,
     categoria: "operacional",
-    produtoId: x.produtoEstoqueId || undefined,
-    quantidade: x.produtoEstoqueId ? p.quantidade : undefined,
+    produtoId: umSo?.produtoId,
+    quantidade: umSo?.pedido,
     desc:
-      `<p><strong>Encomenda #${num}</strong> — produzir <strong>${escHtml(itens)}</strong>.</p>${obs}` +
+      `<p><strong>Encomenda #${num}</strong> — produzir:</p><ul>${itensLi}</ul>` +
       `<p><strong>Sai para a loja ${escHtml(loja)}</strong>: retirada do cliente em <strong>${venc} às ${p.hora}</strong>. A encomenda precisa estar pronta e na loja antes disso.</p>` +
       `<p><strong>Cliente:</strong> ${escHtml(x.cliente)}</p>`,
     comentarios: log(),
@@ -581,12 +638,19 @@ export function tarefasDaEncomenda(
     desc:
       `<p><strong>Encomenda #${num}</strong> · retirada na loja <strong>${escHtml(loja)}</strong> em <strong>${venc} às ${p.hora}</strong>.</p>` +
       `<p><strong>Cliente:</strong> ${escHtml(x.cliente)}${fone}</p>` +
-      `<ul><li>${escHtml(itens)}</li></ul>${obs}` +
+      `<ul>${itensLi}</ul>` +
       `<p><strong>Valor:</strong> ${brl(p.total)} (PIX)</p>` +
       `<p>Quando a encomenda chegar da produção, marque <strong>Recebido</strong> e confira a quantidade (entra no estoque da loja; no CRM o pedido fica <strong>Pronto para retirada</strong>). Ao entregar ao cliente, marque <strong>Entregue</strong>: o estoque da loja dá baixa e o CRM acompanha.</p>`,
     comentarios: log(),
   };
   return [producao, lojaT];
+}
+
+/** Unidades do pedido por item do Estoque (produtos sem item de estoque ficam de fora; repetidos somam). */
+export function quantidadesPorEstoque(p: Parameters<typeof itensDoPedido>[0], estoqueDe: (produtoId: string) => string | null | undefined): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const i of itensDoPedido(p)) { const e = estoqueDe(i.produtoId); if (e) m.set(e, (m.get(e) ?? 0) + i.quantidade); }
+  return m;
 }
 
 /** Efeito do status no estoque da loja: 1 = dar baixa (foi para Entregue), −1 = devolver (saiu de Entregue), 0 = nada. */
@@ -662,9 +726,7 @@ export type Acompanhamento = {
   numero: string;
   status: PedidoStatus;
   cliente: string; // primeiro nome
-  produto: string;
-  foto: string | null;
-  quantidade: number;
+  itens: { nome: string; quantidade: number; foto: string | null; preco: number }[];
   tipo: TipoEntrega;
   data: string;
   hora: string;
@@ -679,12 +741,12 @@ export const idAcompanhamentoValido = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-
 
 export const linkAcompanhamento = (pedidoId: string, origem: string) => `${origem.replace(/\/$/, "")}/pedido/${encodeURIComponent(pedidoId)}`;
 
-export function montarAcompanhamento(p: PedidoEncomenda, x: { produto?: Pick<ProdutoEncomenda, "nome" | "foto">; clienteNome: string; cfg: ConfigEncomendas }): Acompanhamento {
+export function montarAcompanhamento(p: PedidoEncomenda, x: { fotoDe: (produtoId: string) => string | null | undefined; clienteNome: string; cfg: ConfigEncomendas }): Acompanhamento {
   const u = p.tipo === "Retirada" ? x.cfg.unidades.find((y) => y.id === p.unidadeId) : undefined;
   const primeiro = x.clienteNome.trim().split(/\s+/)[0] ?? "";
   return {
     id: p.id, numero: numeroPedido(p.id), status: p.status, cliente: primeiro ? primeiro.charAt(0).toUpperCase() + primeiro.slice(1).toLowerCase() : "",
-    produto: p.produtoNome || x.produto?.nome || "Encomenda", foto: x.produto?.foto ?? null, quantidade: p.quantidade,
+    itens: itensDoPedido(p).map((i) => ({ nome: i.produtoNome || "Encomenda", quantidade: i.quantidade, foto: x.fotoDe(i.produtoId) ?? null, preco: i.preco })),
     tipo: p.tipo, data: p.data, hora: p.hora, total: p.total, criadoEm: p.criadoEm,
     unidade: p.tipo === "Retirada" ? { nome: u?.nome || p.unidadeNome || "", endereco: u?.endereco ?? "", horario: resumoHorario(u?.horarios) } : undefined,
     bairro: p.tipo === "Entrega" ? p.endereco?.bairro : undefined,

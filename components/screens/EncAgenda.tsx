@@ -4,7 +4,7 @@ import { useState } from "react";
 import { css } from "@/lib/css";
 import { BRAND } from "@/lib/theme";
 import { useIsMobile } from "@/lib/useIsMobile";
-import { PEDIDO_STATUS, isoDia, useEncomendas } from "@/lib/encomendas";
+import { PEDIDO_STATUS, isoDia, itensDoPedido, resumoItensCurto, useEncomendas } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail from "../encomendas/LeadDetail";
@@ -27,7 +27,7 @@ const somaDias = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.ge
 export default function EncAgenda() {
   const { canEditPage } = useApp();
   const editavel = canEditPage("encomendas-agenda");
-  const { leads, pedidos, compromissos, produtoDe, unidadeDe, addCompromisso, removeCompromisso } = useEncomendas();
+  const { leads, pedidos, compromissos, unidadeDe, addCompromisso, removeCompromisso } = useEncomendas();
   const unidadeNome = (id?: string) => unidadeDe(id)?.nome;
   const mobile = useIsMobile();
   const hojeIso = isoDia(new Date());
@@ -37,11 +37,11 @@ export default function EncAgenda() {
 
   const eventos: Evento[] = [
     ...pedidos.map((p) => {
-      const prod = produtoDe(p.produtoId), lead = leads.find((l) => l.id === p.leadId);
+      const lead = leads.find((l) => l.id === p.leadId);
       const st = PEDIDO_STATUS.find((s) => s.key === p.status);
       return {
         id: p.id, data: p.data, ini: min(p.hora), fim: min(p.hora) + 60, cor: st?.agenda ?? "#DC2626", leadId: p.leadId, pedidoId: p.id,
-        titulo: `${lead?.nome ?? "Cliente"} · ${p.quantidade}× ${(prod?.nome ?? p.produtoNome ?? "produto").replace(/^Torta de /, "")}`,
+        titulo: `${lead?.nome ?? "Cliente"} · ${resumoItensCurto(itensDoPedido(p).map((i) => ({ ...i, produtoNome: i.produtoNome.replace(/^Torta de /, "") })))}`,
         sub: `${p.tipo}${p.tipo === "Retirada" && (p.unidadeNome ?? unidadeNome(p.unidadeId)) ? ` · ${p.unidadeNome ?? unidadeNome(p.unidadeId)}` : ""} · ${p.status}`,
       };
     }),

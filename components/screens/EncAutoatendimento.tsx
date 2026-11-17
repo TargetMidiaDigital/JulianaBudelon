@@ -85,12 +85,13 @@ export default function EncAutoatendimento() {
               <Cartao titulo="Resumo do que o cliente vê" icone={<path d="M3 4h18l-7 8v6l-4 2v-8z" />}>
                 <ol style={css("margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px; font-size:13px; color:#3A3F4C; line-height:1.45;")}>
                   <li><b>Escolhe o produto</b> entre {produtos.filter((p) => p.ativo).length} ativos, em {categorias.length} categoria{categorias.length === 1 ? "" : "s"}.</li>
-                  <li><b>Quantidade e observação</b> (até {config.maxPorPedido} por pedido).</li>
+                  <li><b>Quantidade e observação</b> (até {config.maxPorPedido} de cada produto).</li>
+                  <li><b>Seu pedido</b>: confere o que escolheu, com o total, e pode <b>adicionar mais produtos</b>.</li>
                   <li><b>{[unidadesAtivas.length && "Retirada", config.entregaAtiva && "entrega"].filter(Boolean).join(" ou ") || "Nenhuma forma de receber ligada"}</b>
                     {unidadesAtivas.length > 0 && ` — retirada em ${unidadesAtivas.length} unidade${unidadesAtivas.length === 1 ? "" : "s"}`}
                     {config.entregaAtiva && ` — entrega com taxa de ${brl(config.taxaEntrega)}`}.</li>
                   <li><b>Data e horário</b>, com {config.antecedenciaHoras}h de antecedência mínima.</li>
-                  <li><b>Nome e WhatsApp</b>, com o resumo do pedido.</li>
+                  <li><b>Nome e WhatsApp</b>, com o extrato do pedido (todos os produtos e o total).</li>
                   <li><b>PIX</b>{config.pixChave ? "" : " (de exemplo, sem chave configurada)"}. O pedido entra no CRM em <b>Venda</b> e na Agenda como <b>Verificar pagamento</b>.</li>
                 </ol>
                 {editavel && (

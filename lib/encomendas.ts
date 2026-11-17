@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, montarAcompanhamento, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, montarAcompanhamento, montarPedidoNovo, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
   type Acompanhamento,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
@@ -41,12 +41,19 @@ function seed() {
     const un = CONFIG_PADRAO.unidades.find((u) => u.id === extra.unidadeId);
     return { id, leadId, produtoId, produtoNome: p.nome, quantidade, tipo, data, hora, subtotal, taxa, total: subtotal + taxa, status, criadoEm, origem: "autoatendimento", unidadeNome: un?.nome, ...extra };
   };
+  // Pedido com vários produtos (carrinho).
+  const pedCarrinho = (id: string, leadId: string, lista: [string, number, string?][], data: string, hora: string, criadoEm: string, unidadeId: string): PedidoEncomenda => {
+    const itens = lista.map(([pid, quantidade, mensagem]) => { const p = PRODUTOS_NATAL.find((x) => x.id === pid)!; return { produtoId: pid, produtoNome: p.nome, quantidade, preco: p.preco, mensagem }; });
+    const subtotal = Math.round(itens.reduce((s, i) => s + i.preco * i.quantidade, 0) * 100) / 100;
+    return { id, leadId, itens, produtoId: itens[0].produtoId, produtoNome: itens[0].produtoNome, quantidade: itens.reduce((s, i) => s + i.quantidade, 0), tipo: "Retirada", unidadeId, unidadeNome: CONFIG_PADRAO.unidades.find((u) => u.id === unidadeId)?.nome, data, hora, subtotal, taxa: 0, total: subtotal, status: "Verificar pagamento", criadoEm, origem: "autoatendimento" };
+  };
   const pedidos: PedidoEncomenda[] = [
     ped("p-0a1b2c3d-1", "l1", "morango", 1, "Retirada", diaRel(2), "10:00", "Verificar pagamento", ts(-1, "15:20"), { unidadeId: "u-centro", mensagem: "Escrever: Feliz aniversário, Lu!" }),
     ped("p-4e5f6a7b-2", "l2", "brigadeiro", 2, "Retirada", diaRel(1), "15:00", "Confirmado com o cliente", ts(-2, "11:05"), { unidadeId: "u-coqueiros" }),
     ped("p-8c9d0e1f-3", "l3", "bem-casado", 1, "Retirada", diaRel(0), "16:00", "Em produção", ts(-4, "09:40"), { unidadeId: "u-santa-monica" }),
     ped("p-2a3b4c5d-4", "l8", "pudim", 1, "Retirada", diaRel(-3), "11:00", "Entregue", ts(-18, "10:30"), { unidadeId: "u-pagani" }),
     ped("p-6e7f8a9b-5", "l3", "prestigio", 1, "Retirada", diaRel(-8), "14:00", "Entregue", ts(-12, "09:00"), { unidadeId: "u-centro" }),
+    pedCarrinho("p-1c2d3e4f-6", "l6", [["natal-cheesecake-pistache", 1, "Sem pistache por cima"], ["natal-sobremesa-ferrero", 2], ["natal-empadao-frango-com-palmito", 1]], diaRel(4), "11:00", ts(0, "08:10"), "u-coqueiros"),
   ];
   const compromissos: Compromisso[] = [
     { id: "c1", titulo: "Degustação — casamento Fernanda", data: diaRel(3), hora: "14:00", horaFim: "15:00", contato: "Fernanda Souza", notas: "Levar Bem Casado e Marta Rocha" },
@@ -311,11 +318,7 @@ export async function criarPedidoAutoatendimento(n: NovoPedido): Promise<PedidoE
   const leads = lead
     ? s.leads.map((l) => (l.id === lead!.id ? { ...l, nome: v.nome || l.nome, status: "Venda" as const, ultimoContato: agora, resumo: v.resumo } : l))
     : [...s.leads, (lead = { id: crypto.randomUUID(), numero: v.numero, nome: v.nome, status: "Venda", responsavel: "I.A", criadoEm: agora, ultimoContato: agora, resumo: v.resumo })];
-  const pedido: PedidoEncomenda = {
-    id: crypto.randomUUID(), leadId: lead.id, produtoId: v.produto.id, produtoNome: v.produto.nome, quantidade: v.quantidade, mensagem: v.mensagem,
-    tipo: n.tipo, unidadeId: v.unidade?.id, unidadeNome: v.unidade?.nome, endereco: n.tipo === "Entrega" ? n.endereco : undefined, data: n.data, hora: n.hora,
-    subtotal: v.subtotal, taxa: v.taxa, total: v.total, status: "Verificar pagamento", criadoEm: agora, origem: "autoatendimento",
-  };
+  const pedido = montarPedidoNovo(n, v, lead.id, agora);
   salvar({ ...s, leads, pedidos: [...s.pedidos, pedido] });
   return pedido;
 }
@@ -347,7 +350,7 @@ export async function buscarAcompanhamento(id: string): Promise<Acompanhamento |
     const e = lerDemo();
     const p = e.pedidos.find((x) => x.id === id);
     if (!p) return null;
-    return montarAcompanhamento(p, { produto: e.produtos.find((x) => x.id === p.produtoId), clienteNome: e.leads.find((l) => l.id === p.leadId)?.nome ?? "", cfg: e.config });
+    return montarAcompanhamento(p, { fotoDe: (pid) => e.produtos.find((x) => x.id === pid)?.foto, clienteNome: e.leads.find((l) => l.id === p.leadId)?.nome ?? "", cfg: e.config });
   }
   const res = await fetch(`/api/encomendas/acompanhar?id=${encodeURIComponent(id)}`, { cache: "no-store" });
   if (res.status === 404) return null;

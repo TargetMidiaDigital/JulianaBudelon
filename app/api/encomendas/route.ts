@@ -85,7 +85,11 @@ export async function POST(req: Request) {
     }
     case "excluirProduto": {
       // Com pedidos, o produto só é desativado (os pedidos guardam o nome; o catálogo deixa de mostrar).
-      const { count } = await sb.from("enc_pedido").select("id", { count: "exact", head: true }).eq("produto_id", id);
+      const [{ count: c1 }, { count: c2 }] = await Promise.all([
+        sb.from("enc_pedido").select("id", { count: "exact", head: true }).eq("produto_id", id),
+        sb.from("enc_pedido").select("id", { count: "exact", head: true }).contains("itens", [{ produtoId: id }]),
+      ]);
+      const count = (c1 ?? 0) + (c2 ?? 0);
       const { error } = count ? await sb.from("enc_produto").update({ ativo: false }).eq("id", id) : await sb.from("enc_produto").delete().eq("id", id);
       return error ? erro(error.message, 500) : ok({ desativado: !!count });
     }

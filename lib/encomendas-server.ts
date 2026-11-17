@@ -4,9 +4,9 @@ import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
 import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
-  CONFIG_PADRAO, CORES_DESTAQUE, DIAS, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, localDaUnidade, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
+  CONFIG_PADRAO, CORES_DESTAQUE, DIAS, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, itensDoPedido, localDaUnidade, montarPedidoNovo, quantidadesPorEstoque, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
   idAcompanhamentoValido, montarAcompanhamento,
-  type Acompanhamento, type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
+  type Acompanhamento, type Categoria, type ItemPedido, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
 
@@ -28,7 +28,7 @@ type RowContato = { id: string; numero: string; nome: string; status: string; re
 type RowPedido = {
   id: string; contato_id: string; produto_id: string | null; produto_nome: string | null; quantidade: number; mensagem: string | null; tipo: string;
   unidade_id: string | null; unidade_nome: string | null; endereco: unknown; data: string; hora: string; subtotal: number | string; taxa: number | string;
-  total: number | string; status: string; origem: string; tarefas_criadas: boolean; estoque_baixado: boolean; criado_em: string;
+  total: number | string; status: string; origem: string; tarefas_criadas: boolean; estoque_baixado: boolean; criado_em: string; itens?: unknown;
 };
 type RowCompromisso = { id: string; titulo: string; data: string; hora: string; hora_fim: string; contato: string | null; notas: string | null };
 
@@ -41,8 +41,16 @@ const paraLead = (r: RowContato): Lead => ({
   id: r.id, numero: r.numero, nome: r.nome, status: r.status as Lead["status"], responsavel: r.responsavel as Lead["responsavel"],
   criadoEm: r.criado_em, ultimoContato: r.ultimo_contato, resumo: r.resumo ?? undefined,
 });
+/** Coluna itens (jsonb) → itens válidos; vazio/ausente = pedido antigo de um produto só. */
+const parseItens = (v: unknown): ItemPedido[] | undefined => {
+  if (!Array.isArray(v)) return undefined;
+  const itens = v
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object" && typeof (x as Record<string, unknown>).produtoId === "string")
+    .map((x) => ({ produtoId: String(x.produtoId), produtoNome: String(x.produtoNome ?? "Produto"), quantidade: Math.max(1, Math.floor(Number(x.quantidade) || 1)), preco: Number(x.preco) || 0, mensagem: typeof x.mensagem === "string" && x.mensagem ? x.mensagem : undefined }));
+  return itens.length ? itens : undefined;
+};
 const paraPedido = (r: RowPedido): PedidoEncomenda => ({
-  id: r.id, leadId: r.contato_id, produtoId: r.produto_id ?? "", produtoNome: r.produto_nome ?? undefined, quantidade: r.quantidade,
+  id: r.id, leadId: r.contato_id, itens: parseItens(r.itens), produtoId: r.produto_id ?? "", produtoNome: r.produto_nome ?? undefined, quantidade: r.quantidade,
   mensagem: r.mensagem ?? undefined, tipo: r.tipo as PedidoEncomenda["tipo"], unidadeId: r.unidade_id ?? undefined, unidadeNome: r.unidade_nome ?? undefined,
   endereco: (r.endereco as PedidoEncomenda["endereco"]) ?? undefined, data: r.data, hora: r.hora, subtotal: Number(r.subtotal), taxa: Number(r.taxa),
   total: Number(r.total), status: r.status as PedidoStatus, criadoEm: r.criado_em, origem: r.origem as PedidoEncomenda["origem"],
@@ -196,15 +204,14 @@ export async function lerAcompanhamento(sb: SB, id: string): Promise<Acompanhame
   const { data } = await sb.from("enc_pedido").select("*").eq("id", id).maybeSingle();
   if (!data) return null;
   const p = paraPedido(data as RowPedido);
-  const [contato, produto, cfg] = await Promise.all([
+  const ids = [...new Set(itensDoPedido(p).map((i) => i.produtoId).filter(Boolean))];
+  const [contato, fotos, cfg] = await Promise.all([
     sb.from("enc_contato").select("nome").eq("id", p.leadId).maybeSingle(),
-    p.produtoId ? sb.from("enc_produto").select("nome, foto").eq("id", p.produtoId).maybeSingle() : Promise.resolve({ data: null }),
+    ids.length ? sb.from("enc_produto").select("id, foto").in("id", ids) : Promise.resolve({ data: [] }),
     lerConfig(sb),
   ]);
-  return montarAcompanhamento(p, {
-    produto: (produto.data as { nome: string; foto: string | null } | null) ?? undefined,
-    clienteNome: (contato.data as { nome?: string } | null)?.nome ?? "", cfg,
-  });
+  const fotoDe = new Map(((fotos.data ?? []) as { id: string; foto: string | null }[]).map((x) => [x.id, x.foto]));
+  return montarAcompanhamento(p, { fotoDe: (id) => fotoDe.get(id), clienteNome: (contato.data as { nome?: string } | null)?.nome ?? "", cfg });
 }
 
 // ── Pedido da página pública ─────────────────────────────────────────────────
@@ -229,17 +236,16 @@ export async function criarPedidoPublico(sb: SB, n: NovoPedido): Promise<{ pedid
       if (!contatoId) return { erro: "Não foi possível registrar o pedido. Tente de novo." };
     }
   }
-  const pedido: PedidoEncomenda = {
-    id: crypto.randomUUID(), leadId: contatoId, produtoId: v.produto.id, produtoNome: v.produto.nome, quantidade: v.quantidade, mensagem: v.mensagem,
-    tipo: n.tipo, unidadeId: v.unidade?.id, unidadeNome: v.unidade?.nome, endereco: n.tipo === "Entrega" ? n.endereco : undefined, data: n.data, hora: n.hora,
-    subtotal: v.subtotal, taxa: v.taxa, total: v.total, status: "Verificar pagamento", criadoEm: agora, origem: "autoatendimento",
-  };
+  const pedido = montarPedidoNovo(n, v, contatoId, agora);
   const { error } = await sb.from("enc_pedido").insert({
-    id: pedido.id, contato_id: contatoId, produto_id: pedido.produtoId, produto_nome: pedido.produtoNome, quantidade: pedido.quantidade, mensagem: pedido.mensagem ?? null,
+    id: pedido.id, contato_id: contatoId, itens: pedido.itens, produto_id: pedido.produtoId, produto_nome: pedido.produtoNome, quantidade: pedido.quantidade, mensagem: null,
     tipo: pedido.tipo, unidade_id: pedido.unidadeId ?? null, unidade_nome: pedido.unidadeNome ?? null, endereco: pedido.endereco ?? null, data: pedido.data, hora: pedido.hora,
     subtotal: pedido.subtotal, taxa: pedido.taxa, total: pedido.total, status: pedido.status, origem: pedido.origem, criado_em: agora,
   });
-  if (error) return { erro: "Não foi possível registrar o pedido. Tente de novo." };
+  if (error) {
+    console.error("[encomendas] falha ao gravar o pedido:", error.message);
+    return { erro: "Não foi possível registrar o pedido. Tente de novo." };
+  }
   return { pedido };
 }
 
@@ -319,9 +325,12 @@ export async function mudarStatusPedido(sb: SB, id: string, status: PedidoStatus
 
   const cols: Record<string, unknown> = { status };
   const precisaProduto = (confirmaPagamento(p.status, status) && !p.tarefasCriadas) || efeitoEstoque(p, status) !== 0;
-  const prod = precisaProduto && p.produtoId
-    ? ((await sb.from("enc_produto").select("nome, produto_estoque_id").eq("id", p.produtoId).maybeSingle()).data as { nome: string; produto_estoque_id: string | null } | null)
-    : null;
+  // Item do Estoque de cada produto do pedido (a encomenda movimenta o estoque desses itens).
+  const ids = [...new Set(itensDoPedido(p).map((i) => i.produtoId).filter(Boolean))];
+  const prods = precisaProduto && ids.length
+    ? (((await sb.from("enc_produto").select("id, produto_estoque_id").in("id", ids)).data ?? []) as { id: string; produto_estoque_id: string | null }[])
+    : [];
+  const estoqueDe = (produtoId: string) => prods.find((x) => x.id === produtoId)?.produto_estoque_id ?? null;
   const local = localDaUnidade(p.unidadeId, LOCAIS_ESTOQUE);
 
   // Tarefas: grava a marca ANTES (update condicional) — dois cliques ao mesmo tempo não criam em dobro.
@@ -331,8 +340,7 @@ export async function mudarStatusPedido(sb: SB, id: string, status: PedidoStatus
       const { data: ct } = await sb.from("enc_contato").select("nome, numero").eq("id", p.leadId).maybeSingle();
       const contato = ct as { nome: string; numero: string } | null;
       const tarefas: Task[] = tarefasDaEncomenda(p, {
-        cliente: contato?.nome || "Cliente", numero: contato?.numero, produto: prod?.nome ?? p.produtoNome ?? "Produto",
-        produtoEstoqueId: prod?.produto_estoque_id, local, responsavel, agora: fmtNowBR(), base: Date.now(),
+        cliente: contato?.nome || "Cliente", numero: contato?.numero, estoqueDe, local, responsavel, agora: fmtNowBR(), base: Date.now(),
       });
       const rows = tarefas.map((t) => ({
         id: t.id, nome: t.titulo, status: t.status, urgencia: t.prio, responsavel: t.gestor || null, tipo: t.tipo ?? null, categoria: t.categoria ?? "operacional",
@@ -351,15 +359,13 @@ export async function mudarStatusPedido(sb: SB, id: string, status: PedidoStatus
   const ef = efeitoEstoque(p, status);
   if (ef !== 0) {
     cols.estoque_baixado = ef === 1;
-    const estoqueId = prod?.produto_estoque_id;
-    if (estoqueId && local) {
+    for (const [estoqueId, q] of local ? quantidadesPorEstoque(p, estoqueDe) : []) {
       const { data: pr } = await sb.from("produto").select("nome, estoque, historico").eq("id", estoqueId).maybeSingle();
       const item = pr as { nome: string; estoque: unknown; historico: unknown } | null;
-      if (item) {
+      if (item && local) {
         const est = parseQuantidades(item.estoque);
         const label = LOCAIS_ESTOQUE.find((l) => l.id === local)?.label ?? local;
         const antes = est[local] ?? 0;
-        const q = p.quantidade;
         if (ef === 1) {
           est[local] = Math.max(0, antes - q);
           const falta = Math.max(0, q - antes);

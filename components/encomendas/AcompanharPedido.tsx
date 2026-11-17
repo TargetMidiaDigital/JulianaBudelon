@@ -154,15 +154,19 @@ function Conteudo({ p, atualizado, onAtualizar }: { p: Acompanhamento; atualizad
         {/* Pedido */}
         <section style={css("background:#fff; border-radius:18px; padding:14px; box-shadow:0 2px 12px rgba(27,27,40,.06);")}>
           <h2 style={css("margin:2px 2px 12px; font-size:16px; font-weight:800;")}>Seu pedido</h2>
-          <div style={css("display:flex; gap:12px; align-items:flex-start;")}>
-            <div style={css("width:88px; flex:none; border-radius:14px; overflow:hidden;")}><Foto src={p.foto} alt={p.produto} proporcao="1/1" cortar miniatura /></div>
-            <div style={css("flex:1; min-width:0;")}>
-              <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{p.quantidade}× {p.produto}</div>
-              <div style={css("display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:8px;")}>
-                <span style={css(`font-size:13.5px; color:${FRACA}; font-weight:600;`)}>Total · PIX</span>
-                <span style={css("font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(p.total)}</span>
+          {/* Um produto por linha (o pedido é um carrinho), com foto, quantidade e valor. */}
+          <div style={css("display:flex; flex-direction:column; gap:12px;")}>
+            {p.itens.map((i, k) => (
+              <div key={k} style={css("display:flex; gap:12px; align-items:center;")}>
+                <div style={css(`width:${p.itens.length > 1 ? 60 : 88}px; flex:none; border-radius:12px; overflow:hidden;`)}><Foto src={i.foto} alt={i.nome} proporcao="1/1" cortar miniatura /></div>
+                <div style={css("flex:1; min-width:0; font-size:15.5px; font-weight:800; line-height:1.25;")}>{i.quantidade}× {i.nome}</div>
+                {i.preco > 0 && <div style={css(`flex:none; font-size:14.5px; font-weight:700; color:#3A3F4C; font-variant-numeric:tabular-nums;`)}>{brl(i.preco * i.quantidade)}</div>}
               </div>
-            </div>
+            ))}
+          </div>
+          <div style={css(`display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:12px; padding-top:12px; border-top:1px dashed #E6E7EC;`)}>
+            <span style={css(`font-size:13.5px; color:${FRACA}; font-weight:600;`)}>Total · PIX</span>
+            <span style={css("font-size:18px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(p.total)}</span>
           </div>
         </section>
 

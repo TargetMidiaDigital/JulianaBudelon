@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone } from "@/lib/format";
-import { PEDIDO_STATUS, corPedido, linkWhatsapp, dataBR, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
+import { PEDIDO_STATUS, corPedido, itensDoPedido, linkWhatsapp, dataBR, resumoItens, resumoItensCurto, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import LeadDetail, { Seletor } from "../encomendas/LeadDetail";
@@ -20,7 +20,7 @@ import { useMensagemConfirmacao } from "../encomendas/useStatusPedido";
 export default function EncCrm() {
   const { canEditPage } = useApp();
   const editavel = canEditPage("encomendas-crm");
-  const { leads, pedidos, produtoDe } = useEncomendas();
+  const { leads, pedidos } = useEncomendas();
   const { mudar: setPedidoStatus, popup: popupStatus } = useMudarStatusPedido();
   const mensagemDe = useMensagemConfirmacao();
   const [busca, setBusca] = useState("");
@@ -46,14 +46,13 @@ export default function EncCrm() {
         return st === "Entregue" ? -c : c;
       });
 
-  const chip = (conteudo: React.ReactNode) => (
-    <span style={css("display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:#3A3F4C; background:#F2F3F6; border-radius:7px; padding:4px 8px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;")}>{conteudo}</span>
+  const chip = (conteudo: React.ReactNode, key?: string | number) => (
+    <span key={key} style={css("display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; color:#3A3F4C; background:#F2F3F6; border-radius:7px; padding:4px 8px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis;")}>{conteudo}</span>
   );
 
   const cartao = (p: PedidoEncomenda) => {
     const l = leadDe(p.leadId);
-    const prod = produtoDe(p.produtoId);
-    const nomeProd = (prod?.nome ?? p.produtoNome ?? "Produto removido").replace(/^Torta de /, "");
+    const itens = itensDoPedido(p).map((i) => ({ ...i, produtoNome: i.produtoNome.replace(/^Torta de /, "") }));
     const local = p.tipo === "Retirada" ? p.unidadeNome : p.endereco?.bairro;
     const cor = corPedido(p.status);
     return (
@@ -72,7 +71,8 @@ export default function EncCrm() {
           <span style={css("flex:none; font-size:13.5px; font-weight:800;")}>{brl(p.total)}</span>
         </div>
         <div style={css("display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;")}>
-          {chip(<>{p.quantidade}× {nomeProd}</>)}
+          {/* Um chip por produto (até 3); mais que isso, o primeiro + "N itens". */}
+          {itens.length <= 3 ? itens.map((i, k) => chip(<>{i.quantidade}× {i.produtoNome}</>, k)) : chip(<span title={resumoItens(itens)}>{resumoItensCurto(itens)}</span>)}
           {chip(<><Svg size={12} sw={2.2}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>{dataBR(p.data)} · {p.hora}</>)}
           {chip(<>{p.tipo === "Retirada" ? "📍" : "🛵"} {p.tipo}{local ? ` · ${local}` : ""}</>)}
         </div>

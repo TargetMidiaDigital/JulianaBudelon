@@ -6,14 +6,14 @@ import { brl, foneBR, normalizePhone } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import {
   CORES_DESTAQUE, FOTO_POSICAO, PERIODOS, catalogoPorCategoria, criarPedidoAutoatendimento, dataBR, horariosDoDia, isoDia, resumoHorario,
-  itensDescricao, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
+  MAX_ITENS_PEDIDO, itensDescricao, itensDoPedido, maiorPreparo, numeroPedido, pixCopiaECola, respeitaAntecedencia, textoPreparo, useEncomendas, vitrineDe,
   type Categoria, type ConfigEncomendas, type PedidoEncomenda, type ProdutoEncomenda, type TipoEntrega, type UnidadeRetirada, type Vitrine,
 } from "@/lib/encomendas";
 
 /**
- * Funil do cliente (o "totem" do Cachorrão, adaptado para um catálogo em categorias):
- * 1 escolhe o produto → 2 quantidade e observação → 3 entrega ou retirada → 4 data e horário →
- * 5 nome e WhatsApp com resumo → PIX. Produtos, unidades, taxa e horários vêm da
+ * Funil do cliente (o "totem" do Cachorrão, adaptado para um catálogo em categorias), como um carrinho:
+ * 1 escolhe o produto → 2 quantidade e observação → 3 "Seu pedido" (adicionar mais produtos) →
+ * 4 entrega ou retirada → 5 data e horário → 6 nome e WhatsApp com o extrato → 7 PIX. Produtos, unidades, taxa e horários vêm da
  * configuração do Autoatendimento. Mobile-first; roda na página pública /encomendar e
  * dentro do celular de pré-visualização em Encomendas → Autoatendimento.
  */
@@ -23,11 +23,16 @@ const COR_ESCURA = "#5E2F3E";
 const TINTA = "#1B1B28", FRACA = "#9398A6", BORDA = "#E6E7EC", CAMPO = "#F8F9FB";
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
-type Passo = 1 | 2 | 3 | 4 | 5 | 6;
+type Passo = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+/** Item no carrinho do cliente (preço e nome vêm do catálogo; o servidor recalcula). */
+type ItemCarrinho = { chave: string; produtoId: string; quantidade: number; mensagem?: string };
 /** Chave do grupo "Outros" (produtos sem categoria) na vitrine. */
 const SEM = "__sem__";
 const TITULO = "margin:0; font-size:26px; font-weight:800; letter-spacing:-.5px; line-height:1.15;";
 const SUBTITULO = `margin:6px 0 0; font-size:15.5px; color:${FRACA}; line-height:1.4;`;
+const ETAPAS = 5;
+const etapaDe = (p: Passo) => (p <= 2 ? 1 : Math.min(ETAPAS, p - 1));
+const novaChave = () => Math.random().toString(36).slice(2, 10);
 
 export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) {
   const { config: cfg, categorias, produtos, produtoDe, carregado, erroCarga } = useEncomendas();
@@ -44,10 +49,13 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   // Cada tela abre no topo (sem isto, tocar num produto no fim da lista abria o passo 2 rolado).
   const rolagem = useRef<HTMLDivElement>(null);
   useEffect(() => { rolagem.current?.scrollTo(0, 0); }, [passo, catAberta]);
+  // Produto aberto (passo 2) — ainda não está no pedido até tocar em "Adicionar ao pedido".
   const [produtoId, setProdutoId] = useState<string | null>(null);
   const [qtd, setQtd] = useState(1);
   const [mensagem, setMensagem] = useState("");
   const [obsAberta, setObsAberta] = useState(false);
+  // O pedido (carrinho).
+  const [carrinho, setCarrinho] = useState<ItemCarrinho[]>([]);
   const [tipo, setTipo] = useState<TipoEntrega | null>(null);
   const [unidadeId, setUnidadeId] = useState<string | null>(null);
   const [end, setEnd] = useState({ cidade: "", bairro: "", rua: "", numero: "", complemento: "" });
@@ -62,9 +70,13 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
 
   const produto = produtoId ? produtoDe(produtoId) : undefined;
   const categoriaDoProduto = grupos.length > 1 ? categorias.find((c) => c.id === produto?.categoriaId)?.nome : undefined;
-  const subtotal = (produto?.preco ?? 0) * qtd;
+  // Itens do carrinho com o produto do catálogo (produto que saiu do catálogo some do pedido).
+  const itens = carrinho.map((c) => ({ ...c, produto: produtoDe(c.produtoId) })).filter((c): c is ItemCarrinho & { produto: ProdutoEncomenda } => !!c.produto);
+  const unidadesNoPedido = itens.reduce((s, i) => s + i.quantidade, 0);
+  const subtotal = Math.round(itens.reduce((s, i) => s + i.produto.preco * i.quantidade, 0) * 100) / 100;
   const taxa = tipo === "Entrega" ? cfg.taxaEntrega : 0;
   const total = subtotal + taxa;
+  const preparo = maiorPreparo(itens, produtoDe);
   const endOk = end.cidade.trim().length >= 3 && end.bairro.trim().length >= 2 && end.rua.trim().length >= 3 && end.numero.trim().length >= 1;
   const unidade = unidades.find((u) => u.id === unidadeId);
   // Só uma forma ligada (ex.: só retirada): já vem escolhida, sem a pergunta "Entrega ou retirada?".
@@ -77,29 +89,49 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   const unidadeNome = unidade?.nome;
 
   const pode: Record<Passo, boolean> = {
-    1: !!produto && produto.ativo,
-    2: qtd >= 1 && qtd <= cfg.maxPorPedido,
-    3: tipo === "Retirada" ? !!unidade : tipo === "Entrega" ? cfg.entregaAtiva && endOk : false,
-    4: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), produto?.preparoDias ?? 0) && horariosDoDia(cfg, data, tipo === "Retirada" ? unidade : null).includes(hora),
-    5: nome.trim().length >= 2 && normalizePhone(whats).length >= 10,
-    6: true,
+    1: itens.length > 0,
+    2: !!produto && produto.ativo && qtd >= 1 && qtd <= cfg.maxPorPedido && (itens.length < MAX_ITENS_PEDIDO || itens.some((i) => i.produtoId === produto.id && !i.mensagem && !mensagem.trim())),
+    3: itens.length > 0 && itens.every((i) => i.quantidade >= 1 && i.quantidade <= cfg.maxPorPedido),
+    4: tipo === "Retirada" ? !!unidade : tipo === "Entrega" ? cfg.entregaAtiva && endOk : false,
+    5: !!data && !!hora && respeitaAntecedencia(cfg, data, hora, new Date(), preparo.dias) && horariosDoDia(cfg, data, tipo === "Retirada" ? unidade : null).includes(hora),
+    6: nome.trim().length >= 2 && normalizePhone(whats).length >= 10,
+    7: true,
   };
+
+  /** Abre um produto (passo 2) com quantidade 1 e sem observação. */
+  const abrirProduto = (id: string) => { setProdutoId(id); setQtd(1); setMensagem(""); setObsAberta(false); setPasso(2); };
+  /** Põe o produto aberto no pedido (mesmo produto sem observação soma na linha que já existe) e mostra o pedido. */
+  const adicionar = () => {
+    if (!produto || !pode[2]) return;
+    const obs = mensagem.trim() || undefined;
+    setCarrinho((c) => {
+      const igual = !obs ? c.find((i) => i.produtoId === produto.id && !i.mensagem) : undefined;
+      if (igual) return c.map((i) => (i === igual ? { ...i, quantidade: Math.min(cfg.maxPorPedido, i.quantidade + qtd) } : i));
+      return [...c, { chave: novaChave(), produtoId: produto.id, quantidade: qtd, mensagem: obs }];
+    });
+    // Mudou o pedido: a data escolhida pode não servir mais (preparo de outro produto).
+    setHora(null);
+    setPasso(3);
+  };
+  const mudarQtd = (chave: string, d: number) => setCarrinho((c) => c.map((i) => (i.chave === chave ? { ...i, quantidade: Math.max(1, Math.min(cfg.maxPorPedido, i.quantidade + d)) } : i)));
+  const remover = (chave: string) => { setCarrinho((c) => c.filter((i) => i.chave !== chave)); setHora(null); };
+  const maisProdutos = () => { setCatAberta(null); setPasso(1); };
 
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   useEffect(() => { setErroEnvio(null); }, [passo]);
   const confirmar = async () => {
-    if (!produto || !tipo || !data || !hora || enviando) return;
+    if (!itens.length || !tipo || !data || !hora || enviando) return;
     setEnviando(true); setErroEnvio(null);
     try {
       const p = await criarPedidoAutoatendimento({
-        produtoId: produto.id, quantidade: qtd, mensagem: mensagem.trim() || undefined, tipo,
+        itens: itens.map((i) => ({ produtoId: i.produtoId, quantidade: i.quantidade, mensagem: i.mensagem })), tipo,
         unidadeId: tipo === "Retirada" ? unidadeId ?? undefined : undefined,
         endereco: tipo === "Entrega" ? { ...end, complemento: end.complemento.trim() || undefined } : undefined,
         data, hora, nome: nome.trim(), whatsapp: whats,
       });
       setPedido(p);
-      setPasso(6);
+      setPasso(7);
     } catch (e) {
       // Ex.: o horário deixou de respeitar a antecedência, a loja foi desativada… — mostra e deixa corrigir.
       setErroEnvio(e instanceof Error ? e.message : "Não foi possível enviar o pedido. Tente de novo.");
@@ -109,16 +141,27 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
   };
   const avancar = () => {
     if (!pode[passo] || enviando) return;
-    if (passo === 5) confirmar();
-    else if (passo < 5) setPasso((passo + 1) as Passo);
+    if (passo === 1) setPasso(3);
+    else if (passo === 2) adicionar();
+    else if (passo === 6) confirmar();
+    else if (passo < 6) setPasso((passo + 1) as Passo);
+  };
+  const voltar = () => {
+    if (passo === 1) setCatAberta(null);
+    else if (passo === 2 || passo === 3) setPasso(1); // do produto e do pedido, volta para a lista de produtos
+    else setPasso((passo - 1) as Passo);
   };
   const recomecar = () => {
-    setPasso(1); setCatAberta(null); setProdutoId(null); setQtd(1); setMensagem(""); setTipo(null); setUnidadeId(null);
+    setPasso(1); setCatAberta(null); setProdutoId(null); setQtd(1); setMensagem(""); setCarrinho([]); setTipo(null); setUnidadeId(null);
     setEnd({ cidade: "", bairro: "", rua: "", numero: "", complemento: "" }); setData(null); setHora(null);
     setNome(""); setWhats(""); setPedido(null); setPago(false); setObsAberta(false);
   };
 
-  const botao = passo === 5 ? (enviando ? "Enviando…" : "Confirmar pedido") : "Continuar";
+  const botao = passo === 1 ? "Ver pedido" : passo === 2 ? "Adicionar ao pedido" : passo === 6 ? (enviando ? "Enviando…" : "Confirmar pedido") : "Continuar";
+  const temVoltar = (passo > 1 && passo < 7) || (passo === 1 && !naVitrine && grupos.length > 1);
+  // Rodapé: no passo 1 só aparece com algo no pedido (tocar no produto já abre o produto).
+  const temRodape = passo > 1 || itens.length > 0;
+  const nItens = (n: number) => `${n} ${n === 1 ? "item" : "itens"}`;
 
   return (
     <div style={css(`${emTela ? "height:100dvh;" : "height:100%;"} background:linear-gradient(135deg, ${COR}, ${COR_ESCURA}); display:flex; justify-content:center; font-family:inherit; color:${TINTA};`)}>
@@ -126,18 +169,18 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
         {/* Cabeçalho */}
         <div style={css(`flex:none; position:sticky; top:0; z-index:5; background:#fff; padding:${emTela ? "calc(env(safe-area-inset-top) + 12px)" : "12px"} 16px 10px; border-bottom:1px solid ${BORDA};`)}>
           <div style={css("display:flex; align-items:center; gap:10px; min-height:46px;")}>
-            {(passo > 1 && passo < 6) || (passo === 1 && !naVitrine && grupos.length > 1) ? (
-              <button onClick={() => (passo === 1 ? setCatAberta(null) : setPasso((passo - 1) as Passo))} style={css(`display:inline-flex; align-items:center; gap:6px; border:1.5px solid ${BORDA}; background:#fff; border-radius:999px; padding:10px 18px 10px 13px; font-size:16px; font-weight:800; color:${TINTA}; cursor:pointer;`)}>
-                <Svg size={18} sw={2.6}><path d="m15 18-6-6 6-6" /></Svg>{passo === 1 ? "Categorias" : "Voltar"}
+            {temVoltar ? (
+              <button onClick={voltar} style={css(`display:inline-flex; align-items:center; gap:6px; border:1.5px solid ${BORDA}; background:#fff; border-radius:999px; padding:10px 18px 10px 13px; font-size:16px; font-weight:800; color:${TINTA}; cursor:pointer;`)}>
+                <Svg size={18} sw={2.6}><path d="m15 18-6-6 6-6" /></Svg>{passo === 1 ? "Categorias" : passo === 3 ? "Produtos" : "Voltar"}
               </button>
             ) : <span style={css(`font-size:16px; font-weight:800; color:${COR}; letter-spacing:.2px;`)}>Encomendas</span>}
             <span style={{ flex: 1 }} />
-            {passo < 6 && <span style={css(`font-size:14px; font-weight:700; color:${FRACA};`)}>{passo} de 5</span>}
+            {passo < 7 && <span style={css(`font-size:14px; font-weight:700; color:${FRACA};`)}>{etapaDe(passo)} de {ETAPAS}</span>}
             <img src="/icone-jb-180.png" alt="Ju Budelon" style={css("width:44px; height:44px; border-radius:12px;")} />
           </div>
-          {passo < 6 && (
-            <div style={css("display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-top:10px;")}>
-              {[1, 2, 3, 4, 5].map((n) => <span key={n} style={css(`height:4px; border-radius:99px; background:${passo >= n ? COR : BORDA};`)} />)}
+          {passo < 7 && (
+            <div style={css(`display:grid; grid-template-columns:repeat(${ETAPAS},1fr); gap:5px; margin-top:10px;`)}>
+              {Array.from({ length: ETAPAS }, (_, i) => i + 1).map((n) => <span key={n} style={css(`height:4px; border-radius:99px; background:${etapaDe(passo) >= n ? COR : BORDA};`)} />)}
             </div>
           )}
         </div>
@@ -147,8 +190,8 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
           {passo === 1 && naVitrine && (
             <>
               {vit.destaqueAtivo && (vit.destaqueTitulo || vit.destaqueTexto) && <FaixaDestaque vitrine={vit} />}
-              <h1 style={css(TITULO)}>{vit.titulo}</h1>
-              {vit.subtitulo && <p style={css(SUBTITULO)}>{vit.subtitulo}</p>}
+              <h1 style={css(TITULO)}>{itens.length ? "Quer mais alguma coisa?" : vit.titulo}</h1>
+              {(itens.length || vit.subtitulo) && <p style={css(SUBTITULO)}>{itens.length ? "Escolha outra categoria para adicionar ao seu pedido." : vit.subtitulo}</p>}
               {!carregado && <div style={css(`padding:40px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Carregando o cardápio…</div>}
               {carregado && erroCarga && <div role="alert" style={css("margin-top:14px; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:12px 14px;")}>Não foi possível carregar o cardápio agora. Atualize a página em instantes.</div>}
               {carregado && !erroCarga && grupos.length === 0 && <div style={css(`padding:30px 0; text-align:center; color:${FRACA}; font-size:16px;`)}>Nenhum produto disponível para encomenda no momento.</div>}
@@ -171,11 +214,12 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               <p style={css(SUBTITULO)}>{grupos.length > 1 && grupoAberto.categoria?.descricao ? `${grupoAberto.categoria.descricao} · ` : ""}Toque no produto para escolher.</p>
               <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:16px;")}>
                 {grupoAberto.produtos.map((p) => {
-                  const sel = p.id === produtoId;
+                  // Já está no pedido: marca com a quantidade.
+                  const noPedido = itens.filter((i) => i.produtoId === p.id).reduce((s, i) => s + i.quantidade, 0);
                   return (
-                    <button key={p.id} onClick={() => { setProdutoId(p.id); if (p.id !== produtoId) setQtd(1); setPasso(2); }} style={css(`text-align:left; padding:0; border:2px solid ${sel ? COR : BORDA}; background:#fff; border-radius:18px; overflow:hidden; cursor:pointer; box-shadow:${sel ? `0 6px 18px ${COR}33` : "0 2px 10px rgba(27,27,40,.05)"}; position:relative; display:flex; flex-direction:column;`)}>
+                    <button key={p.id} onClick={() => abrirProduto(p.id)} style={css(`text-align:left; padding:0; border:2px solid ${noPedido ? COR : BORDA}; background:#fff; border-radius:18px; overflow:hidden; cursor:pointer; box-shadow:${noPedido ? `0 6px 18px ${COR}33` : "0 2px 10px rgba(27,27,40,.05)"}; position:relative; display:flex; flex-direction:column;`)}>
                       <Foto src={p.foto} alt={p.nome} proporcao="1/1" cortar miniatura />
-                      {sel && <span style={css(`position:absolute; top:8px; right:8px; width:30px; height:30px; border-radius:50%; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={17} sw={3}><path d="M20 6 9 17l-5-5" /></Svg></span>}
+                      {noPedido > 0 && <span style={css(`position:absolute; top:8px; right:8px; min-width:30px; height:30px; padding:0 8px; box-sizing:border-box; border-radius:999px; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center; gap:3px; font-size:14px; font-weight:800;`)}><Svg size={14} sw={3}><path d="M20 6 9 17l-5-5" /></Svg>{noPedido}</span>}
                       <div style={css("padding:11px 12px 13px;")}>
                         <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{p.nome.replace(/^Torta de /, "")}</div>
                         <div style={css(`font-size:17px; font-weight:800; color:${COR}; margin-top:5px;`)}>{brl(p.preco)}</div>
@@ -219,7 +263,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <div style={css(`margin-top:20px; border:1.5px solid ${BORDA}; border-radius:18px; padding:14px 14px 14px 16px; display:flex; align-items:center; gap:10px;`)}>
                   <div style={css("flex:1; min-width:0;")}>
                     <div style={css("font-size:17px; font-weight:800;")}>Quantidade</div>
-                    <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:2px;`)}>até {cfg.maxPorPedido} por pedido</div>
+                    <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:2px;`)}>até {cfg.maxPorPedido} de cada produto</div>
                   </div>
                   <Passador onClick={() => setQtd((q) => Math.max(1, q - 1))} disabled={qtd <= 1}>−</Passador>
                   <span style={css("font-size:28px; font-weight:800; min-width:34px; text-align:center; font-variant-numeric:tabular-nums; line-height:1;")}>{qtd}</span>
@@ -243,11 +287,63 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                     <Svg size={20} sw={2.4} stroke={COR}><path d="M12 5v14M5 12h14" /></Svg>
                   </button>
                 )}
+                {itens.length >= MAX_ITENS_PEDIDO && !pode[2] && <div style={css("margin-top:12px; font-size:15px; font-weight:600; color:#B42318;")}>O pedido já tem {MAX_ITENS_PEDIDO} produtos, o máximo por pedido.</div>}
               </div>
             </>
           )}
 
           {passo === 3 && (
+            <>
+              <h1 style={css(TITULO)}>Seu pedido</h1>
+              <p style={css(SUBTITULO)}>{itens.length ? "Confira os produtos. Quer mais alguma coisa? Adicione antes de escolher a loja." : "Seu pedido está vazio."}</p>
+              {itens.length > 0 && (
+                <div style={css(`margin-top:16px; border:1px solid ${BORDA}; border-radius:18px; overflow:hidden;`)}>
+                  {itens.map((i, k) => (
+                    <div key={i.chave} style={css(`display:flex; gap:12px; padding:14px; ${k ? `border-top:1px solid ${BORDA};` : ""}`)}>
+                      <div style={css("width:68px; height:68px; flex:none; border-radius:14px; overflow:hidden;")}><Foto src={i.produto.foto} alt="" proporcao="1/1" cortar miniatura /></div>
+                      <div style={css("flex:1; min-width:0; display:flex; flex-direction:column; gap:6px;")}>
+                        <div style={css("display:flex; gap:8px; align-items:flex-start;")}>
+                          <div style={css("flex:1; min-width:0;")}>
+                            <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{i.produto.nome}</div>
+                            <div style={css(`font-size:13.5px; color:${FRACA}; margin-top:2px;`)}>{brl(i.produto.preco)} cada</div>
+                          </div>
+                          <div style={css("flex:none; font-size:16px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(i.produto.preco * i.quantidade)}</div>
+                        </div>
+                        {i.mensagem && <div style={css("font-size:13.5px; color:#7A5512; background:#FFF8E6; border-radius:9px; padding:5px 9px; line-height:1.35; word-break:break-word;")}><b>Obs.:</b> {i.mensagem}</div>}
+                        <div style={css("display:flex; align-items:center; gap:8px;")}>
+                          <Mini onClick={() => mudarQtd(i.chave, -1)} disabled={i.quantidade <= 1} rotulo="Diminuir">−</Mini>
+                          <span style={css("min-width:22px; text-align:center; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums;")}>{i.quantidade}</span>
+                          <Mini onClick={() => mudarQtd(i.chave, 1)} disabled={i.quantidade >= cfg.maxPorPedido} rotulo="Aumentar">+</Mini>
+                          <span style={{ flex: 1 }} />
+                          <button onClick={() => remover(i.chave)} aria-label={`Tirar ${i.produto.nome} do pedido`} style={css(`border:none; background:transparent; color:#B42318; font-size:14px; font-weight:700; cursor:pointer; padding:6px 2px; display:inline-flex; align-items:center; gap:4px;`)}>
+                            <Svg size={16} sw={2.2}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></Svg>Tirar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {itens.length < MAX_ITENS_PEDIDO && (
+                <button onClick={maisProdutos} style={css(`margin-top:14px; width:100%; display:flex; align-items:center; gap:12px; border:1.5px dashed #D9C6CC; background:#fff; border-radius:18px; padding:15px 16px; cursor:pointer; color:${TINTA}; text-align:left;`)}>
+                  <span style={css(`flex:none; width:40px; height:40px; border-radius:12px; background:${COR}; color:#fff; display:flex; align-items:center; justify-content:center;`)}><Svg size={20} sw={2.6}><path d="M12 5v14M5 12h14" /></Svg></span>
+                  <span style={{ flex: 1 }}>
+                    <span style={css("display:block; font-size:16.5px; font-weight:800;")}>{itens.length ? "Adicionar mais produtos" : "Escolher produtos"}</span>
+                    <span style={css(`display:block; font-size:14px; color:${FRACA}; margin-top:1px;`)}>Cheesecake, sobremesa, empadão…</span>
+                  </span>
+                  <Svg size={20} sw={2.4} stroke={COR}><path d="m9 6 6 6-6 6" /></Svg>
+                </button>
+              )}
+              {itens.length > 0 && (
+                <div style={css(`margin-top:16px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; font-size:15px;`)}>
+                  <Linha k={`Subtotal · ${nItens(unidadesNoPedido)}`} v={brl(subtotal)} />
+                  {preparo.dias > 0 && preparo.produto && <div style={css(`font-size:13.5px; color:${FRACA};`)}>{preparo.produto.nome} precisa de {textoPreparo(preparo.dias)}: isso vale para o pedido todo.</div>}
+                </div>
+              )}
+            </>
+          )}
+
+          {passo === 4 && (
             <>
               <h1 style={css("margin:0 0 14px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>{soRetirada ? "Em qual loja você vai retirar?" : soEntrega ? "Onde vamos entregar?" : "Entrega ou retirada?"}</h1>
               {soRetirada && <p style={css(`margin:-6px 0 14px; font-size:15.5px; color:${FRACA};`)}>A encomenda é retirada na loja, sem taxa.</p>}
@@ -289,9 +385,9 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
             </>
           )}
 
-          {passo === 4 && <PassoData key={tipo === "Retirada" ? unidadeId ?? "" : "entrega"} cfg={cfg} unidade={tipo === "Retirada" ? unidade : undefined} preparoDias={produto?.preparoDias ?? 0} produtoNome={produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
+          {passo === 5 && <PassoData key={`${tipo === "Retirada" ? unidadeId ?? "" : "entrega"}-${preparo.dias}`} cfg={cfg} unidade={tipo === "Retirada" ? unidade : undefined} preparoDias={preparo.dias} produtoNome={preparo.produto?.nome} data={data} hora={hora} onData={(d) => { setData(d); setHora(null); }} onHora={setHora} />}
 
-          {passo === 5 && produto && tipo && data && hora && (
+          {passo === 6 && itens.length > 0 && tipo && data && hora && (
             <>
               <h1 style={css("margin:0 0 4px; font-size:26px; font-weight:800; letter-spacing:-.4px;")}>Quase lá!</h1>
               <p style={css(`margin:0 0 16px; font-size:15.5px; color:${FRACA};`)}>Só precisamos saber para quem é o pedido.</p>
@@ -299,24 +395,36 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 <Campo rotulo="Seu nome" valor={nome} onChange={setNome} ph="Como podemos te chamar?" />
                 <Campo rotulo="WhatsApp" valor={whats} onChange={(v) => setWhats(mascara(v))} ph="(48) 99999-9999" tipo="tel" dica="É por aqui que confirmamos seu pedido." />
               </div>
+              {/* Extrato do pedido: todos os produtos, onde/quando e o total. */}
               <div style={css(`margin-top:18px; background:${CAMPO}; border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; font-size:15px;`)}>
-                <div style={css(`display:flex; align-items:center; gap:12px; padding-bottom:10px; border-bottom:1px dashed ${BORDA};`)}>
-                  <div style={css("width:58px; height:58px; flex:none; border-radius:12px; overflow:hidden;")}><Foto src={produto.foto} alt="" proporcao="1/1" cortar miniatura /></div>
-                  <div style={css("flex:1; min-width:0;")}>
-                    <div style={css("font-size:16px; font-weight:800; line-height:1.25;")}>{qtd}× {produto.nome}</div>
-                    <div style={css(`font-size:15px; font-weight:800; color:${COR}; margin-top:2px;`)}>{brl(subtotal)}</div>
+                <div style={css(`font-size:13px; font-weight:800; letter-spacing:.5px; color:${FRACA};`)}>RESUMO DO PEDIDO</div>
+                {itens.map((i) => (
+                  <div key={i.chave} style={css("display:flex; align-items:center; gap:10px;")}>
+                    <div style={css("width:44px; height:44px; flex:none; border-radius:10px; overflow:hidden;")}><Foto src={i.produto.foto} alt="" proporcao="1/1" cortar miniatura /></div>
+                    <div style={css("flex:1; min-width:0;")}>
+                      <div style={css("font-size:15px; font-weight:800; line-height:1.25;")}>{i.quantidade}× {i.produto.nome}</div>
+                      {i.mensagem && <div style={css("font-size:13px; color:#7A5512; margin-top:2px; word-break:break-word;")}>Obs.: {i.mensagem}</div>}
+                    </div>
+                    <div style={css("flex:none; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(i.produto.preco * i.quantidade)}</div>
                   </div>
-                </div>
-                {mensagem.trim() && <Linha k="Observação" v={mensagem.trim()} />}
+                ))}
+                <div style={css(`border-top:1px dashed ${BORDA}; margin:2px 0;`)} />
+                <Linha k={`Subtotal · ${nItens(unidadesNoPedido)}`} v={brl(subtotal)} />
                 <Linha k={tipo === "Entrega" ? "Taxa de entrega" : "Retirada no local"} v={tipo === "Entrega" ? brl(taxa) : "Sem taxa"} />
-                {unidadeNome && <Linha k="Unidade" v={unidadeNome} />}
+                {unidadeNome && <Linha k="Loja" v={unidadeNome} />}
                 <Linha k={tipo} v={`${dataBR(data)} às ${hora}`} />
                 {tipo === "Entrega" && <Linha k="Endereço" v={`${end.rua}, ${end.numero} · ${end.bairro} · ${end.cidade}`} />}
+                <Linha k="Pagamento" v="PIX" />
+                <div style={css(`border-top:1px dashed ${BORDA}; margin:2px 0;`)} />
+                <div style={css("display:flex; align-items:baseline; gap:12px;")}>
+                  <span style={css("flex:1; font-size:17px; font-weight:800;")}>Total</span>
+                  <span style={css("font-size:21px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(total)}</span>
+                </div>
               </div>
             </>
           )}
 
-          {passo === 6 && pedido && produto && (
+          {passo === 7 && pedido && (
             !pago ? (
               <div style={css("text-align:center;")}>
                 <div style={css("width:56px; height:56px; border-radius:50%; background:#E7F6EE; color:#1B7F4D; display:flex; align-items:center; justify-content:center; margin:8px auto 12px;")}><Svg size={28} sw={2.6}><path d="M20 6 9 17l-5-5" /></Svg></div>
@@ -347,7 +455,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
                 </div>
                 <div style={css(`border:1px solid ${BORDA}; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:9px; font-size:15px;`)}>
                   <div style={css(`font-size:13px; font-weight:800; letter-spacing:.5px; color:${FRACA};`)}>PEDIDO #{numeroPedido(pedido.id)}</div>
-                  <Linha k={`${pedido.quantidade}× ${produto.nome}`} v={brl(pedido.subtotal)} forte />
+                  {itensDoPedido(pedido).map((i, k) => <Linha key={k} k={`${i.quantidade}× ${i.produtoNome}`} v={brl(i.preco * i.quantidade)} />)}
                   {pedido.taxa > 0 && <Linha k="Taxa de entrega" v={brl(pedido.taxa)} />}
                   <Linha k="Total" v={brl(pedido.total)} forte />
                   <div style={css(`border-top:1px dashed ${BORDA}; margin:3px 0;`)} />
@@ -364,17 +472,19 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
           )}
         </div>
 
-        {/* Rodapé — no passo 1 não tem: tocar no produto já avança. */}
-        {passo > 1 && <div style={css(`flex:none; position:sticky; bottom:0; background:#fff; border-top:1px solid ${BORDA}; padding:12px 16px ${emTela ? "calc(env(safe-area-inset-bottom) + 12px)" : "12px"}; display:flex; align-items:center; gap:12px; flex-wrap:wrap;`)}>
-          {erroEnvio && passo === 5 && <div role="alert" style={css("flex-basis:100%; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:9px 12px;")}>{erroEnvio}</div>}
-          {passo < 6 ? (
+        {/* Rodapé */}
+        {temRodape && <div style={css(`flex:none; position:sticky; bottom:0; background:#fff; border-top:1px solid ${BORDA}; padding:12px 16px ${emTela ? "calc(env(safe-area-inset-bottom) + 12px)" : "12px"}; display:flex; align-items:center; gap:12px; flex-wrap:wrap;`)}>
+          {erroEnvio && passo === 6 && <div role="alert" style={css("flex-basis:100%; font-size:15px; font-weight:600; color:#B42318; background:#FEF3F2; border:1px solid #FECDCA; border-radius:12px; padding:9px 12px;")}>{erroEnvio}</div>}
+          {passo < 7 ? (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={css(`font-size:13px; font-weight:700; color:${FRACA};`)}>{passo <= 2 ? "Subtotal" : "Total"}</div>
-                <div style={css("font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(passo <= 2 ? subtotal : total)}</div>
+                <div style={css(`font-size:13px; font-weight:700; color:${FRACA};`)}>{passo === 1 ? `Seu pedido · ${nItens(unidadesNoPedido)}` : passo === 2 ? "Este produto" : passo === 3 ? "Subtotal" : "Total"}</div>
+                <div style={css("font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;")}>{brl(passo === 2 ? (produto?.preco ?? 0) * qtd : passo <= 3 ? subtotal : total)}</div>
               </div>
-              <button onClick={avancar} disabled={!pode[passo]} style={css(`border:none; background:${pode[passo] ? COR : "#D9C6CC"}; color:#fff; border-radius:999px; padding:16px 26px; font-size:17.5px; font-weight:800; cursor:${pode[passo] ? "pointer" : "not-allowed"}; display:inline-flex; align-items:center; gap:6px;`)}>
-                {botao}<Svg size={19} sw={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>
+              <button onClick={avancar} disabled={!pode[passo]} style={css(`border:none; background:${pode[passo] ? COR : "#D9C6CC"}; color:#fff; border-radius:999px; padding:16px ${passo === 2 ? 20 : 26}px; font-size:17.5px; font-weight:800; cursor:${pode[passo] ? "pointer" : "not-allowed"}; display:inline-flex; align-items:center; gap:6px;`)}>
+                {passo === 2 && <Svg size={19} sw={2.8}><path d="M12 5v14M5 12h14" /></Svg>}
+                {botao}
+                {passo !== 2 && <Svg size={19} sw={2.6}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>}
               </button>
             </>
           ) : !pago ? (
@@ -386,6 +496,11 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
       </div>
     </div>
   );
+}
+
+/** Botão − / + pequeno (quantidade de cada produto na tela "Seu pedido"). */
+function Mini({ onClick, disabled, rotulo, children }: { onClick: () => void; disabled?: boolean; rotulo: string; children: React.ReactNode }) {
+  return <button onClick={onClick} disabled={disabled} aria-label={rotulo} style={css(`width:38px; height:38px; flex:none; border-radius:50%; border:1.5px solid ${BORDA}; background:#fff; font-size:21px; font-weight:700; line-height:1; color:${disabled ? "#CDD0D8" : TINTA}; cursor:${disabled ? "default" : "pointer"}; display:flex; align-items:center; justify-content:center;`)}>{children}</button>;
 }
 
 /** Faixa de destaque no topo da vitrine (ex.: "Natal 2026"), com texto e cor da configuração. */

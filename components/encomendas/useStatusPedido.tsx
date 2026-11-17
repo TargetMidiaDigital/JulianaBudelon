@@ -5,18 +5,17 @@ import { useApp } from "../store";
 import ConfirmarWhatsapp from "./ConfirmarWhatsapp";
 import { fmtNowBR } from "@/lib/format";
 import { LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
-import { confirmaPagamento, efeitoEstoque, linkAcompanhamento, linkWhatsapp, localDaUnidade, mensagemConfirmacaoPedido, tarefasDaEncomenda, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
+import { confirmaPagamento, efeitoEstoque, linkAcompanhamento, linkWhatsapp, localDaUnidade, mensagemConfirmacaoPedido, quantidadesPorEstoque, tarefasDaEncomenda, useEncomendas, type PedidoEncomenda, type PedidoStatus } from "@/lib/encomendas";
 
-/** Mensagem de confirmação (WhatsApp) de um pedido, com o nome da loja e do produto. */
+/** Mensagem de confirmação (WhatsApp) de um pedido, com o nome da loja e os produtos. */
 export function useMensagemConfirmacao() {
   const { workspace } = useApp();
-  const { leads, produtoDe, unidadeDe } = useEncomendas();
+  const { leads, unidadeDe } = useEncomendas();
   return (p: PedidoEncomenda) => {
     const lead = leads.find((l) => l.id === p.leadId);
     return mensagemConfirmacaoPedido({
       nome: lead?.nome ?? "", empresa: workspace.nome,
       pedido: { ...p, unidadeNome: p.unidadeNome ?? unidadeDe(p.unidadeId)?.nome },
-      produto: produtoDe(p.produtoId)?.nome ?? p.produtoNome ?? "encomenda",
       link: typeof window !== "undefined" ? linkAcompanhamento(p.id, window.location.origin) : undefined,
     });
   };
@@ -42,15 +41,13 @@ export function useMudarStatusPedido() {
     if (modo === "banco") { setPedidoStatus(id, status); return; }
 
     const extra: Partial<PedidoEncomenda> = {};
-    const prod = produtoDe(p.produtoId);
     const local = localDaUnidade(p.unidadeId, LOCAIS_ESTOQUE);
-    const estoqueId = prod?.produtoEstoqueId ?? undefined;
+    const estoqueDe = (produtoId: string) => produtoDe(produtoId)?.produtoEstoqueId ?? null;
 
     if (confirmaPagamento(p.status, status) && !p.tarefasCriadas) {
       const lead = leads.find((l) => l.id === p.leadId);
       for (const t of tarefasDaEncomenda(p, {
-        cliente: lead?.nome || "Cliente", numero: lead?.numero, produto: prod?.nome ?? p.produtoNome ?? "Produto",
-        produtoEstoqueId: estoqueId, local, responsavel: currentUser.id, agora: fmtNowBR(), base: Date.now(),
+        cliente: lead?.nome || "Cliente", numero: lead?.numero, estoqueDe, local, responsavel: currentUser.id, agora: fmtNowBR(), base: Date.now(),
       })) addTask(t);
       extra.tarefasCriadas = true;
     }
@@ -58,10 +55,11 @@ export function useMudarStatusPedido() {
     const ef = efeitoEstoque(p, status);
     if (ef !== 0) {
       extra.estoqueBaixado = ef === 1;
-      const item = estoqueId ? estoque.find((x) => x.id === estoqueId) : undefined;
-      if (item && local) {
+      for (const [estoqueId, q] of local ? quantidadesPorEstoque(p, estoqueDe) : []) {
+        const item = estoque.find((x) => x.id === estoqueId);
+        if (!item || !local) continue;
         const atual = qtdEm(item.quantidades, local);
-        updateProduto(item.id, { quantidades: { ...item.quantidades, [local]: Math.max(0, atual - ef * p.quantidade) } });
+        updateProduto(item.id, { quantidades: { ...item.quantidades, [local]: Math.max(0, atual - ef * q) } });
       }
     }
     setPedidoStatus(id, status, extra);

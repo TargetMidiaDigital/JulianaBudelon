@@ -150,7 +150,7 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
         <Param rotulo="Oferecer um horário a cada" dica="Ex.: 60 = 09:00, 10:00, 11:00…" unidade="min">
           <input disabled={ro} type="number" min={5} step={5} value={Number.isNaN(c.intervaloMin) ? "" : c.intervaloMin} onChange={(e) => mudar({ intervaloMin: num(e.target.value) })} style={css(campo("width:90px;"))} />
         </Param>
-        <Param rotulo="Máximo por pedido" dica="Quantas unidades do produto o cliente pode pedir de uma vez." unidade="unid.">
+        <Param rotulo="Máximo de cada produto" dica="Quantas unidades de um mesmo produto o cliente pode pôr no pedido." unidade="unid.">
           <input disabled={ro} type="number" min={1} value={Number.isNaN(c.maxPorPedido) ? "" : c.maxPorPedido} onChange={(e) => mudar({ maxPorPedido: num(e.target.value) })} style={css(campo("width:90px;"))} />
         </Param>
       </Cartao>

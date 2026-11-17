@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { BRAND } from "@/lib/theme";
-import { catalogoPorCategoria, categoriaAtiva, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
+import { catalogoPorCategoria, categoriaAtiva, pedidoTemProduto, reduzirFoto, useEncomendas, type Categoria, type ProdutoEncomenda } from "@/lib/encomendas";
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
@@ -178,7 +178,7 @@ function ProdutoForm({ produto, categoriaInicial, onClose, onSalvar }: { produto
     finally { setEnviando(false); if (fileRef.current) fileRef.current.value = ""; }
   };
   const catAtual = categorias.find((c) => c.id === f.categoriaId);
-  const emPedidos = produto ? pedidos.filter((p) => p.produtoId === produto.id).length : 0;
+  const emPedidos = produto ? pedidos.filter((p) => pedidoTemProduto(p, produto.id)).length : 0;
   const campo = "width:100%; box-sizing:border-box; border:1px solid #E2E3E9; border-radius:9px; padding:9px 11px; font-size:13.5px; outline:none; font-family:inherit; margin-top:5px; background:#fff;";
   const rot = "display:block; font-size:12.5px; font-weight:700; color:#5B6472;";
 

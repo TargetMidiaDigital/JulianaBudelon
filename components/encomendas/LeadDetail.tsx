@@ -13,7 +13,7 @@ import { LinkWhatsapp } from "../ui/BotaoWhatsapp";
 import { LinkPedidoCliente } from "./LinkAcompanhamento";
 import { useApp } from "../store";
 import {
-  LEAD_STATUS, corLead, corPedido, dataBR, enderecoLinha, linkWhatsapp, numeroPedido, useEncomendas,
+  LEAD_STATUS, corLead, corPedido, dataBR, enderecoLinha, itensDoPedido, linkWhatsapp, numeroPedido, resumoItensCurto, useEncomendas,
   type LeadStatus, type PedidoStatus,
 } from "@/lib/encomendas";
 
@@ -96,15 +96,15 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
             {meus.length === 0 && <div style={css("font-size:13px; color:#B6BAC4; background:#fff; border:1px solid #ECEDF1; border-radius:12px; padding:14px;")}>Nenhum pedido ainda.</div>}
             <div style={css("display:flex; flex-direction:column; gap:8px;")}>
               {meus.map((p) => {
-                const prod = produtoDe(p.produtoId);
-                const nomeProd = prod?.nome ?? p.produtoNome ?? "Produto removido";
+                const itens = itensDoPedido(p);
+                const prod = produtoDe(itens[0].produtoId);
                 const ab = aberto === p.id;
                 return (
                   <div key={p.id} style={css(`background:#fff; border:1px solid #ECEDF1; border-left:4px solid ${corPedido(p.status)}; border-radius:12px; overflow:hidden;`)}>
                     <Hoverable onClick={() => setAberto(ab ? null : p.id)} s={css("display:flex; align-items:center; gap:12px; padding:10px 12px; cursor:pointer;")} hover="background:#FAFAFB">
                       <span style={css("width:44px; height:44px; border-radius:10px; overflow:hidden; flex:none;")}><Foto src={prod?.foto ?? null} alt="" proporcao="1/1" cortar miniatura /></span>
                       <div style={css("flex:1; min-width:0;")}>
-                        <div style={css("font-size:13.5px; font-weight:800; line-height:1.3;")}>{p.quantidade}× {nomeProd}</div>
+                        <div style={css("font-size:13.5px; font-weight:800; line-height:1.3;")}>{resumoItensCurto(itens)}</div>
                         <div style={css("font-size:12px; color:#7A8090; margin-top:2px;")}>{p.tipo} · {dataBR(p.data)} às {p.hora} · #{numeroPedido(p.id)}</div>
                       </div>
                       <div style={css("text-align:right; flex:none;")}>
@@ -120,8 +120,16 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
                             {p.status !== "Verificar pagamento" && <span style={css("font-size:11.5px; color:#9398A6; font-weight:600;")}>muda sozinho pela Produção e pela loja</span>}
                           </span>
                         } />
-                        <Linha k="Itens" v={`${p.quantidade}× ${nomeProd} (${brl(p.subtotal / p.quantidade)} cada)`} />
-                        {p.mensagem && <Linha k="Observação" v={p.mensagem} />}
+                        <Linha k={itens.length > 1 ? `Itens (${itens.length})` : "Itens"} v={
+                          <span style={css("display:flex; flex-direction:column; gap:6px;")}>
+                            {itens.map((i, k) => (
+                              <span key={k}>
+                                {i.quantidade}× {produtoDe(i.produtoId)?.nome ?? i.produtoNome} <span style={css("color:#7A8090; font-weight:600;")}>({brl(i.preco)} cada)</span>
+                                {i.mensagem && <span style={css("display:block; margin-top:2px; font-size:12px; color:#7A5512; background:#FFF8E6; border-radius:6px; padding:3px 7px;")}>Obs.: {i.mensagem}</span>}
+                              </span>
+                            ))}
+                          </span>
+                        } />
                         <Linha k="Subtotal" v={brl(p.subtotal)} />
                         {p.taxa > 0 && <Linha k="Taxa de entrega" v={brl(p.taxa)} />}
                         <Linha k="Total" v={brl(p.total)} />
