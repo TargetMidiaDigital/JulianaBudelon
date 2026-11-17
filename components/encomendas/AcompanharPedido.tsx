@@ -5,7 +5,7 @@ import { css } from "@/lib/css";
 import { brl } from "@/lib/format";
 import { Svg } from "../ui/Svg";
 import { Foto } from "./FunilEncomenda";
-import { buscarAcompanhamento, dataBR, etapasCliente, linkWhatsapp, ordemPedido, type Acompanhamento } from "@/lib/encomendas";
+import { buscarAcompanhamento, dataBR, etapasCliente, ordemPedido, type Acompanhamento } from "@/lib/encomendas";
 
 /**
  * Acompanhamento do pedido pelo cliente (/pedido/[id]), no estilo dos apps de delivery:
@@ -97,7 +97,6 @@ function Conteudo({ p, atualizado, onAtualizar }: { p: Acompanhamento; atualizad
   const fim = p.status === "Entregue";
   const pronto = p.status === "Pronto para retirada";
   const destaque = fim ? VERDE : pronto ? "#7C3AED" : COR;
-  const zap = linkWhatsapp(p.whatsappLoja, `Oi! Quero falar sobre o meu pedido #${p.numero}.`);
   const mapa = p.unidade?.endereco ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.unidade.endereco}`)}` : null;
 
   return (
@@ -192,12 +191,6 @@ function Conteudo({ p, atualizado, onAtualizar }: { p: Acompanhamento; atualizad
           </section>
         )}
 
-        {zap && (
-          <a href={zap} target="_blank" rel="noopener noreferrer" style={css("display:flex; align-items:center; justify-content:center; gap:9px; background:#25D366; color:#fff; border-radius:999px; padding:15px; font-size:16px; font-weight:800; text-decoration:none;")}>
-            <Svg size={20} sw={2}><path d="M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z" /><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.3-1.8-1-1 .8a4 4 0 0 1-2.2-2.2l.8-1-1-1.8z" /></Svg>
-            Falar com a loja
-          </a>
-        )}
         <button onClick={onAtualizar} style={css(`align-self:center; border:none; background:transparent; color:${FRACA}; font-size:13px; font-weight:600; cursor:pointer; padding:6px;`)}>
           {atualizado ? `Atualizado às ${atualizado.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · toque para atualizar` : "Atualizar"}
         </button>
