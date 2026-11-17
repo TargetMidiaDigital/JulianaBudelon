@@ -756,7 +756,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const exped = tarefasPorUnidadeDaOrdem(novo, produtos, currentUser, "expedicao");
       const receb = tarefasPorUnidadeDaOrdem(novo, produtos, currentUser, "unidade");
       const tarefas = [...prod, ...exped, ...receb];
-      if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção, ${exped.length} de expedição e ${receb.length} de recebimento nas unidades`));
+      if (tarefas.length) novo.historico!.push(logComentario(currentUser, `gerou ${prod.length} ${prod.length === 1 ? "tarefa" : "tarefas"} de produção, ${exped.length} de expedição e ${receb.length} de recebimento nas lojas`));
       patchDb((d) => ({ pedidos: [novo, ...d.pedidos], tasks: [...tarefas, ...d.tasks] }));
       // A ordem precisa existir ANTES das tarefas (FK tarefas.pedido_id): grava a ordem, espera,
       // e só então as tarefas. Uma tarefa que falhar é tentada mais uma vez antes de desistir.
@@ -973,7 +973,7 @@ function buildProdutoLogs(old: Produto, patch: Partial<Produto>, user: TeamMembe
   if (patch.quantidades) {
     for (const l of LOCAIS_ESTOQUE) {
       const de = qtdEm(old.quantidades, l.id), para = qtdEm(patch.quantidades, l.id);
-      if (de !== para) parts.push(`atualizou a quantidade de ${de} para ${para} na unidade ${l.label}`);
+      if (de !== para) parts.push(`atualizou a quantidade de ${de} para ${para} em ${l.label}`);
     }
   }
   return parts.map((msg) => logComentario(user, msg));
@@ -1043,7 +1043,7 @@ function aplicarEstoqueLocal(d: Db, t: Task, de: TaskStatus, para: TaskStatus, d
       const q = linhas.filter((l) => l.produtoId === p.id).reduce((s, l) => s + qtdEfetiva(l), 0);
       if (q <= 0) return p;
       const atual = qtdEm(p.quantidades, "fabrica"), novo = Math.max(0, atual + sinal * q);
-      const log: Comentario = { id: crypto.randomUUID(), message: `Sistema ${sinal > 0 ? "somou" : "estornou"} ${q} un. na unidade Fábrica (${atual} → ${novo}) — tarefa "${t.titulo}" ${sinal > 0 ? "concluída" : "reaberta"}`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
+      const log: Comentario = { id: crypto.randomUUID(), message: `Sistema ${sinal > 0 ? "somou" : "estornou"} ${q} un. na Fábrica (${atual} → ${novo}) — tarefa "${t.titulo}" ${sinal > 0 ? "concluída" : "reaberta"}`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" };
       return { ...p, quantidades: { ...p.quantidades, fabrica: novo }, atualizada: new Date().toISOString(), historico: demo ? [...(p.historico ?? []), log] : p.historico };
     }),
   };
@@ -1146,7 +1146,7 @@ function buildPedidoLogs(old: Pedido, patch: Partial<Pedido>, user: TeamMember, 
     const ids = new Set([...Object.keys(old.itens), ...Object.keys(patch.itens)]);
     for (const pid of ids) for (const l of LOCAIS_ESTOQUE) {
       const de = itemQtd(old.itens, pid, l.id), para = itemQtd(patch.itens, pid, l.id);
-      if (de !== para) parts.push(`alterou ${nomeProduto(produtos, pid)} na unidade ${l.label} de ${de} para ${para}`);
+      if (de !== para) parts.push(`alterou ${nomeProduto(produtos, pid)} em ${l.label} de ${de} para ${para}`);
     }
   }
   return parts.map((msg) => logComentario(user, msg));

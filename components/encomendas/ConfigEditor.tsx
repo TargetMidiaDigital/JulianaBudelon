@@ -87,11 +87,11 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
 
       <OrdemCategorias editavel={editavel} />
 
-      <Cartao titulo="Retirada na loja" sub="Unidades onde o cliente pode buscar o pedido" icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>}
+      <Cartao titulo="Retirada na loja" sub="Lojas onde o cliente pode buscar o pedido" icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>}
         direita={<Chave ligado={c.retiradaAtiva} onChange={(v) => !ro && mudar({ retiradaAtiva: v })} />}>
         {!c.retiradaAtiva && <div style={css("font-size:12.5px; color:#9398A6; font-style:italic; margin-bottom:8px;")}>Retirada desligada — o cliente só vê a opção de entrega.</div>}
         <div style={css(`display:flex; flex-direction:column; gap:8px; opacity:${c.retiradaAtiva ? 1 : 0.55};`)}>
-          {c.unidades.length === 0 && <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma unidade cadastrada.</div>}
+          {c.unidades.length === 0 && <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma loja cadastrada.</div>}
           {c.unidades.map((u) => {
             const aberta = abertaUnidade === u.id;
             return (
@@ -104,7 +104,7 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
                   <span style={css("display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#7A8090; margin-right:auto;")}>
                     <Chave ligado={u.ativo} onChange={(v) => !ro && mudarUnidade(u.id, { ativo: v })} />{u.ativo ? "Ativa" : "Inativa"}
                   </span>
-                  {!ro && <Lixeira titulo="Remover unidade" onClick={() => mudar({ unidades: c.unidades.filter((x) => x.id !== u.id) })} />}
+                  {!ro && <Lixeira titulo="Remover loja" onClick={() => mudar({ unidades: c.unidades.filter((x) => x.id !== u.id) })} />}
                 </div>
                 <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; padding-left:2px;")}>
                   <Svg size={14} stroke={u.horarios ? BRAND : "#9398A6"} sw={2} style={css("flex:none;")}><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>

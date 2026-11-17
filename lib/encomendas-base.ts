@@ -315,15 +315,15 @@ export const textoPreparo = (dias?: number) => (dias && dias > 0 ? `${dias} dia$
 /** Problemas que impedem salvar a configuração (mensagens para a tela). */
 export function validarConfig(c: ConfigEncomendas): string | null {
   if (!c.retiradaAtiva && !c.entregaAtiva) return "Ligue pelo menos uma forma de receber: retirada ou entrega.";
-  if (c.retiradaAtiva && !c.unidades.some((u) => u.ativo && u.nome.trim())) return "A retirada está ligada, mas não há nenhuma unidade ativa. Adicione uma unidade ou desligue a retirada.";
-  if (c.unidades.some((u) => !u.nome.trim())) return "Toda unidade precisa de um nome.";
+  if (c.retiradaAtiva && !c.unidades.some((u) => u.ativo && u.nome.trim())) return "A retirada está ligada, mas não há nenhuma loja ativa. Adicione uma loja ou desligue a retirada.";
+  if (c.unidades.some((u) => !u.nome.trim())) return "Toda loja precisa de um nome.";
   for (const u of c.unidades) {
     if (!u.horarios) continue;
     for (const d of DIAS) {
       const j = u.horarios[d.key];
-      if (j?.ativo && j.intervalos.some((b) => paraMin(b.fim) <= paraMin(b.inicio))) return `Horário inválido em ${u.nome || "uma unidade"} (${d.label.toLowerCase()}): o fim precisa ser depois do início.`;
+      if (j?.ativo && j.intervalos.some((b) => paraMin(b.fim) <= paraMin(b.inicio))) return `Horário inválido em ${u.nome || "uma loja"} (${d.label.toLowerCase()}): o fim precisa ser depois do início.`;
     }
-    if (u.ativo && !DIAS.some((d) => horariosDaJanela(u.horarios![d.key], c.intervaloMin, false).length)) return `${u.nome || "Uma unidade"} está ativa mas sem nenhum dia aberto no horário de funcionamento.`;
+    if (u.ativo && !DIAS.some((d) => horariosDaJanela(u.horarios![d.key], c.intervaloMin, false).length)) return `${u.nome || "Uma loja"} está ativa mas sem nenhum dia aberto no horário de funcionamento.`;
   }
   if (c.entregaAtiva && !(c.taxaEntrega >= 0)) return "A taxa de entrega não pode ser negativa.";
   if (!(c.maxPorPedido >= 1)) return "O máximo por pedido precisa ser pelo menos 1.";

@@ -162,7 +162,7 @@ export const CATALOGO_VAGAS: CargoCatalogo[] = [
     titulo: "Atendente de Cafeteria",
     descricao: "Demonstração, preparo e venda de produtos (doces, salgados e cafés); organização e limpeza do local de trabalho; foco na experiência do cliente e nas metas da loja.\nPeríodo integral, escala 6x1, CLT efetivo. Loja Coqueiros (R. Vinte e Três de Março, 57 – Itaguaçu, Florianópolis): disponibilidade das 12h30 às 20h30; salário R$ 2.150,00 (após 90 dias R$ 2.300,00) + Auxílio Refeição + Auxílio Mobilidade.",
     requisitos: "Ensino médio completo\nExperiência com atendimento ao cliente\nComunicativo(a) e proativo(a)\nDisponibilidade para período integral em escala 6x1 (Coqueiros: 12h30 às 20h30)",
-    diferenciais: "Experiência em cafeteria, confeitaria ou restaurante\nCurso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da unidade",
+    diferenciais: "Experiência em cafeteria, confeitaria ou restaurante\nCurso ou experiência de barista\nExperiência com operação de caixa / PDV\nMorar perto da loja",
   },
   {
     titulo: "Líder de Produção",

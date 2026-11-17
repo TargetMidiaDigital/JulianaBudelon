@@ -45,7 +45,7 @@ const descText = (h?: string) => (h ?? "").replace(/<[^>]*>/g, " ").replace(/&nb
 
 export const GROUP_OPTS: { key: ListGroupBy; label: string }[] = [
   { key: "status", label: "Status" },
-  { key: "unidade", label: "Unidade" },
+  { key: "unidade", label: "Loja" },
   { key: "produto", label: "Produto" }, // só em Produção (ver gruposDaPagina)
   { key: "responsavel", label: "Responsável" },
   { key: "prioridade", label: "Prioridade" },
@@ -159,7 +159,7 @@ export default function ListaView({
     // travada só não tem emenda por onde o conteúdo das outras colunas aparece ao rolar).
     { id: "tarefa", label: "Tarefa", key: "titulo", resize: "tarefa", w: `${tarefaW}px`, min: tarefaW },
     { id: "resp", label: "Resp.", key: "resp", w: "70px", min: 70 },
-    { id: "unidade", label: "Unidade", key: "unidade", w: "132px", min: 132 },
+    { id: "unidade", label: "Loja", key: "unidade", w: "132px", min: 132 },
     { id: "prio", label: "Prioridade", key: "prio", w: "130px", min: 130 },
     { id: "status", label: "Status", key: "status", w: "184px", min: 184 },
     { id: "descricao", label: "Descrição", resize: "descricao", w: `${colW.descricao}px`, min: colW.descricao },
@@ -260,7 +260,7 @@ export default function ListaView({
       return { key: l.id, label: l.label, dot: cor, bg: cor + "1A", fg: cor, tasks: ts.filter((t) => t.local === l.id) };
     });
     const sem = ts.filter((t) => !t.local || !locais.some((l) => l.id === t.local));
-    if (sem.length) groups.push({ key: "sem-unidade", label: "Sem unidade", dot: "#9398A6", bg: "#EFF0F4", fg: "#5B6472", tasks: sem });
+    if (sem.length) groups.push({ key: "sem-unidade", label: "Sem loja", dot: "#9398A6", bg: "#EFF0F4", fg: "#5B6472", tasks: sem });
   } else if (listGroupBy === "responsavel") {
     groups = team.map((g) => ({
       key: g.id, label: g.nome, dot: g.cor, bg: g.cor + "1A", fg: g.cor,

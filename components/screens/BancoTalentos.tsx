@@ -22,7 +22,7 @@ type SortKey = "criada" | "qualidade" | "unidade" | "nome" | "status" | "vaga" |
 const COLS: { label: string; key?: SortKey }[] = [
   { label: "Data criada", key: "criada" },
   { label: "Qualidade", key: "qualidade" },
-  { label: "Unidade", key: "unidade" },
+  { label: "Loja", key: "unidade" },
   { label: "Nome", key: "nome" },
   { label: "WhatsApp" },
   { label: "Status", key: "status" },
@@ -134,7 +134,7 @@ export default function BancoTalentos() {
   const daUnidade = (t: Talento, u: string) => !u || (u === SEM_UNIDADE ? !unidadeDe(t.unidadeId) : t.unidadeId === u);
   const semUnidade = base.filter((t) => matchFiltro(t, filtro));
   const visiveis = semUnidade.filter((t) => daUnidade(t, unidadeF));
-  // Unidades no filtro: as cadastradas (ativas ou com candidato) e "Sem unidade" se houver alguém sem.
+  // Unidades no filtro: as cadastradas (ativas ou com candidato) e "Sem loja" se houver alguém sem.
   const unidadesFiltro = unidades.filter((u) => u.ativa !== false || talentos.some((t) => t.unidadeId === u.id))
     .sort((a, b) => unidadeLabel(a).localeCompare(unidadeLabel(b), "pt"));
   const temSemUnidade = semUnidade.some((t) => !unidadeDe(t.unidadeId));
@@ -249,15 +249,15 @@ export default function BancoTalentos() {
           <Svg size={17} sw={2.2}><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></Svg>
         </Hoverable>
         <Menu align="right" width={250} trigger={(toggle) => (
-          <Hoverable as="button" onClick={toggle} title="Filtrar por unidade" s={css(`display:inline-flex; align-items:center; gap:8px; background:${unidadeF ? "#FDF1F4" : "#fff"}; border:1px solid ${unidadeF ? ACCENT : "#E2E3E9"}; color:${unidadeF ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:13px; font-weight:700; padding:9px 14px; border-radius:10px; max-width:100%;`)} hover={unidadeF ? undefined : "background:#FAFAFB"}>
+          <Hoverable as="button" onClick={toggle} title="Filtrar por loja" s={css(`display:inline-flex; align-items:center; gap:8px; background:${unidadeF ? "#FDF1F4" : "#fff"}; border:1px solid ${unidadeF ? ACCENT : "#E2E3E9"}; color:${unidadeF ? ACCENT : "#3A3F4C"}; cursor:pointer; font-size:13px; font-weight:700; padding:9px 14px; border-radius:10px; max-width:100%;`)} hover={unidadeF ? undefined : "background:#FAFAFB"}>
             <Svg size={15} sw={2.2} style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>
-            <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{!unidadeF ? "Todas as unidades" : unidadeF === SEM_UNIDADE ? "Sem unidade" : unidadeLabel(unidadeDe(unidadeF))}</span>
+            <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{!unidadeF ? "Todas as lojas" : unidadeF === SEM_UNIDADE ? "Sem loja" : unidadeLabel(unidadeDe(unidadeF))}</span>
             <Svg size={13} sw={2.4} stroke="#9398A6" style={css("flex:none;")}><path d="m6 9 6 6 6-6" /></Svg>
           </Hoverable>
         )}>
           {(close) => (
             <>
-              <MenuItem checked={!unidadeF} accent={ACCENT} onClick={() => { setUnidadeF(""); close(); }}><span style={{ flex: 1 }}>Todas as unidades</span><span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.length}</span></MenuItem>
+              <MenuItem checked={!unidadeF} accent={ACCENT} onClick={() => { setUnidadeF(""); close(); }}><span style={{ flex: 1 }}>Todas as lojas</span><span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.length}</span></MenuItem>
               {unidadesFiltro.map((u) => (
                 <MenuItem key={u.id} checked={unidadeF === u.id} accent={ACCENT} onClick={() => { setUnidadeF(u.id); close(); }}>
                   <span style={{ flex: 1 }}>{unidadeLabel(u)}</span>
@@ -266,7 +266,7 @@ export default function BancoTalentos() {
               ))}
               {(temSemUnidade || unidadeF === SEM_UNIDADE) && (
                 <MenuItem checked={unidadeF === SEM_UNIDADE} accent={ACCENT} onClick={() => { setUnidadeF(SEM_UNIDADE); close(); }}>
-                  <span style={{ flex: 1, color: "#7A8090" }}>Sem unidade</span>
+                  <span style={{ flex: 1, color: "#7A8090" }}>Sem loja</span>
                   <span style={css("font-size:12px; color:#9398A6;")}>{semUnidade.filter((t) => !unidadeDe(t.unidadeId)).length}</span>
                 </MenuItem>
               )}

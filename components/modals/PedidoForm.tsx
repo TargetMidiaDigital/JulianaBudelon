@@ -68,8 +68,8 @@ export default function PedidoForm({ open, onClose, onCriada }: { open: boolean;
           </div>
           <div>
             <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:10px;")}>
-              <span style={css("font-size:13.5px; font-weight:800;")}>Quantidade por unidade</span>
-              <span style={css("font-size:12.5px; color:#9398A6; font-weight:600;")}>Preencha o que cada unidade precisa receber. Em branco = 0.</span>
+              <span style={css("font-size:13.5px; font-weight:800;")}>Quantidade por loja</span>
+              <span style={css("font-size:12.5px; color:#9398A6; font-weight:600;")}>Preencha o que cada loja precisa receber. Em branco = 0.</span>
             </div>
             <MatrizPedido produtos={produtos} itens={itens} onChange={setItens} editavel busca={busca} />
           </div>

@@ -228,13 +228,13 @@ export default function LojaEncomendas() {
             {loja
               ? <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDoLocal(loja)};`)} />
               : <Svg size={15} sw={2.2}><path d="M3 9.5 4.5 4h15L21 9.5M3 9.5h18M3 9.5V20h18V9.5M9 20v-5h6v5" /></Svg>}
-            {loja ? LOCAIS_ESTOQUE.find((x) => x.id === loja)?.label ?? loja : "Todas as unidades"}
+            {loja ? LOCAIS_ESTOQUE.find((x) => x.id === loja)?.label ?? loja : "Todas as lojas"}
             <Svg size={13} sw={2.4} stroke="#9398A6"><path d="m6 9 6 6 6-6" /></Svg>
           </Hoverable>
         )}>
           {(close) => (
             <>
-              <MenuItem checked={!loja} accent={ACCENT} onClick={() => { setLoja(""); close(); }}><span style={{ flex: 1 }}>Todas as unidades</span><span style={css("font-size:12px; color:#9398A6;")}>{itensDaAba.length}</span></MenuItem>
+              <MenuItem checked={!loja} accent={ACCENT} onClick={() => { setLoja(""); close(); }}><span style={{ flex: 1 }}>Todas as lojas</span><span style={css("font-size:12px; color:#9398A6;")}>{itensDaAba.length}</span></MenuItem>
               {unidades.map((u) => (
                 <MenuItem key={u.id} checked={loja === u.id} accent={ACCENT} onClick={() => { setLoja(u.id); close(); }}>
                   <span style={css(`width:9px; height:9px; border-radius:50%; background:${corDoLocal(u.id)};`)} /><span style={{ flex: 1 }}>{u.label}</span>

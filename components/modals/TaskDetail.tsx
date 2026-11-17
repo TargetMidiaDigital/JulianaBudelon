@@ -107,7 +107,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                 <EditableTitle fill value={t.titulo} onSave={(v) => updateTask(t.id, { titulo: v })} textStyle="margin:0; font-size:21px; font-weight:800; letter-spacing:-0.4px;" pencilSize={15} />
               </div>
               {ehExpedicao(t) && (
-                <Hoverable as="button" onClick={gerarRomaneio} title="Documento para imprimir e levar com os produtos para a unidade" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:9px;")} hover="background:#FAFAFB">
+                <Hoverable as="button" onClick={gerarRomaneio} title="Documento para imprimir e levar com os produtos para a loja" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:9px;")} hover="background:#FAFAFB">
                   <Svg size={14} sw={2.2}><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></Svg>
                   Romaneio
                 </Hoverable>
@@ -150,7 +150,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                   <span style={css("display:inline-flex; align-items:center; gap:8px; padding:4px 9px 4px 4px;")}><Avatar ini={g.ini} cor={g.cor} src={g.foto} size={24} fontSize={10.5} /><span style={css("font-size:13.5px; font-weight:600;")}>{g.nome}</span></span>
                 )}
               </Row>
-              {t.local && <Row label="Unidade"><UnidadePill local={t.local} /></Row>}
+              {t.local && <Row label="Loja"><UnidadePill local={t.local} /></Row>}
               <Row label="Tipo">
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />
               </Row>

@@ -47,17 +47,17 @@ export function htmlRelatorioEstoque(opts: { produtos: Produto[]; empresa: strin
     th:first-child,td:first-child{width:${LOCS.length <= 2 ? 50 : LOCS.length <= 4 ? 40 : 30}%}
     @page{size:${LOCS.length <= 3 ? "A4" : "A4 landscape"};margin:10mm} @media print{body{padding:0}}
   </style></head><body>
-    <div class="top">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>Relatório de estoque</h1><div class="sub">${esc(empresa)} · ${LOCS.length === LOCAIS_ESTOQUE.length ? "todas as unidades" : esc(LOCS.map((l) => l.label).join(", "))}</div></div>
+    <div class="top">${logo ? `<img src="${esc(logo)}" alt="">` : ""}<div><h1>Relatório de estoque</h1><div class="sub">${esc(empresa)} · ${LOCS.length === LOCAIS_ESTOQUE.length ? "todas as lojas" : esc(LOCS.map((l) => l.label).join(", "))}</div></div>
       <div class="em">emitido em<br><b>${emitido}</b></div></div>
     <div class="res">
       <div><span>Produtos</span><b>${produtos.length}</b></div>
-      <div><span>${LOCS.length === LOCAIS_ESTOQUE.length ? "Total em estoque" : "Total nas unidades"}</span><b>${totalGeral} un.</b></div>
+      <div><span>${LOCS.length === LOCAIS_ESTOQUE.length ? "Total em estoque" : "Total nas lojas"}</span><b>${totalGeral} un.</b></div>
       ${LOCS.map((l, i) => `<div><span>${esc(l.label)}</span><b>${geral[i]}</b></div>`).join("")}
       ${filtro ? `<div><span>Filtro</span><b style="font-size:12px">${esc(filtro)}</b></div>` : ""}
     </div>
     <table><thead><tr><th>Produto</th>${LOCS.map((l) => `<th>${esc(l.label)}</th>`).join("")}<th>Total</th></tr></thead>
       <tbody>${corpo}<tr class="geral"><td>TOTAL GERAL</td>${geral.map((n) => `<td class="n">${n}</td>`).join("")}<td class="n">${totalGeral}</td></tr></tbody></table>
-    <div class="rod"><span>${esc(empresa)} · relatório de estoque</span><span>“–” = sem estoque na unidade</span></div>
+    <div class="rod"><span>${esc(empresa)} · relatório de estoque</span><span>“–” = sem estoque na loja</span></div>
     <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
   </body></html>`;
 }

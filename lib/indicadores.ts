@@ -151,12 +151,12 @@ export function serieTemporal(ps: Pedido[], produtos: Produto[], f: Filtros, ago
 }
 
 /** Tarefas por status, separadas em produção × expedição. */
-export type StatusSetor = { setor: "Produção" | "Expedição" | "Unidades"; total: number; concluidas: number } & Record<TaskStatus, number>;
+export type StatusSetor = { setor: "Produção" | "Expedição" | "Lojas"; total: number; concluidas: number } & Record<TaskStatus, number>;
 export function statusPorSetor(ts: Task[]): StatusSetor[] {
   const zero = (): Record<TaskStatus, number> => ({ verificar: 0, "em andamento": 0, atrasada: 0, concluida: 0, validada: 0 });
   const prod = { setor: "Produção" as const, total: 0, concluidas: 0, ...zero() };
   const exp = { setor: "Expedição" as const, total: 0, concluidas: 0, ...zero() };
-  const uni = { setor: "Unidades" as const, total: 0, concluidas: 0, ...zero() };
+  const uni = { setor: "Lojas" as const, total: 0, concluidas: 0, ...zero() };
   for (const t of ts) {
     const alvo = ehExpedicao(t) ? exp : ehUnidade(t) ? uni : prod;
     alvo[t.status] += 1; alvo.total += 1; if (feita(t.status)) alvo.concluidas += 1;

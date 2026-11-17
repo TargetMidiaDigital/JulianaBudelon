@@ -33,13 +33,13 @@ export default function FiltroTarefas() {
 
   const soLojas = pageSemProducao(screen);
   const optsLocal: FiltroOpt[] = [
-    { id: "", label: "Todas as unidades", cor: "#9398A6" },
+    { id: "", label: "Todas as lojas", cor: "#9398A6" },
     ...LOCAIS_ESTOQUE.filter((l) => !soLojas || l.id !== "fabrica").map((l) => ({ id: l.id, label: l.label, cor: corDoLocal(l.id) })),
   ];
 
   const tipos: FiltroTipo[] = [
     ...(ownScopeOnly ? [] : [{ key: "responsavel", label: "Responsável", opts: optsResp, value: globalGestor, vazio: "todos", set: setGlobalGestor }]),
-    { key: "unidade", label: "Unidade", opts: optsLocal, value: globalLocal, vazio: "", set: setGlobalLocal },
+    { key: "unidade", label: "Loja", opts: optsLocal, value: globalLocal, vazio: "", set: setGlobalLocal },
     { key: "status", label: "Status", opts: optsStatus, value: globalStatus, vazio: "", set: setGlobalStatus },
     { key: "prioridade", label: "Prioridade", opts: optsPrio, value: globalPrio, vazio: "", set: setGlobalPrio },
   ];

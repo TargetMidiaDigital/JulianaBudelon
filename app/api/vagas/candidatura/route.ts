@@ -94,9 +94,9 @@ export async function POST(req: Request) {
   const vaga = vagaDe(vr as VagaRow);
   if (!vaga.ativa) return NextResponse.json({ error: "Esta vaga não está mais aberta." }, { status: 409 });
   const { data: ur } = await sb.from("unidade").select("*").eq("id", vaga.unidadeId).maybeSingle();
-  if (!ur) return NextResponse.json({ error: "Unidade não encontrada." }, { status: 409 });
+  if (!ur) return NextResponse.json({ error: "Loja não encontrada." }, { status: 409 });
   const unidade = unidadeDe(ur as UnidadeRow);
-  if (!unidade.ativa) return NextResponse.json({ error: "Esta unidade não está recebendo candidaturas." }, { status: 409 });
+  if (!unidade.ativa) return NextResponse.json({ error: "Esta loja não está recebendo candidaturas." }, { status: 409 });
 
   const fone = normalizarWhatsapp(whatsapp);
   const agora = new Date().toISOString();
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     const vagaAntes = String(existente.vaga ?? "");
     if (nomeAntes && nomeAntes !== nome) mudancas.push(`nome: "${nomeAntes}" → "${nome}"`);
     if (vagaAntes !== vaga.titulo) mudancas.push(`vaga: ${vagaAntes || "—"} → ${vaga.titulo}`);
-    if (String(existente.unidade_id ?? "") !== unidade.id) mudancas.push(`unidade → ${unidadeLabel(unidade)}`);
+    if (String(existente.unidade_id ?? "") !== unidade.id) mudancas.push(`loja → ${unidadeLabel(unidade)}`);
     if (String(existente.turno ?? "") !== String(vaga.turno || "")) mudancas.push(`turno → ${vaga.turno || "sem turno"}`);
     // Não rebaixa o funil: quem está em "Reunião agendada" continua lá. Só o arquivo volta para "Novo".
     const statusAntes = String(existente.status ?? "novo");

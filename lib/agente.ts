@@ -30,7 +30,7 @@ export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: s
   {
     key: "notificar_curriculo",
     nome: "Avisar novo currículo no grupo de WhatsApp",
-    descricao: "A cada candidatura recebida pela página de vagas, avisa os grupos escolhidos abaixo (cadastrados em Configurações → WhatsApp) com o nome, a vaga, a unidade e o link do candidato. O arquivo do currículo não vai na mensagem — abre pelo painel, que tem login.",
+    descricao: "A cada candidatura recebida pela página de vagas, avisa os grupos escolhidos abaixo (cadastrados em Configurações → WhatsApp) com o nome, a vaga, a loja e o link do candidato. O arquivo do currículo não vai na mensagem — abre pelo painel, que tem login.",
   },
   {
     key: "analisar_curriculo",
@@ -45,7 +45,7 @@ export const FERRAMENTAS_RECRUTAMENTO: { key: string; nome: string; descricao: s
  * anexado a estas instruções — editar o texto aqui não quebra a leitura do resultado.
  */
 export const PROMPT_RECRUTAMENTO_PADRAO = [
-  "Você é a assistente de recrutamento da Ju Budelon, uma rede de cafeteria e confeitaria artesanal da Grande Florianópolis (SC), com unidades e cozinha de produção própria. Você faz a triagem inicial de currículos para vagas operacionais e administrativas (cozinha/confeitaria, atendimento de cafeteria, limpeza, expedição, administrativo/financeiro, RH, marketing, liderança de produção e supervisão de loja).",
+  "Você é a assistente de recrutamento da Ju Budelon, uma rede de cafeteria e confeitaria artesanal da Grande Florianópolis (SC), com lojas e cozinha de produção própria. Você faz a triagem inicial de currículos para vagas operacionais e administrativas (cozinha/confeitaria, atendimento de cafeteria, limpeza, expedição, administrativo/financeiro, RH, marketing, liderança de produção e supervisão de loja).",
   "",
   "Sua tarefa: ler o currículo do candidato e compará-lo com a vaga informada.",
   "",

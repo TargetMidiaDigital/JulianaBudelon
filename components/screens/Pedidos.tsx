@@ -84,7 +84,7 @@ export default function Pedidos() {
     { id: "itens", label: "Itens", key: "itens" },
     { id: "tarefas", label: "Produção", center: true }, // tarefas de produção concluídas / total
     { id: "exped", label: "Expedição", center: true }, // tarefas de expedição concluídas / total
-    { id: "receb", label: "Unidades", center: true }, // conferências das lojas concluídas / total
+    { id: "receb", label: "Lojas", center: true }, // conferências das lojas concluídas / total
     ...LOCAIS_ESTOQUE.map((l) => ({ id: l.id, label: l.label, center: true })),
     { id: "entrega", label: "Entrega", key: "entrega" },
     { id: "autor", label: "Por", center: true },
@@ -115,7 +115,7 @@ export default function Pedidos() {
           Entrega <strong style={css(`color:${late ? "#CC3338" : "#1B1B28"};`)}>{p.entrega ?? "—"}</strong> · {produtosNoPedido(p.itens)} prod. · <strong style={css("color:#1B1B28;")}>{totalPedido(p.itens)} un.</strong>
         </div>
         <div style={css("display:flex; flex-wrap:wrap; gap:6px;")}>
-          {prog("Produção", daOrdem.filter(ehProducao))}{prog("Expedição", daOrdem.filter(ehExpedicao))}{prog("Unidades", daOrdem.filter(ehUnidade))}
+          {prog("Produção", daOrdem.filter(ehProducao))}{prog("Expedição", daOrdem.filter(ehExpedicao))}{prog("Lojas", daOrdem.filter(ehUnidade))}
         </div>
       </div>
     );
@@ -167,7 +167,7 @@ export default function Pedidos() {
         <span style={css("font-size:12.5px; color:#5B6472; font-weight:600; white-space:nowrap;")}>{produtosNoPedido(p.itens)} prod. · <strong style={css("color:#1B1B28;")}>{totalPedido(p.itens)} un.</strong></span>
         {progresso(tf, feitas, "produção")}
         {progresso(te, feitasE, "expedição")}
-        {progresso(tu, feitasU, "recebimento nas unidades")}
+        {progresso(tu, feitasU, "recebimento nas lojas")}
         {LOCAIS_ESTOQUE.map((l) => (
           <span key={l.id} style={css(`text-align:center; font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; color:${totais[l.id] ? "#1B1B28" : "#D5D8DF"};`)}>{totais[l.id]}</span>
         ))}
@@ -252,7 +252,7 @@ export default function Pedidos() {
           </span>
           <div style={css("font-size:15.5px; font-weight:800; color:#3A3F4C; letter-spacing:-0.2px;")}>{filtroStatus || pedidos.length ? "Nenhuma ordem nesta visão" : "Nenhuma ordem de serviço"}</div>
           <div style={css("font-size:13px; color:#9398A6; font-weight:600; max-width:360px; line-height:1.5;")}>
-            {filtroStatus || pedidos.length ? "Ajuste o filtro de status ou mostre as ordens validadas." : editavel ? "Use “Nova ordem” para montar o que cada unidade precisa receber." : "Quando houver ordens, elas aparecem aqui."}
+            {filtroStatus || pedidos.length ? "Ajuste o filtro de status ou mostre as ordens validadas." : editavel ? "Use “Nova ordem” para montar o que cada loja precisa receber." : "Quando houver ordens, elas aparecem aqui."}
           </div>
         </div>
       ) : (
@@ -307,7 +307,7 @@ export default function Pedidos() {
           danger
           titulo="Excluir ordem de serviço"
           confirmLabel="Excluir"
-          mensagem={(() => { const d = tasks.filter((t) => t.pedidoId === confirmDel.id); const np = d.filter(ehProducao).length, ne = d.filter(ehExpedicao).length, nu = d.filter(ehUnidade).length; return (<>Tem certeza que deseja excluir <strong style={css("color:#1B1B28;")}>{confirmDel.titulo}</strong>?{d.length > 0 && <> As <strong style={css("color:#1B1B28;")}>{np} {np === 1 ? "tarefa" : "tarefas"} de produção, {ne} de expedição e {nu} das unidades</strong> geradas por ela também serão excluídas.</>} Essa ação não pode ser desfeita.</>); })()}
+          mensagem={(() => { const d = tasks.filter((t) => t.pedidoId === confirmDel.id); const np = d.filter(ehProducao).length, ne = d.filter(ehExpedicao).length, nu = d.filter(ehUnidade).length; return (<>Tem certeza que deseja excluir <strong style={css("color:#1B1B28;")}>{confirmDel.titulo}</strong>?{d.length > 0 && <> As <strong style={css("color:#1B1B28;")}>{np} {np === 1 ? "tarefa" : "tarefas"} de produção, {ne} de expedição e {nu} das lojas</strong> geradas por ela também serão excluídas.</>} Essa ação não pode ser desfeita.</>); })()}
           onConfirm={() => { removePedido(confirmDel.id); setConfirmDel(null); }}
           onClose={() => setConfirmDel(null)}
         />

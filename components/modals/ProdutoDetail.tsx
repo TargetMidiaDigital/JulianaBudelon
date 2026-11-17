@@ -67,7 +67,7 @@ function Body({ p, onClose }: { p: Produto; onClose: () => void }) {
             <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4;")}>
               <div style={css("display:flex; align-items:center; gap:8px; margin-bottom:12px;")}>
                 <Svg size={15} stroke="#5B6472"><rect x="3" y="4" width="18" height="16" rx="2.2" /><path d="M3 10h18M9 4v16" /></Svg>
-                <span style={css("font-size:14px; font-weight:800;")}>Quantidade por unidade</span>
+                <span style={css("font-size:14px; font-weight:800;")}>Quantidade por loja</span>
                 <span style={{ flex: 1 }} />
                 <span style={css("font-size:12.5px; font-weight:700; color:#7A8090;")}>Total <strong style={css("color:#1B1B28; font-size:14px;")}>{totalProduto(p.quantidades)}</strong></span>
               </div>

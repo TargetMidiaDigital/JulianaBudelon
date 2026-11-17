@@ -118,16 +118,16 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
                 <ArvoreOrdem pedido={p} setores={[
                   { key: "producao", titulo: "Produção", tarefas: producao },
                   { key: "expedicao", titulo: "Expedição", tarefas: expedicao },
-                  { key: "unidades", titulo: "Recebimento nas unidades", tarefas: recebimento },
+                  { key: "unidades", titulo: "Recebimento nas lojas", tarefas: recebimento },
                 ]} />
-                <p style={css("margin:0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por unidade → cada unidade confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
+                <p style={css("margin:0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por loja → cada loja confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
               </div>
             )}
 
             <div style={css("margin-top:18px; padding-top:18px; border-top:1px solid #F0F1F4;")}>
               <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; margin-bottom:12px;")}>
                 <Svg size={15} stroke="#5B6472"><rect x="3" y="4" width="18" height="16" rx="2.2" /><path d="M3 10h18M9 4v16" /></Svg>
-                <span style={css("font-size:14px; font-weight:800;")}>Produtos por unidade</span>
+                <span style={css("font-size:14px; font-weight:800;")}>Produtos por loja</span>
                 <span style={{ flex: 1 }} />
                 <div style={css("display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #E2E3E9; border-radius:9px; padding:0 10px; height:32px; width:200px;")}>
                   <Svg size={14} sw={2.2} stroke="#9398A6"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Svg>

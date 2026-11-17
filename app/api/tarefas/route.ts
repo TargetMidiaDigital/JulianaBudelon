@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
   const sess = await editorDaTarefa(req, sb, task);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
-  const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaDoMeio(task) && task.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+  const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaDoMeio(task) && task.status === "em andamento" ? 'Expedição e Lojas não usam o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
   if (!sess.acessoTotal && task.gestor && task.gestor !== sess.userId) {
     return NextResponse.json({ error: "Sem permissão para atribuir a outra pessoa." }, { status: 403 });
@@ -104,7 +104,7 @@ export async function PATCH(req: Request) {
 
   const cols = mapPatch(patch ?? {});
   if ("status" in cols) {
-    const recusa = validarStatusManual(cols.status as string, sess.acessoTotal) ?? (semEtapaDoMeio(atual) && cols.status === "em andamento" ? 'Expedição e Unidades não usam o status "Em produção".' : null);
+    const recusa = validarStatusManual(cols.status as string, sess.acessoTotal) ?? (semEtapaDoMeio(atual) && cols.status === "em andamento" ? 'Expedição e Lojas não usam o status "Em produção".' : null);
     if (recusa) return NextResponse.json({ error: recusa }, { status: 403 });
   }
   // Conferência: concluir (nas Encomendas da loja: marcar Recebido) exige todas as linhas preenchidas;

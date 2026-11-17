@@ -89,7 +89,7 @@ export function textoNovoCandidato(c: CandidatoNotify, origem: string): string {
     `Nome: ${c.nome}`,
     c.fone ? `WhatsApp: ${foneBR(c.fone)}` : "",
     c.vaga ? `Vaga: ${c.vaga}` : "Vaga: não informada",
-    c.unidade ? `Unidade: ${c.unidade}` : "",
+    c.unidade ? `Loja: ${c.unidade}` : "",
     c.turno ? `Turno: ${c.turno}` : "",
     `Currículo: ${c.temCurriculo ? "anexado" : "não enviado"}`,
   ].filter(Boolean);

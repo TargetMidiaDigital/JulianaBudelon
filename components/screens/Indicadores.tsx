@@ -69,7 +69,7 @@ export default function Indicadores() {
   const maxMatriz = Math.max(1, ...d.matriz.flatMap((m) => Object.values(m.valores)));
   const corCelula = (v: number) => (v <= 0 ? "#fff" : RAMPA[Math.min(RAMPA.length - 1, Math.floor((v / maxMatriz) * (RAMPA.length - 1) + 0.0001))]);
   const inkCelula = (v: number) => (v / maxMatriz >= 0.5 ? "#fff" : "#1B1B28");
-  const statusSetor = TASK_STATUS.map((s) => ({ status: s.label, Produção: d.setores[0][s.key], Expedição: d.setores[1][s.key], Unidades: d.setores[2][s.key] }));
+  const statusSetor = TASK_STATUS.map((s) => ({ status: s.label, Produção: d.setores[0][s.key], Expedição: d.setores[1][s.key], Lojas: d.setores[2][s.key] }));
 
   return (
     <div style={css("height:100%; display:flex; flex-direction:column; min-height:0;")}>
@@ -87,9 +87,9 @@ export default function Indicadores() {
         <Filtro icone={<Svg size={14}><rect x="3" y="4.5" width="18" height="16" rx="2.2" /><path d="M3 9h18M8 3v3M16 3v3" /></Svg>} rotulo="Período" valor={PERIODOS.find((p) => p.key === f.periodo)?.label ?? ""} ativo={f.periodo !== FILTROS_VAZIOS.periodo}>
           {(c) => PERIODOS.map((p) => <MenuItem key={p.key} checked={f.periodo === p.key} accent={ACCENT} onClick={() => { set({ periodo: p.key }); c(); }}><span style={{ flex: 1 }}>{p.label}</span></MenuItem>)}
         </Filtro>
-        <Filtro icone={<Svg size={14}><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></Svg>} rotulo="Unidade" valor={localLabel ?? "Todas"} ativo={!!f.local}>
+        <Filtro icone={<Svg size={14}><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></Svg>} rotulo="Loja" valor={localLabel ?? "Todas"} ativo={!!f.local}>
           {(c) => (<>
-            <MenuItem checked={!f.local} accent={ACCENT} onClick={() => { set({ local: "" }); c(); }}><span style={{ flex: 1 }}>Todas as unidades</span></MenuItem>
+            <MenuItem checked={!f.local} accent={ACCENT} onClick={() => { set({ local: "" }); c(); }}><span style={{ flex: 1 }}>Todas as lojas</span></MenuItem>
             {LOCAIS_ESTOQUE.map((l) => <MenuItem key={l.id} checked={f.local === l.id} accent={ACCENT} onClick={() => { set({ local: l.id }); c(); }}><span style={{ flex: 1 }}>{l.label}</span></MenuItem>)}
           </>)}
         </Filtro>
@@ -121,7 +121,7 @@ export default function Indicadores() {
           <Tile rotulo="Unidades pedidas" valor={fmt(r.unidades)} sub={`${fmt(r.produtosDistintos)} ${r.produtosDistintos === 1 ? "produto distinto" : "produtos distintos"}`} destaque />
           <Tile rotulo="Produção" valor={`${fmt(d.setores[0].concluidas)}/${fmt(d.setores[0].total)}`} sub={`${pct(d.setores[0].concluidas, d.setores[0].total)} das tarefas concluídas · ${fmt(d.setores[0].atrasada)} atrasadas`} cor={COR_PRODUCAO} />
           <Tile rotulo="Expedição" valor={`${fmt(d.setores[1].concluidas)}/${fmt(d.setores[1].total)}`} sub={`${pct(d.setores[1].concluidas, d.setores[1].total)} das tarefas concluídas · ${fmt(d.setores[1].atrasada)} atrasadas`} cor={COR_EXPEDICAO} />
-          <Tile rotulo="Unidades" valor={`${fmt(d.setores[2].concluidas)}/${fmt(d.setores[2].total)}`} sub={`${pct(d.setores[2].concluidas, d.setores[2].total)} das tarefas concluídas · ${fmt(d.setores[2].atrasada)} atrasadas`} cor={COR_UNIDADES} />
+          <Tile rotulo="Lojas" valor={`${fmt(d.setores[2].concluidas)}/${fmt(d.setores[2].total)}`} sub={`${pct(d.setores[2].concluidas, d.setores[2].total)} das tarefas concluídas · ${fmt(d.setores[2].atrasada)} atrasadas`} cor={COR_UNIDADES} />
         </div>
 
         {vazio ? (
@@ -163,8 +163,8 @@ export default function Indicadores() {
             </Card>
 
             {/* 4. Colunas: unidades recebidas por local (clique filtra) */}
-            <Card titulo="Quantidade recebida por unidade" sub="Unidades pedidas para cada loja · clique numa coluna para filtrar"
-              tabela={{ cols: ["Unidade", "Unidades", "Ordens", "%"], rows: d.unidades.map((u) => [u.label, fmt(u.qtd), fmt(u.ordens), pct(u.qtd, r.unidades)]) }}>
+            <Card titulo="Quantidade recebida por loja" sub="Unidades pedidas para cada loja · clique numa coluna para filtrar"
+              tabela={{ cols: ["Loja", "Unidades", "Ordens", "%"], rows: d.unidades.map((u) => [u.label, fmt(u.qtd), fmt(u.ordens), pct(u.qtd, r.unidades)]) }}>
               <ResponsiveContainer width="100%" height={262}>
                 <BarChart data={d.unidades} margin={{ top: 18, right: 8, left: -14, bottom: 4 }} barCategoryGap={14} onClick={(st) => { const k = (st as { activePayload?: { payload?: { id?: string } }[] })?.activePayload?.[0]?.payload?.id; if (k) set({ local: f.local === k ? "" : k }); }} style={{ cursor: "pointer" }}>
                   <CartesianGrid stroke={GRADE} vertical={false} />
@@ -179,8 +179,8 @@ export default function Indicadores() {
             </Card>
 
             {/* 5. Barras agrupadas: tarefas por status, produção × expedição (par validado) */}
-            <Card titulo="Tarefas por status" sub="Produção, expedição e conferência nas unidades"
-              tabela={{ cols: ["Status", "Produção", "Expedição", "Unidades"], rows: statusSetor.map((s) => [s.status, fmt(s.Produção), fmt(s.Expedição), fmt(s.Unidades)]) }}>
+            <Card titulo="Tarefas por status" sub="Produção, expedição e conferência nas lojas"
+              tabela={{ cols: ["Status", "Produção", "Expedição", "Lojas"], rows: statusSetor.map((s) => [s.status, fmt(s.Produção), fmt(s.Expedição), fmt(s.Lojas)]) }}>
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={statusSetor} layout="vertical" margin={{ top: 4, right: 36, left: 8, bottom: 0 }} barCategoryGap={8} barGap={2}>
                   <CartesianGrid stroke={GRADE} horizontal={false} />
@@ -190,7 +190,7 @@ export default function Indicadores() {
                   <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12, fontWeight: 600, color: "#3A3F4C", paddingTop: 6 }} />
                   <Bar dataKey="Produção" fill={COR_PRODUCAO} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
                   <Bar dataKey="Expedição" fill={COR_EXPEDICAO} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
-                  <Bar dataKey="Unidades" fill={COR_UNIDADES} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
+                  <Bar dataKey="Lojas" fill={COR_UNIDADES} barSize={9} radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: "#3A3F4C", fontWeight: 700, formatter: (v: unknown) => (Number(v) ? fmt(Number(v)) : "") }} />
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -212,7 +212,7 @@ export default function Indicadores() {
             </Card>
 
             {/* 7. Mapa de calor: produto × unidade (rampa sequencial, valor em cada célula) */}
-            <Card span={2} titulo="Produto × unidade" sub="Quanto de cada produto (top 8) cada loja recebe · passe o mouse ou clique na coluna para filtrar a unidade"
+            <Card span={2} titulo="Produto × loja" sub="Quanto de cada produto (top 8) cada loja recebe · passe o mouse ou clique na coluna para filtrar a loja"
               tabela={{ cols: ["Produto", ...LOCAIS_ESTOQUE.map((l) => l.label), "Total"], rows: d.matriz.map((m) => [m.nome, ...LOCAIS_ESTOQUE.map((l) => fmt(m.valores[l.id])), fmt(m.total)]) }}>
               <div style={css("overflow:auto;")}>
                 <div style={css(`display:grid; grid-template-columns:minmax(140px, 1.6fr) repeat(${LOCAIS_ESTOQUE.length}, minmax(52px, 1fr)) 54px; gap:2px; min-width:600px; font-size:12.5px;`)}>

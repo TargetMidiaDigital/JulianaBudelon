@@ -71,7 +71,7 @@ export async function aplicarEstoqueProducao(sb: SupabaseClient, t: TarefaEstoqu
       const de = estoque.fabrica ?? 0, para = Math.max(0, de + (depois ? l.q : -l.q));
       estoque.fabrica = para;
       const dif = depois && l.q !== l.pedido ? ` (pedido ${l.pedido})` : "";
-      const log = { id: crypto.randomUUID(), message: `Sistema ${depois ? "somou" : "estornou"} ${l.q} un.${dif} na unidade Fábrica (${de} → ${para}) — tarefa "${t.nome ?? ""}" ${depois ? "concluída" : "reaberta"}`, author: "sistema", created_at: agora, tipo: "log" as const };
+      const log = { id: crypto.randomUUID(), message: `Sistema ${depois ? "somou" : "estornou"} ${l.q} un.${dif} na Fábrica (${de} → ${para}) — tarefa "${t.nome ?? ""}" ${depois ? "concluída" : "reaberta"}`, author: "sistema", created_at: agora, tipo: "log" as const };
       await sb.from("produto").update({ estoque, historico: [...parseComentarios(p.historico), log].slice(-500) }).eq("id", l.produtoId);
       resumo.push(`${p.nome}: ${l.q}${dif}`);
     }

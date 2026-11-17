@@ -54,9 +54,9 @@ const BASE: Guia[] = [
         tipo: "fluxo",
         itens: [
           { rotulo: "Ordem de Serviço", texto: "Gerente ou Administrador monta o pedido: quanto de cada produto vai para cada loja e a data de entrega." },
-          { rotulo: "Produção", texto: "O sistema cria uma tarefa por produto e unidade. A fábrica produz e informa o que realmente fez." },
+          { rotulo: "Produção", texto: "O sistema cria uma tarefa por produto e loja. A fábrica produz e informa o que realmente fez." },
           { rotulo: "Expedição", texto: "Uma tarefa por loja: separar os produtos, imprimir o romaneio e enviar." },
-          { rotulo: "Unidades", texto: "Cada loja confere o que chegou e informa o que recebeu." },
+          { rotulo: "Lojas", texto: "Cada loja confere o que chegou e informa o que recebeu." },
           { rotulo: "Estoque", texto: "Atualizado sozinho: a produção soma na Fábrica; o recebimento tira da Fábrica e coloca na loja." },
         ],
       },
@@ -92,17 +92,17 @@ const BASE: Guia[] = [
           "Em Produção → Ordem de Serviço, clique em “+ Nova ordem”.",
           "O título já vem preenchido com a data (ex.: “Pedido 24/10/2026”); troque se quiser.",
           "Escolha a data de Entrega — é obrigatória e vira o prazo de todas as tarefas.",
-          "Na tabela de produtos, digite a quantidade de cada produto em cada unidade (Fábrica, Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani). Use a busca para achar o produto.",
-          "Confira o rodapé: ele mostra quantos produtos e unidades entram e quantas tarefas serão criadas.",
-          "Clique em “Criar ordem”. As tarefas de Produção, Expedição e Unidades aparecem na hora nas listas de cada setor.",
+          "Na tabela de produtos, digite a quantidade de cada produto em cada loja (Fábrica, Centro, Santa Mônica, Coqueiros, Areias, Roçado, Pagani). Use a busca para achar o produto.",
+          "Confira o rodapé: ele mostra quantos produtos e lojas entram e quantas tarefas serão criadas.",
+          "Clique em “Criar ordem”. As tarefas de Produção, Expedição e Lojas aparecem na hora nas listas de cada setor.",
         ],
       },
       {
         tipo: "lista",
         titulo: "O que a lista mostra",
         itens: [
-          { rotulo: "Colunas Produção / Expedição / Unidades", texto: "Quantas tarefas de cada setor já foram concluídas (ex.: 3/5)." },
-          { rotulo: "Colunas das lojas", texto: "Total pedido para cada unidade." },
+          { rotulo: "Colunas Produção / Expedição / Lojas", texto: "Quantas tarefas de cada setor já foram concluídas (ex.: 3/5)." },
+          { rotulo: "Colunas das lojas", texto: "Total pedido para cada loja." },
           { rotulo: "Botão ✓ na barra", texto: "Mostra ou esconde as ordens já validadas (ficam ocultas por padrão)." },
           { rotulo: "Ícone de link", texto: "Copia o link direto da ordem para mandar a alguém." },
         ],
@@ -129,7 +129,7 @@ const BASE: Guia[] = [
     quem: "Equipe de Produção",
     blocos: [
       { tipo: "lista", titulo: "Como a tarefa chega", itens: [
-        { rotulo: "Uma tarefa por produto e unidade", texto: "Ex.: “Banoffinha - Centro: 10”. O prazo é a data de entrega da ordem." },
+        { rotulo: "Uma tarefa por produto e loja", texto: "Ex.: “Banoffinha - Centro: 10”. O prazo é a data de entrega da ordem." },
         { rotulo: "Vínculo com a ordem", texto: "Dentro da tarefa aparece a ordem de serviço de origem; clique para abrir." },
       ] },
       {
@@ -210,7 +210,7 @@ const BASE: Guia[] = [
       ] },
       { tipo: "passos", titulo: "Relatório de estoque", itens: [
         "Clique em “Relatório” no topo da tela.",
-        "Escolha uma, várias ou todas as unidades.",
+        "Escolha uma, várias ou todas as lojas.",
         "Imprima ou salve em PDF (A4).",
       ] },
       { tipo: "atencao", texto: "O estoque é dado real da operação. Corrija à mão só com contagem física feita — o ajuste vale na hora para todos." },
@@ -221,7 +221,7 @@ const BASE: Guia[] = [
   {
     id: "unidades",
     setor: "Lojas",
-    titulo: "Unidades: conferir o recebimento",
+    titulo: "Lojas: conferir o recebimento",
     resumo: "Cada loja confirma o que chegou da fábrica. É essa confirmação que transfere o estoque.",
     page: "unidades",
     quem: "Líder (Loja)",
@@ -244,12 +244,12 @@ const BASE: Guia[] = [
     id: "vagas",
     setor: "RH",
     titulo: "Vagas: criar e divulgar",
-    resumo: "Cadastrar unidades e vagas, escrever a descrição e usar a página pública de candidatura (link na bio).",
+    resumo: "Cadastrar lojas e vagas, escrever a descrição e usar a página pública de candidatura (link na bio).",
     page: "recrutamento-vagas",
     quem: "Recursos Humanos",
     blocos: [
       { tipo: "passos", titulo: "Criar uma vaga", itens: [
-        "Em RH → Vagas, escolha a unidade (ou crie com “+ Nova unidade”: cidade e bairro).",
+        "Em RH → Vagas, escolha a loja (ou crie com “+ Nova loja”: cidade e bairro).",
         "Clique em “+ Nova vaga” e informe o cargo (ex.: Auxiliar de Cozinha/Confeitaria).",
         "Preencha Descrição (rotina e responsabilidades), Requisitos (um por linha) e Diferenciais (um por linha).",
         "Deixe a vaga aberta para ela aparecer na página pública. Feche quando não estiver mais contratando.",
@@ -260,7 +260,7 @@ const BASE: Guia[] = [
         { rotulo: "Aviso na tela", texto: "Vaga sem descrição aparece em laranja: “Sem descrição — o candidato vai direto ao formulário e a IA fica sem base”." },
       ] },
       { tipo: "lista", titulo: "Página pública", itens: [
-        { rotulo: "Link na bio", texto: "/vagas mostra um botão por unidade; cada unidade lista as vagas abertas. Use “Copiar link” ou “Copiar link da unidade”." },
+        { rotulo: "Link na bio", texto: "/vagas mostra um botão por loja; cada loja lista as vagas abertas. Use “Copiar link” ou “Copiar link da loja”." },
         { rotulo: "Textos e Pixel", texto: "Título, subtítulo, rodapé, Instagram e Pixel do Facebook são editados no bloco “Página pública”." },
         { rotulo: "Candidatura", texto: "O candidato informa nome, WhatsApp e currículo. Entra no Banco de Talentos como “Novo”; se o WhatsApp já existir, atualiza o cadastro em vez de duplicar." },
       ] },
@@ -447,7 +447,7 @@ const DIAGRAMAS: Record<string, Diagrama> = {
     nos: [
       { id: "a", raia: "gestao", col: 0, forma: "inicio", texto: "+ Nova ordem" },
       { id: "b", raia: "gestao", col: 1, texto: "Entrega + quantidade por produto e loja" },
-      { id: "c", raia: "sistema", col: 2, forma: "sistema", texto: "Cria tarefas de Produção, Expedição e Unidades" },
+      { id: "c", raia: "sistema", col: 2, forma: "sistema", texto: "Cria tarefas de Produção, Expedição e Lojas" },
       { id: "d", raia: "setores", col: 3, texto: "Setores trabalham nas tarefas" },
       { id: "e", raia: "sistema", col: 4, forma: "sistema", texto: "Ordem vai para Em andamento → Concluída" },
       { id: "f", raia: "gestao", col: 5, texto: "Abre o Relatório" },
@@ -512,7 +512,7 @@ const DIAGRAMAS: Record<string, Diagrama> = {
       { id: "c", raia: "gestao", col: 0, forma: "inicio", texto: "Contagem física" },
       { id: "f", raia: "gestao", col: 1, texto: "Corrige o número na célula" },
       { id: "g", raia: "loja", col: 2, forma: "sistema", texto: "Novo saldo + histórico do produto" },
-      { id: "h", raia: "gestao", col: 3, forma: "fim", texto: "Relatório por unidade (A4/PDF)" },
+      { id: "h", raia: "gestao", col: 3, forma: "fim", texto: "Relatório por loja (A4/PDF)" },
     ],
     setas: enc([["a", "d"], ["b", "e"], ["c", "f"], ["d", "g"], ["e", "g"], ["f", "g"], ["g", "h"]]),
   },
@@ -520,7 +520,7 @@ const DIAGRAMAS: Record<string, Diagrama> = {
     tipo: "diagrama",
     raias: [R.rh, R.candidato, linhas(R.sistema, 2), R.ia],
     nos: [
-      { id: "a", raia: "rh", col: 0, forma: "inicio", texto: "Nova vaga na unidade" },
+      { id: "a", raia: "rh", col: 0, forma: "inicio", texto: "Nova vaga na loja" },
       { id: "b", raia: "rh", col: 1, texto: "Escreve descrição, requisitos e diferenciais" },
       { id: "c", raia: "rh", col: 2, texto: "Vaga aberta + link na bio" },
       { id: "d", raia: "candidato", col: 3, texto: "Lê “Sobre a vaga” e envia o currículo" },

@@ -88,10 +88,10 @@ export default function TalentoForm() {
                 )}
               </Menu>
             </Field>
-            <Field label="Unidade">
+            <Field label="Loja">
               <Menu trigger={(tg) => (
                 <SelectBox onClick={tg} placeholder={!un}>
-                  <span style={{ flex: 1 }}>{un ? unidadeLabel(un) : "Selecionar unidade"}</span>
+                  <span style={{ flex: 1 }}>{un ? unidadeLabel(un) : "Selecionar loja"}</span>
                 </SelectBox>
               )} z={70} width={260}>
                 {(c) => (

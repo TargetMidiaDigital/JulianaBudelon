@@ -40,7 +40,7 @@ const SCHEMA = {
     experiencia: { type: "array", items: { type: "string" }, description: "Experiências relevantes, da mais recente para a mais antiga: 'Cargo · Empresa · período'." },
     formacao: { type: "array", items: { type: "string" }, description: "Formação e cursos relevantes." },
     pontosFortes: { type: "array", items: { type: "string" }, description: "Até 5 pontos fortes para ESTA vaga, concretos." },
-    alertas: { type: "array", items: { type: "string" }, description: "Pontos de atenção: períodos sem trabalho, trocas frequentes, distância da unidade, informações faltando, currículo ilegível." },
+    alertas: { type: "array", items: { type: "string" }, description: "Pontos de atenção: períodos sem trabalho, trocas frequentes, distância da loja, informações faltando, currículo ilegível." },
     nota: { type: "integer", minimum: 0, maximum: 100, description: "Aderência do candidato à vaga, de 0 a 100." },
     classificacao: { type: "string", enum: ["Ótimo", "Bom", "Ruim"], description: "Ótimo = 75 a 100; Bom = 50 a 74; Ruim = 0 a 49." },
     justificativa: { type: "string", description: "2 a 4 frases explicando a nota, citando requisitos atendidos e não atendidos." },

@@ -325,11 +325,11 @@ function EscolherUnidades({ ocultarZerados, onClose, onGerar }: { ocultarZerados
       <div style={css("position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:91; width:420px; max-width:94vw; background:#fff; border-radius:16px; box-shadow:0 24px 70px rgba(20,24,40,.32); overflow:hidden;")}>
         <div style={css("padding:18px 20px 12px; border-bottom:1px solid #ECEDF1;")}>
           <div style={css("font-size:16.5px; font-weight:800; letter-spacing:-0.3px;")}>Relatório de estoque</div>
-          <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>{ocultarZerados ? "Só produtos com estoque" : "Todos os produtos"} · escolha as unidades</div>
+          <div style={css("font-size:12.5px; color:#7A8090; font-weight:600; margin-top:2px;")}>{ocultarZerados ? "Só produtos com estoque" : "Todos os produtos"} · escolha as lojas</div>
         </div>
         <div style={css("padding:12px 14px;")}>
           <Hoverable onClick={() => setSel(todas ? [] : LOCAIS_ESTOQUE.map((l) => l.id))} s={css("display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:800; color:#1B1B28; border-bottom:1px solid #F0F1F4; margin-bottom:4px;")} hover="background:#F7F7F9">
-            <Caixa on={todas} parcial={!todas && sel.length > 0} />Todas as unidades
+            <Caixa on={todas} parcial={!todas && sel.length > 0} />Todas as lojas
           </Hoverable>
           {LOCAIS_ESTOQUE.map((l) => (
             <Hoverable key={l.id} onClick={() => alternar(l.id)} s={css("display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:9px; cursor:pointer; font-size:13.5px; font-weight:600; color:#3A3F4C;")} hover="background:#F7F7F9">
@@ -338,7 +338,7 @@ function EscolherUnidades({ ocultarZerados, onClose, onGerar }: { ocultarZerados
           ))}
         </div>
         <div style={css("display:flex; align-items:center; gap:10px; padding:14px 20px; border-top:1px solid #ECEDF1;")}>
-          <span style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{sel.length ? `${sel.length} ${sel.length === 1 ? "unidade" : "unidades"}` : "Escolha ao menos uma"}</span>
+          <span style={css("flex:1; font-size:12px; color:#9398A6; font-weight:600;")}>{sel.length ? `${sel.length} ${sel.length === 1 ? "loja" : "lojas"}` : "Escolha ao menos uma"}</span>
           <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:13.5px; font-weight:700; padding:10px 16px; border-radius:10px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
           <Hoverable as="button" onClick={() => sel.length && onGerar(sel)} {...{ disabled: !sel.length }} s={css(`border:none; background:${BRAND}; color:#fff; cursor:${sel.length ? "pointer" : "not-allowed"}; opacity:${sel.length ? 1 : 0.45}; font-size:13.5px; font-weight:700; padding:10px 16px; border-radius:10px;`)} hover={sel.length ? "filter:brightness(1.1)" : undefined}>Gerar relatório</Hoverable>
         </div>

@@ -108,7 +108,7 @@ export default function MatrizPedido({ produtos, itens, onChange, editavel, soCo
           </div>
         )}
         <div style={css(`position:sticky; bottom:0; z-index:6; display:grid; grid-template-columns:${GRID}; gap:10px; padding:10px 14px; background:#FAFAFB; border-top:1px solid #ECEDF1; align-items:center;`)}>
-          <span style={css(`${fixa("#FAFAFB", 7)} align-self:stretch; display:flex; align-items:center; font-size:12px; font-weight:800; color:#5B6472; text-transform:uppercase; letter-spacing:0.4px;`)}>Total por unidade</span>
+          <span style={css(`${fixa("#FAFAFB", 7)} align-self:stretch; display:flex; align-items:center; font-size:12px; font-weight:800; color:#5B6472; text-transform:uppercase; letter-spacing:0.4px;`)}>Total por loja</span>
           {LOCAIS_ESTOQUE.map((l) => <span key={l.id} style={css(`text-align:center; font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums; color:${totais[l.id] ? "#1B1B28" : "#C7CAD2"};`)}>{totais[l.id]}</span>)}
           <span style={css("text-align:center; font-size:14px; font-weight:800; color:#955C6B;")}>{Object.values(totais).reduce((s, n) => s + n, 0)}</span>
         </div>

@@ -21,7 +21,7 @@ import { useIsMobile } from "@/lib/useIsMobile";
 const ABAS = [
   { id: "pagina", label: "Página de encomendas", desc: "O que o cliente vê e o link para divulgar" },
   { id: "produtos", label: "Produtos", desc: "Produtos e categorias do catálogo" },
-  { id: "config", label: "Configurações", desc: "Vitrine, ordem das categorias, unidades de retirada (endereço e horário), entrega, horários e pagamento" },
+  { id: "config", label: "Configurações", desc: "Vitrine, ordem das categorias, lojas de retirada (endereço e horário), entrega, horários e pagamento" },
 ] as const;
 
 export default function EncAutoatendimento() {
@@ -88,7 +88,7 @@ export default function EncAutoatendimento() {
                   <li><b>Quantidade e observação</b> (até {config.maxPorPedido} de cada produto).</li>
                   <li><b>Seu pedido</b>: confere o que escolheu, com o total, e pode <b>adicionar mais produtos</b>.</li>
                   <li><b>{[unidadesAtivas.length && "Retirada", config.entregaAtiva && "entrega"].filter(Boolean).join(" ou ") || "Nenhuma forma de receber ligada"}</b>
-                    {unidadesAtivas.length > 0 && ` — retirada em ${unidadesAtivas.length} unidade${unidadesAtivas.length === 1 ? "" : "s"}`}
+                    {unidadesAtivas.length > 0 && ` — retirada em ${unidadesAtivas.length} loja${unidadesAtivas.length === 1 ? "" : "s"}`}
                     {config.entregaAtiva && ` — entrega com taxa de ${brl(config.taxaEntrega)}`}.</li>
                   <li><b>Data e horário</b>, com {config.antecedenciaHoras}h de antecedência mínima.</li>
                   <li><b>Nome e WhatsApp</b>, com o extrato do pedido (todos os produtos e o total).</li>

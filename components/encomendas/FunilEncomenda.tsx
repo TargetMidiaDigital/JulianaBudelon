@@ -360,7 +360,7 @@ export default function FunilEncomenda({ emTela = true }: { emTela?: boolean }) 
               </div>
               {tipo === "Retirada" && unidades.length > 0 && (
                 <>
-                  {!soRetirada && <div style={css("margin:20px 0 8px; font-size:16.5px; font-weight:800;")}>Em qual unidade você vai retirar?</div>}
+                  {!soRetirada && <div style={css("margin:20px 0 8px; font-size:16.5px; font-weight:800;")}>Em qual loja você vai retirar?</div>}
                   <div style={css("display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;")}>
                     {unidades.map((u) => <Loja key={u.id} sel={unidadeId === u.id} onClick={() => { if (u.id !== unidadeId) setHora(null); setUnidadeId(u.id); }} nome={u.nome} endereco={u.endereco} horario={resumoHorario(u.horarios)} />)}
                   </div>

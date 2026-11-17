@@ -215,7 +215,7 @@ export default function LinkBio({ view, slug }: { view: "hub" | "unidade" | "obr
             <h1 className="lb-title">{lb?.titulo ?? ""}</h1>
             {unidade ? (
               <>
-                <p className="lb-sub">Estamos contratando agora unidade <strong>{unidadeLabel(unidade).toUpperCase()}</strong>!</p>
+                <p className="lb-sub">Estamos contratando agora na loja <strong>{unidadeLabel(unidade).toUpperCase()}</strong>!</p>
                 {unidade.ativa && vagasUnidade.length ? (
                   <nav className="lb-links">
                     {vagasUnidade.map((v) => (
@@ -223,11 +223,11 @@ export default function LinkBio({ view, slug }: { view: "hub" | "unidade" | "obr
                     ))}
                   </nav>
                 ) : (
-                  <div className="lb-note">No momento, não estamos com vagas abertas nesta unidade.<br /><br />Fique de olho, em breve teremos novidades!</div>
+                  <div className="lb-note">No momento, não estamos com vagas abertas nesta loja.<br /><br />Fique de olho, em breve teremos novidades!</div>
                 )}
               </>
             ) : (
-              <div className="lb-note">Unidade não encontrada.</div>
+              <div className="lb-note">Loja não encontrada.</div>
             )}
           </>
         )}
@@ -244,7 +244,7 @@ export default function LinkBio({ view, slug }: { view: "hub" | "unidade" | "obr
           <>
             <p className="lb-tag">{view === "obrigado" ? `Obrigado por querer fazer parte do time ${empresa}` : lb?.tagline}</p>
             {lb?.instagram && <a className="lb-handle" href={`https://instagram.com/${lb.instagram}`} target="_blank" rel="noopener noreferrer">@{lb.instagram}</a>}
-            {view === "unidade" && <div><a className="lb-back" href="/vagas">← Ver outras unidades</a></div>}
+            {view === "unidade" && <div><a className="lb-back" href="/vagas">← Ver outras lojas</a></div>}
           </>
         )}
       </div>

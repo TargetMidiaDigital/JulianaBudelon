@@ -62,17 +62,17 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
       <div><span>Separado por</span><b>${esc(responsavel?.nome ?? "—")}</b></div>
       <div><span>Situação da separação</span><b>${separadoCompleto ? `separado ${totSep} un.` : "a separar"}</b></div>
     </div>
-    <table><thead><tr><th class="c">#</th><th>Produto</th><th class="n">Pedido</th><th class="n">Separado</th><th class="box">Recebido (unidade)</th></tr></thead>
+    <table><thead><tr><th class="c">#</th><th>Produto</th><th class="n">Pedido</th><th class="n">Separado</th><th class="box">Recebido (loja)</th></tr></thead>
       <tbody>${linhasHtml}<tr class="t"><td></td><td>Total</td><td class="n">${totPed}</td><td class="n">${separadoCompleto ? totSep : ""}</td><td></td></tr></tbody></table>
-    <div class="inst"><b>Na unidade:</b>
+    <div class="inst"><b>Na loja:</b>
       <ol>
         <li>Confira cada produto e anote a quantidade recebida na coluna “Recebido”.</li>
-        <li>No sistema, abra <b>Lojas → Unidades → Recebimento - ${esc(unidade)}</b>.</li>
+        <li>No sistema, abra <b>Lojas → Lojas → Recebimento - ${esc(unidade)}</b>.</li>
         <li>Registre os mesmos números na Conferência e conclua a tarefa.</li>
       </ol>
       <p>Diferenças aparecem no relatório da ordem.</p>
       <p class="link">${esc(linkRecebimento)}</p></div>
-    <div class="ass"><div>Separado / enviado por (nome, assinatura e data)</div><div>Recebido por na unidade (nome, assinatura, data e hora)</div></div>
+    <div class="ass"><div>Separado / enviado por (nome, assinatura e data)</div><div>Recebido na loja por (nome, assinatura, data e hora)</div></div>
     <div class="rod"><span>${esc(t.titulo)}</span><span>${esc(empresa)} · romaneio ${esc(numero)}</span></div>
     <script>window.onload=()=>{setTimeout(()=>window.print(),200)}</script>
   </body></html>`;

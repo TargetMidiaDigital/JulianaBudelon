@@ -135,7 +135,7 @@ export default function LeadDetail({ leadId, pedidoAberto, canEdit, onClose }: {
                         <Linha k="Total" v={brl(p.total)} />
                         <Linha k="Pagamento" v="PIX" />
                         <Linha k="Modalidade" v={p.tipo} />
-                        {p.tipo === "Retirada" && <Linha k="Unidade" v={p.unidadeNome ?? unidadeDe(p.unidadeId)?.nome ?? "—"} />}
+                        {p.tipo === "Retirada" && <Linha k="Loja" v={p.unidadeNome ?? unidadeDe(p.unidadeId)?.nome ?? "—"} />}
                         {p.tipo === "Entrega" && <Linha k="Endereço" v={enderecoLinha(p.endereco)} />}
                         <Linha k={p.tipo === "Entrega" ? "Entrega em" : "Retirada em"} v={`${dataBR(p.data)} às ${p.hora}`} />
                         <Linha k="Acompanhamento" v={<LinkPedidoCliente pedidoId={p.id} />} />
