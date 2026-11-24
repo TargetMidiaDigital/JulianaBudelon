@@ -107,6 +107,31 @@ const BASE: Guia[] = [
       { tipo: "dica", texto: "Só a confirmação do pagamento é feita à mão no CRM. Depois disso o pedido anda sozinho, conforme a Produção e a loja atualizam as tarefas delas." },
     ],
   },
+  {
+    id: "cadastro-lojas",
+    setor: "Visão geral",
+    titulo: "Lojas: o cadastro único",
+    resumo: "Onde as lojas são cadastradas e como uma loja nova passa a aparecer na operação, nas vagas e nas encomendas.",
+    page: "config",
+    quem: "Administrador (os demais só consultam)",
+    blocos: [
+      { tipo: "lista", titulo: "Configurações → Lojas", itens: [
+        { rotulo: "Um cadastro só", texto: "Nome, cidade, endereço e horário de funcionamento de cada loja ficam num lugar só, para todo o sistema." },
+        { rotulo: "Operação", texto: "Ligada, a loja aparece na Ordem de Serviço, na Produção, na Expedição, em Lojas, no Estoque, nos Indicadores e nos filtros." },
+        { rotulo: "Vagas", texto: "Ligada, a loja aparece em RH → Vagas e na página “Trabalhe conosco”. O RH também pode pausar a loja na tela de Vagas." },
+        { rotulo: "Retirada de encomendas", texto: "Ligada, o cliente pode escolher a loja para retirar a encomenda, com o endereço e o horário do cadastro." },
+      ] },
+      { tipo: "passos", titulo: "Abrir uma loja nova", itens: [
+        "Em Configurações → Lojas, clique em “+ Nova loja”.",
+        "Preencha nome, cidade e endereço.",
+        "Deixe ligadas as chaves de onde a loja deve aparecer (Operação, Vagas, Retirada).",
+        "Se a loja tiver horário próprio, clique em “Definir horário da loja”. Sem isso, valem os horários gerais de retirada.",
+        "Clique em “Criar loja”. Ela já aparece nas telas, conforme as chaves.",
+      ] },
+      { tipo: "dica", texto: "Use as setas ↑ ↓ para mudar a ordem das lojas: é a ordem das colunas no Estoque, na Ordem de Serviço e nos filtros." },
+      { tipo: "atencao", texto: "Loja com histórico (estoque, tarefas, encomendas, vagas ou candidatos) não é excluída: desligue as chaves. O link da página de vagas e o código da loja não mudam, para nada se perder." },
+    ],
+  },
 
   // ───────────── Produção ─────────────
   {
@@ -333,13 +358,13 @@ const BASE: Guia[] = [
       { tipo: "lista", titulo: "Abas da tela", itens: [
         { rotulo: "Página de encomendas", texto: "O link para divulgar (botão Copiar) e uma prévia de como o cliente vê a página." },
         { rotulo: "Produtos", texto: "Categorias (nome, frase, foto de capa, ordem e mostrar/ocultar) e produtos (nome, foto, descrição, porções, peso, preço, antecedência em horas e produto no estoque)." },
-        { rotulo: "Configurações", texto: "Vitrine, ordem das categorias, lojas de retirada (endereço e horário de funcionamento), horários gerais, regras do pedido, PIX e WhatsApp de contato." },
+        { rotulo: "Configurações", texto: "Vitrine, ordem das categorias, horários gerais, regras do pedido, PIX e WhatsApp de contato. As lojas de retirada (endereço e horário) vêm de Configurações → Lojas." },
       ] },
       { tipo: "lista", titulo: "Regras que valem para o pedido", itens: [
         { rotulo: "Antecedência mínima", texto: "Regra geral em Configurações (hoje 48 horas). Todo produto novo já vem com ela." },
         { rotulo: "Antecedência do produto (horas)", texto: "No cadastro do produto. Vem com as 48 h da regra geral; mude para o produto aceitar menos tempo (ex.: 24) ou pedir mais (ex.: 72). Num pedido com vários produtos vale o maior prazo." },
         { rotulo: "Máximo de cada produto", texto: "Quantas unidades de um mesmo produto o cliente pode pôr no pedido." },
-        { rotulo: "Horário da loja", texto: "Cada loja pode ter o próprio horário de funcionamento; sem isso, valem os horários gerais." },
+        { rotulo: "Horário da loja", texto: "Cada loja pode ter o próprio horário de funcionamento (Configurações → Lojas); sem isso, valem os horários gerais." },
         { rotulo: "Produto no estoque", texto: "Ligando o produto a um item do Estoque, a produção soma na Fábrica, o “Recebido” da loja transfere e o “Entregue” dá baixa. “Não movimentar o estoque” deixa o estoque de fora." },
       ] },
       { tipo: "atencao", texto: "Sem chave PIX em Configurações → Pagamento e contato, a página não mostra o QR Code: avisa o cliente que a equipe vai mandar o PIX pelo WhatsApp." },
@@ -390,7 +415,7 @@ const BASE: Guia[] = [
     quem: "Recursos Humanos",
     blocos: [
       { tipo: "passos", titulo: "Criar uma vaga", itens: [
-        "Em RH → Vagas, escolha a loja (ou crie com “+ Nova loja”: cidade e bairro).",
+        "Em RH → Vagas, escolha a loja. Lojas novas são cadastradas pelo Administrador em Configurações → Lojas.",
         "Clique em “+ Nova vaga” e informe o cargo (ex.: Auxiliar de Cozinha/Confeitaria).",
         "Preencha Descrição (rotina e responsabilidades), Requisitos (um por linha) e Diferenciais (um por linha).",
         "Deixe a vaga aberta para ela aparecer na página pública. Feche quando não estiver mais contratando.",

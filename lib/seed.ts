@@ -96,10 +96,15 @@ const iso = (diasAtras: number, hora = "10:00") => {
  *  Ordem de Serviço e das Encomendas). As antigas de exemplo (t1…t13) são removidas em loadDb (v4). */
 export const seedTasks: Task[] = [];
 
+/** Lojas de exemplo — o mesmo desenho do cadastro real (Configurações → Lojas). */
 export const seedUnidades: Unidade[] = [
-  { id: "u-centro", slug: "florianopolis-centro", cidade: "Florianópolis", nome: "Centro", ativa: true, criada: iso(60) },
-  { id: "u-kobrasol", slug: "sao-jose-kobrasol", cidade: "São José", nome: "Kobrasol", ativa: true, criada: iso(40) },
-  { id: "u-palhoca", slug: "palhoca-pedra-branca", cidade: "Palhoça", nome: "Pedra Branca", ativa: false, criada: iso(20) },
+  { id: "u-centro", slug: "florianopolis-centro", cidade: "Florianópolis", nome: "Centro", ativa: true, criada: iso(60), codigo: "centro", operacao: true, retirada: true, endereco: "", ordem: 1 },
+  { id: "u-santa-monica", slug: "florianopolis-santa-monica", cidade: "Florianópolis", nome: "Santa Mônica", ativa: true, criada: iso(58), codigo: "santa-monica", operacao: true, retirada: true, endereco: "", ordem: 2 },
+  { id: "u-coqueiros", slug: "florianopolis-coqueiros", cidade: "Florianópolis", nome: "Coqueiros", ativa: true, criada: iso(56), codigo: "coqueiros", operacao: true, retirada: true, endereco: "", ordem: 3 },
+  { id: "u-areias", slug: "sao-jose-areias", cidade: "São José", nome: "Areias", ativa: true, criada: iso(54), codigo: "areias", operacao: true, retirada: true, endereco: "", ordem: 4 },
+  { id: "u-kobrasol", slug: "sao-jose-kobrasol", cidade: "São José", nome: "Roçado", ativa: true, criada: iso(40), codigo: "rocado", operacao: true, retirada: true, endereco: "", ordem: 5 },
+  { id: "u-pagani", slug: "palhoca-pagani", cidade: "Palhoça", nome: "Pagani", ativa: true, criada: iso(30), codigo: "pagani", operacao: true, retirada: true, endereco: "", ordem: 6 },
+  { id: "u-ipiranga", slug: "sao-jose-ipiranga", cidade: "São José", nome: "Ipiranga", ativa: true, criada: iso(20), codigo: "ipiranga", operacao: false, retirada: false, endereco: "", ordem: 7 },
 ];
 
 /**

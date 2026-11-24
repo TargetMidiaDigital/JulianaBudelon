@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fmtBR, parseComentarios } from "./data";
 import { sincronizarStatusPedido } from "./pedido-server";
-import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
+import { nomeDoLocal, parseQuantidades } from "./estoque";
+import { carregarLojasOperacao } from "./lojas-server";
 import { parseItens } from "./pedido";
 import { parseConferencia } from "./conferencia";
 import type { TaskStatus } from "./types";
@@ -93,7 +94,8 @@ export async function aplicarEstoqueRecebimento(sb: SupabaseClient, t: TarefaEst
     const antes = passouDaConferencia(t, t.status), depois = passouDaConferencia(t, novoStatus);
     if (antes === depois) return;
     const local = t.local;
-    const label = LOCAIS_ESTOQUE.find((l) => l.id === local)?.label ?? local;
+    await carregarLojasOperacao(sb);
+    const label = nomeDoLocal(local);
     let linhas = linhasEstoque(t);
     if (!linhas.length && t.pedido_id) { // tarefa antiga, sem conferência: usa o que a ordem mandou
       const { data: ped } = await sb.from("pedido").select("itens").eq("id", t.pedido_id).maybeSingle();

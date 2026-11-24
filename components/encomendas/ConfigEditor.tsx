@@ -8,6 +8,8 @@ import { CORES_DESTAQUE, DIAS, PERIODOS, categoriaAtiva, horariosDaJanela, resum
 import { Svg } from "../ui/Svg";
 import Hoverable from "../ui/Hoverable";
 import { Botao, Chave } from "./CatalogoEditor";
+import { useApp } from "../store";
+import { pedirAbaConfig } from "@/lib/abaConfig";
 
 /**
  * Autoatendimento → Configurações: unidades de retirada, entrega, horários por dia da
@@ -16,14 +18,13 @@ import { Botao, Chave } from "./CatalogoEditor";
  */
 export default function ConfigEditor({ editavel }: { editavel: boolean }) {
   const { config, salvarConfig } = useEncomendas();
-  const [abertaUnidade, setAbertaUnidade] = useState<string | null>(null);
+  const { isAdmin, goto } = useApp();
   const [c, setC] = useState<ConfigEncomendas>(() => structuredClone(config));
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const sujo = JSON.stringify(c) !== JSON.stringify(config);
 
   const mudar = (patch: Partial<ConfigEncomendas>) => { setC((x) => ({ ...x, ...patch })); setOk(false); setErro(null); };
-  const mudarUnidade = (id: string, patch: Partial<UnidadeRetirada>) => mudar({ unidades: c.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
   const salvar = () => {
     const limpa: ConfigEncomendas = { ...c, unidades: c.unidades.map((u) => ({ ...u, nome: u.nome.trim(), endereco: u.endereco.trim() })) };
     const e = validarConfig(limpa);
@@ -90,43 +91,24 @@ export default function ConfigEditor({ editavel }: { editavel: boolean }) {
       <Cartao titulo="Retirada na loja" sub="Lojas onde o cliente pode buscar o pedido" icone={<><path d="M3 9.5 4.6 4h14.8L21 9.5" /><path d="M5 12v8h14v-8M10 20v-4.5h4V20" /></>}
         direita={<Chave ligado={c.retiradaAtiva} onChange={(v) => !ro && mudar({ retiradaAtiva: v })} />}>
         {!c.retiradaAtiva && <div style={css("font-size:12.5px; color:#9398A6; font-style:italic; margin-bottom:8px;")}>Retirada desligada — o cliente só vê a opção de entrega.</div>}
+        {/* As lojas (nome, endereço, horário e se aceitam retirada) ficam no cadastro único: Configurações → Lojas. */}
         <div style={css(`display:flex; flex-direction:column; gap:8px; opacity:${c.retiradaAtiva ? 1 : 0.55};`)}>
-          {c.unidades.length === 0 && <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma loja cadastrada.</div>}
-          {c.unidades.map((u) => {
-            const aberta = abertaUnidade === u.id;
-            return (
-              <div key={u.id} style={css("background:#FAFAFB; border:1px solid #F0F1F4; border-radius:12px; padding:10px 12px;")}>
-                <div className="m-wrap" style={css("display:flex; align-items:center; gap:8px;")}>
-                  <span className="m-hide" style={{ display: "flex" }}><Svg size={16} stroke="#9398A6" style={css("flex:none;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg></span>
-                  {/* No celular: nome e endereço em linhas inteiras; chave e lixeira na linha de baixo. */}
-                  <input className="m-full" disabled={ro} value={u.nome} onChange={(e) => mudarUnidade(u.id, { nome: e.target.value })} placeholder="Nome (ex.: Centro)" aria-label="Nome da loja" style={css(campo("flex:1; min-width:150px;"))} />
-                  <input className="m-full" disabled={ro} value={u.endereco} onChange={(e) => mudarUnidade(u.id, { endereco: e.target.value })} placeholder="Endereço (aparece para o cliente)" aria-label="Endereço da loja" style={css(campo("flex:1.6; min-width:220px;"))} />
-                  <span style={css("display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#7A8090; margin-right:auto;")}>
-                    <Chave ligado={u.ativo} onChange={(v) => !ro && mudarUnidade(u.id, { ativo: v })} />{u.ativo ? "Ativa" : "Inativa"}
-                  </span>
-                  {!ro && <Lixeira titulo="Remover loja" onClick={() => mudar({ unidades: c.unidades.filter((x) => x.id !== u.id) })} />}
-                </div>
-                <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; padding-left:2px;")}>
-                  <Svg size={14} stroke={u.horarios ? BRAND : "#9398A6"} sw={2} style={css("flex:none;")}><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></Svg>
-                  <span style={css("font-size:12.5px; font-weight:700; color:#5B6472;")}>Funcionamento:</span>
-                  <span style={css(`font-size:12.5px; color:${u.horarios ? "#3A3F4C" : "#9398A6"}; flex:1; min-width:160px;`)}>{u.horarios ? resumoHorario(u.horarios) : "usa os horários gerais de retirada (abaixo)"}</span>
-                  {!ro && (u.horarios
-                    ? <AddLink sem onClick={() => setAbertaUnidade(aberta ? null : u.id)}>{aberta ? "Fechar" : "Editar horário"}</AddLink>
-                    : <AddLink onClick={() => { mudarUnidade(u.id, { horarios: structuredClone(c.janelas) }); setAbertaUnidade(u.id); }}>Definir horário da loja</AddLink>)}
-                </div>
-                {aberta && u.horarios && (
-                  <div style={css("margin-top:8px; background:#fff; border:1px solid #ECEDF1; border-radius:10px; padding:4px 12px 10px;")}>
-                    <EditorJanelas janelas={u.horarios} intervaloMin={c.intervaloMin} fimIncluso={false} ro={ro} onChange={(h) => mudarUnidade(u.id, { horarios: h })} />
-                    <div style={css("display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;")}>
-                      <span style={css("font-size:12px; color:#9398A6; flex:1; min-width:200px;")}>O cliente só consegue marcar a retirada nesta loja dentro desse horário (o horário de fechar não entra).</span>
-                      {!ro && <AddLink sem onClick={() => { mudarUnidade(u.id, { horarios: undefined }); setAbertaUnidade(null); }}>Usar os horários gerais</AddLink>}
-                    </div>
-                  </div>
-                )}
+          {c.unidades.filter((u) => u.ativo).length === 0 && <div style={css("font-size:13px; color:#9398A6;")}>Nenhuma loja com retirada ligada.</div>}
+          {c.unidades.filter((u) => u.ativo).map((u) => (
+            <div key={u.id} style={css("background:#FAFAFB; border:1px solid #F0F1F4; border-radius:12px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start;")}>
+              <Svg size={16} stroke="#9398A6" style={css("flex:none; margin-top:2px;")}><path d="M12 21s-6-5.3-6-11a6 6 0 0 1 12 0c0 5.7-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></Svg>
+              <div style={css("flex:1; min-width:0;")}>
+                <div style={css("font-size:13.5px; font-weight:800;")}>{u.nome}</div>
+                <div style={css(`font-size:12.5px; color:${u.endereco ? "#5B6472" : "#B6BAC4"}; margin-top:2px;`)}>{u.endereco || "sem endereço"}</div>
+                <div style={css("font-size:12.5px; color:#7A8090; margin-top:2px;")}>Funcionamento: {u.horarios ? resumoHorario(u.horarios) : "usa os horários gerais de retirada (abaixo)"}</div>
               </div>
-            );
-          })}
-          {!ro && <AddLink onClick={() => { const id = crypto.randomUUID(); mudar({ unidades: [...c.unidades, { id, nome: "", endereco: "", ativo: true, horarios: structuredClone(c.janelas) }] }); setAbertaUnidade(id); }}>Adicionar loja</AddLink>}
+            </div>
+          ))}
+          {c.unidades.some((u) => !u.ativo) && <div style={css("font-size:12px; color:#9398A6;")}>Sem retirada: {c.unidades.filter((u) => !u.ativo).map((u) => u.nome).join(", ")}.</div>}
+          <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px; margin-top:2px;")}>
+            <span style={css("font-size:12px; color:#7A8090; flex:1; min-width:200px; line-height:1.45;")}>As lojas, o endereço, o horário e quais aceitam retirada ficam em <b>Configurações → Lojas</b> — o mesmo cadastro da operação e das vagas.</span>
+            {isAdmin && <Botao onClick={() => { pedirAbaConfig("lojas"); goto("config"); }}>Editar lojas</Botao>}
+          </div>
         </div>
       </Cartao>
 
@@ -230,7 +212,7 @@ function AddLink({ onClick, children, sem }: { onClick: () => void; children: Re
 }
 
 /** Editor de horários por dia da semana (blocos início–fim), usado nos horários gerais e no funcionamento de cada loja. */
-function EditorJanelas({ janelas, intervaloMin, fimIncluso = true, ro, onChange }: { janelas: Record<DiaKey, JanelaDia>; intervaloMin: number; fimIncluso?: boolean; ro: boolean; onChange: (j: Record<DiaKey, JanelaDia>) => void }) {
+export function EditorJanelas({ janelas, intervaloMin, fimIncluso = true, ro, onChange }: { janelas: Record<DiaKey, JanelaDia>; intervaloMin: number; fimIncluso?: boolean; ro: boolean; onChange: (j: Record<DiaKey, JanelaDia>) => void }) {
   const mudarDia = (k: DiaKey, f: (d: JanelaDia) => JanelaDia) => onChange({ ...janelas, [k]: f(janelas[k] ?? { ativo: false, intervalos: [] }) });
   return (
     <div style={css("display:flex; flex-direction:column;")}>

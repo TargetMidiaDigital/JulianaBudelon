@@ -12,6 +12,7 @@ import Hoverable from "../ui/Hoverable";
 import Menu, { MenuItem } from "../ui/Menu";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
+import { pedirAbaConfig } from "@/lib/abaConfig";
 
 const TURNOS: { v: Turno; label: string }[] = [
   { v: "", label: "Sem turno" },
@@ -36,12 +37,13 @@ function AtivaPill({ ativa, onChange, labels = ["Ativa", "Pausada"], disabled }:
 }
 
 export default function Vagas() {
-  const { unidades, vagas, talentos, linkbio, setLinkbio, addUnidade, updateUnidade, removeUnidade, addVaga, updateVaga, removeVaga, canEditPage } = useApp();
+  const { unidades, vagas, talentos, linkbio, setLinkbio, updateUnidade, addVaga, updateVaga, removeVaga, canEditPage, isAdmin, goto } = useApp();
   const editavel = canEditPage("recrutamento-vagas");
   const [sel, setSel] = useState<string | null>(null);
-  const [formUnidade, setFormUnidade] = useState<{ aberto: boolean; editando?: Unidade }>({ aberto: false });
   const [formVaga, setFormVaga] = useState<{ aberto: boolean; editando?: Vaga }>({ aberto: false });
-  const [confirm, setConfirm] = useState<{ tipo: "unidade" | "vaga"; id: string; nome: string } | null>(null);
+  const [confirm, setConfirm] = useState<{ id: string; nome: string } | null>(null);
+  // Lojas são cadastradas num lugar só: Configurações → Lojas (Administrador).
+  const irParaLojas = () => { pedirAbaConfig("lojas"); goto("config"); };
   const [copiado, setCopiado] = useState<string | null>(null);
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -69,9 +71,11 @@ export default function Vagas() {
         </div>
         {editavel && (
           <>
-            <Hoverable as="button" onClick={() => setFormUnidade({ aberto: true })} s={css(btnGhost)} hover="background:#F4F4F7">
-              <Svg size={15} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>Nova loja
-            </Hoverable>
+            {isAdmin && (
+              <Hoverable as="button" onClick={irParaLojas} title="Lojas são cadastradas em Configurações → Lojas" s={css(btnGhost)} hover="background:#F4F4F7">
+                <Svg size={15} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>Nova loja
+              </Hoverable>
+            )}
             <Hoverable as="button" onClick={() => setFormVaga({ aberto: true })} {...{ disabled: unidades.length === 0 }} title={unidades.length === 0 ? "Crie uma loja primeiro" : undefined} s={css(`display:inline-flex; align-items:center; gap:7px; border:none; cursor:${unidades.length ? "pointer" : "not-allowed"}; opacity:${unidades.length ? 1 : 0.5}; background:${BRAND}; color:#fff; font-weight:700; font-size:13px; padding:9px 16px; border-radius:10px;`)} hover={unidades.length ? "filter:brightness(1.12)" : undefined}>
               <Svg size={15} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>Nova vaga
             </Hoverable>
@@ -95,17 +99,6 @@ export default function Vagas() {
       {/* Página pública: textos (logo abaixo do link, como pediu a Ju) */}
       <PaginaConfig linkbio={linkbio} onSave={setLinkbio} editavel={editavel} />
 
-      {formUnidade.aberto && (
-        <UnidadeForm
-          inicial={formUnidade.editando}
-          onClose={() => setFormUnidade({ aberto: false })}
-          onSave={(dados) => {
-            if (formUnidade.editando) updateUnidade(formUnidade.editando.id, dados);
-            else { const u = addUnidade(dados); setSel(u.id); }
-            setFormUnidade({ aberto: false });
-          }}
-        />
-      )}
       {formVaga.aberto && (
         <VagaForm
           inicial={formVaga.editando}
@@ -130,7 +123,7 @@ export default function Vagas() {
             <span style={css("font-size:12px; font-weight:700; color:#9398A6;")}>{unidades.length}</span>
           </div>
           {ordenadas.length === 0 ? (
-            <div style={css("font-size:13px; color:#9398A6; padding:6px 0;")}>Nenhuma loja. Crie a primeira para começar a abrir vagas.</div>
+            <div style={css("font-size:13px; color:#9398A6; padding:6px 0;")}>Nenhuma loja. As lojas são cadastradas em Configurações → Lojas.</div>
           ) : (
             <div style={css("display:flex; flex-direction:column; gap:8px;")}>
               {ordenadas.map((u) => {
@@ -163,11 +156,8 @@ export default function Vagas() {
                   <div style={css("font-size:12.5px; color:#9398A6; margin-top:2px;")}>{vagasSel.length} {vagasSel.length === 1 ? "vaga cadastrada" : "vagas cadastradas"} · {vagasSel.filter((v) => v.ativa).length} na página pública</div>
                 </div>
                 <Hoverable as="button" onClick={() => copiar(`${origin}/vagas/${selecionada.slug}`, selecionada.id)} s={css(btnGhost)} hover="background:#F4F4F7">{copiado === selecionada.id ? "Copiado!" : "Copiar link da loja"}</Hoverable>
-                {editavel && (
-                  <>
-                    <Hoverable as="button" title="Editar loja" onClick={() => setFormUnidade({ aberto: true, editando: selecionada })} s={css(iconBtn + "color:#5B6472;")} hover="background:#F4F4F7"><Svg size={14}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></Svg></Hoverable>
-                    <Hoverable as="button" title="Excluir loja" onClick={() => setConfirm({ tipo: "unidade", id: selecionada.id, nome: unidadeLabel(selecionada) })} s={css(iconBtn + "color:#CC3338;")} hover="background:#FDF0F0"><Svg size={14}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></Svg></Hoverable>
-                  </>
+                {isAdmin && (
+                  <Hoverable as="button" title="Editar loja (Configurações → Lojas)" onClick={irParaLojas} s={css(iconBtn + "color:#5B6472;")} hover="background:#F4F4F7"><Svg size={14}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></Svg></Hoverable>
                 )}
               </div>
 
@@ -194,7 +184,7 @@ export default function Vagas() {
                         {editavel && (
                           <>
                             <Hoverable as="button" title="Editar vaga" onClick={() => setFormVaga({ aberto: true, editando: v })} s={css(iconBtn + "color:#5B6472;")} hover="background:#F4F4F7"><Svg size={14}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></Svg></Hoverable>
-                            <Hoverable as="button" title="Excluir vaga" onClick={() => setConfirm({ tipo: "vaga", id: v.id, nome: vagaLabel(v) })} s={css(iconBtn + "color:#CC3338;")} hover="background:#FDF0F0"><Svg size={14}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></Svg></Hoverable>
+                            <Hoverable as="button" title="Excluir vaga" onClick={() => setConfirm({ id: v.id, nome: vagaLabel(v) })} s={css(iconBtn + "color:#CC3338;")} hover="background:#FDF0F0"><Svg size={14}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></Svg></Hoverable>
                           </>
                         )}
                       </div>
@@ -211,48 +201,14 @@ export default function Vagas() {
 
       {confirm && (
         <ConfirmModal
-          titulo={confirm.tipo === "unidade" ? "Excluir loja" : "Excluir vaga"}
-          mensagem={confirm.tipo === "unidade"
-            ? <>Excluir <strong style={css("color:#1B1B28;")}>{confirm.nome}</strong> apaga também as vagas dela. Os candidatos continuam no Banco de Talentos, sem o vínculo.</>
-            : <>Excluir a vaga <strong style={css("color:#1B1B28;")}>{confirm.nome}</strong>? Os candidatos continuam no Banco de Talentos, sem o vínculo.</>}
+          titulo="Excluir vaga"
+          mensagem={<>Excluir a vaga <strong style={css("color:#1B1B28;")}>{confirm.nome}</strong>? Os candidatos continuam no Banco de Talentos, sem o vínculo.</>}
           confirmLabel="Excluir"
           danger
-          onConfirm={() => { if (confirm.tipo === "unidade") { removeUnidade(confirm.id); setSel(null); } else removeVaga(confirm.id); setConfirm(null); }}
+          onConfirm={() => { removeVaga(confirm.id); setConfirm(null); }}
           onClose={() => setConfirm(null)}
         />
       )}
-    </div>
-  );
-}
-
-function UnidadeForm({ inicial, onClose, onSave }: { inicial?: Unidade; onClose: () => void; onSave: (d: { cidade: string; nome: string; ativa: boolean }) => void }) {
-  const [cidade, setCidade] = useState(inicial?.cidade ?? "");
-  const [nome, setNome] = useState(inicial?.nome ?? "");
-  const [ativa, setAtiva] = useState(inicial?.ativa ?? true);
-  const [erro, setErro] = useState<string | null>(null);
-  const salvar = () => {
-    if (!nome.trim()) { setErro("Informe o nome da loja."); return; }
-    onSave({ cidade: cidade.trim(), nome: nome.trim(), ativa });
-  };
-  return (
-    <div style={css(card)}>
-      <div style={css("display:flex; align-items:center; gap:10px;")}>
-        <div style={css("font-size:15px; font-weight:800; flex:1;")}>{inicial ? "Editar loja" : "Nova loja"}</div>
-        <Hoverable as="button" onClick={onClose} s={css("width:30px; height:30px; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={15} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
-      </div>
-      <div className="m-grid-1" style={css("display:grid; grid-template-columns:1fr 1fr; gap:14px;")}>
-        <div><label style={lbl}>Cidade</label><input autoFocus value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="ex.: Florianópolis" style={inp} /></div>
-        <div><label style={lbl}>Loja / bairro</label><input value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") salvar(); }} placeholder="ex.: Campeche" style={inp} /></div>
-      </div>
-      <div style={css("display:flex; align-items:center; gap:10px;")}>
-        <AtivaPill ativa={ativa} onChange={setAtiva} />
-        <span style={css("font-size:12px; color:#9398A6;")}>Na página pública o botão fica “{cidade.trim() ? `${cidade.trim()} — ` : ""}{nome.trim() || "…"}”. Pausada, a loja some do hub.</span>
-      </div>
-      {erro && <div style={css("font-size:12.5px; color:#CC3338; font-weight:600;")}>{erro}</div>}
-      <div style={css("display:flex; justify-content:flex-end; gap:10px;")}>
-        <Hoverable as="button" onClick={onClose} s={css("border:1px solid #E2E3E9; background:#fff; border-radius:10px; padding:9px 16px; font-size:13.5px; font-weight:700; color:#5B6472; cursor:pointer;")} hover="background:#F4F4F7">Cancelar</Hoverable>
-        <Hoverable as="button" onClick={salvar} s={css(`border:none; border-radius:10px; padding:9px 18px; font-size:13.5px; font-weight:700; color:#fff; cursor:pointer; background:${BRAND};`)} hover="filter:brightness(1.08)">{inicial ? "Salvar" : "Criar loja"}</Hoverable>
-      </div>
     </div>
   );
 }

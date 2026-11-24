@@ -17,16 +17,21 @@ export const pedidoStatusInfo = (s: string) => PEDIDO_STATUS.find((x) => x.key =
 
 export type Itens = Record<string, Record<string, number>>;
 
-/** Objeto cru (jsonb) → itens válidos: só ids de local conhecidos, inteiros > 0. */
+/**
+ * Objeto cru (jsonb) → itens válidos: inteiros > 0 por id de local (Fábrica ou código de loja).
+ * Aceita qualquer código de loja bem formado — uma loja nova (ou que saiu da operação) não perde
+ * as quantidades ao salvar, mesmo onde a lista de lojas ainda não carregou (servidor).
+ */
 export function parseItens(raw: unknown): Itens {
   const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const out: Itens = {};
   for (const [pid, q] of Object.entries(o)) {
     if (!q || typeof q !== "object") continue;
     const linha: Record<string, number> = {};
-    for (const l of LOCAIS_ESTOQUE) {
-      const n = Number((q as Record<string, unknown>)[l.id]);
-      if (Number.isFinite(n) && n > 0) linha[l.id] = Math.round(n);
+    for (const [local, v] of Object.entries(q as Record<string, unknown>)) {
+      if (!/^[a-z0-9-]{1,40}$/.test(local)) continue;
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) linha[local] = Math.round(n);
     }
     if (Object.keys(linha).length) out[pid] = linha;
   }

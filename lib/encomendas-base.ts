@@ -317,6 +317,41 @@ export const diaBR = (agora = new Date(), mais = 0) => new Date(agora.getTime() 
 export const respeitaAntecedencia = (cfg: ConfigEncomendas, iso: string, hora: string, agora = new Date(), preparoDias = 0, horas = cfg.antecedenciaHoras) =>
   instanteBR(iso, hora).getTime() - agora.getTime() >= horas * 3600_000 && iso >= diaBR(agora, preparoDias);
 
+/**
+ * Horário de funcionamento vindo da tela/banco: só dias conhecidos e blocos "HH:MM" (até 4 por dia).
+ * undefined = sem horário próprio (vale o geral).
+ */
+export function limparHorarios(j: unknown): Record<DiaKey, JanelaDia> | undefined {
+  if (!j || typeof j !== "object" || Array.isArray(j)) return undefined;
+  const hm = (x: unknown) => typeof x === "string" && /^\d{2}:\d{2}$/.test(x);
+  const r = {} as Record<DiaKey, JanelaDia>;
+  for (const d of DIAS) {
+    const v = (j as Record<string, { ativo?: unknown; intervalos?: unknown }>)[d.key];
+    const intervalos = (Array.isArray(v?.intervalos) ? v.intervalos : [])
+      .filter((b: { inicio?: unknown; fim?: unknown }) => b && hm(b.inicio) && hm(b.fim)).slice(0, 4)
+      .map((b: { inicio: string; fim: string }) => ({ inicio: b.inicio, fim: b.fim }));
+    r[d.key] = { ativo: v?.ativo === true && intervalos.length > 0, intervalos };
+  }
+  return r;
+}
+
+/** Loja do cadastro único (Configurações → Lojas) — só o que as Encomendas usam. */
+export type LojaCadastro = { codigo?: string | null; nome: string; endereco?: string | null; retirada?: boolean | null; horarios?: unknown; ordem?: number | null };
+
+/**
+ * Lojas de retirada a partir do cadastro único: toda loja com código vira "u-<codigo>" (o mesmo id
+ * de antes, então os pedidos antigos continuam ligados); só as com `retirada` ficam ativas.
+ */
+export function retiradaDasLojas(lojas: LojaCadastro[]): UnidadeRetirada[] {
+  return lojas
+    .filter((l) => !!l.codigo)
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || a.nome.localeCompare(b.nome, "pt"))
+    .map((l) => {
+      const horarios = limparHorarios(l.horarios);
+      return { id: `u-${l.codigo}`, nome: l.nome, endereco: l.endereco ?? "", ativo: l.retirada === true, ...(horarios ? { horarios } : {}) };
+    });
+}
+
 /** "2 dias de preparo" (texto para a tela). */
 export const textoPreparo = (dias?: number) => (dias && dias > 0 ? `${dias} dia${dias === 1 ? "" : "s"} de preparo` : "");
 

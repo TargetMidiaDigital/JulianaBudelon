@@ -31,9 +31,9 @@ const stop = (e: React.MouseEvent) => e.stopPropagation();
 
 // Colunas: Ordem (travada) · Status · Itens · um local por coluna (unidades a receber) · Entrega · Criado por · Criada · ações
 const COL_W = { titulo: 260, status: 150, itens: 130, tarefas: 96, exped: 96, receb: 96, local: 80, entrega: 130, autor: 70, criada: 130, acoes: 40 };
-const GRID = `${COL_W.titulo}px ${COL_W.status}px ${COL_W.itens}px ${COL_W.tarefas}px ${COL_W.exped}px ${COL_W.receb}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.entrega}px ${COL_W.autor}px ${COL_W.criada}px ${COL_W.acoes}px`;
-const NCOLS = 10 + LOCAIS_ESTOQUE.length;
-const GRID_MIN = COL_W.titulo + COL_W.status + COL_W.itens + COL_W.tarefas + COL_W.exped + COL_W.receb + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.entrega + COL_W.autor + COL_W.criada + COL_W.acoes + 14 * (NCOLS - 1) + 36;
+const GRID = () => `${COL_W.titulo}px ${COL_W.status}px ${COL_W.itens}px ${COL_W.tarefas}px ${COL_W.exped}px ${COL_W.receb}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.entrega}px ${COL_W.autor}px ${COL_W.criada}px ${COL_W.acoes}px`;
+const NCOLS = () => 10 + LOCAIS_ESTOQUE.length;
+const GRID_MIN = () => COL_W.titulo + COL_W.status + COL_W.itens + COL_W.tarefas + COL_W.exped + COL_W.receb + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.entrega + COL_W.autor + COL_W.criada + COL_W.acoes + 14 * (NCOLS() - 1) + 36;
 const fixa = (fundo: string, z: number) => `position:sticky; left:0; z-index:${z}; background:${fundo}; padding-left:18px; margin-left:-18px;`;
 
 const dataHora = (iso?: string) =>
@@ -135,7 +135,7 @@ export default function Pedidos() {
     );
     const late = p.entrega ? (daysUntil(p.entrega) ?? 0) < 0 && p.status !== "concluida" && p.status !== "validada" : false;
     return (
-      <Hoverable key={p.id} onClick={() => setPedidoDetailOpen(p.id)} s={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:11px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer;`)} hover="background:#FAFAFB">
+      <Hoverable key={p.id} onClick={() => setPedidoDetailOpen(p.id)} s={css(`display:grid; grid-template-columns:${GRID()}; gap:14px; padding:11px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer;`)} hover="background:#FAFAFB">
         <div style={css(`${fixa("#fff", 1)} align-self:stretch; display:flex; align-items:center; gap:6px; min-width:0;`)}>
           <Hoverable as="button" title={copiedId === p.id ? "Link copiado!" : "Copiar link da ordem"} onClick={(e: React.MouseEvent) => { e.stopPropagation(); copiarLink(p.id); }} s={css(`flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:${copiedId === p.id ? "#1B7F4D" : "#C7CAD2"};`)} hover="background:#FDF1F4; color:#955C6B">
             {copiedId === p.id
@@ -263,7 +263,7 @@ export default function Pedidos() {
               const open = semGrupo || !collapsed[grp.key];
               return (
                 <div key={grp.key} style={css(semGrupo ? "" : "padding-bottom:22px;")}>
-                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${mobile ? 0 : GRID_MIN}px;`)}>
+                  <div style={css(`position:sticky; top:0; z-index:20; background:#F7F7F9; min-width:${mobile ? 0 : GRID_MIN()}px;`)}>
                     {!semGrupo && (
                       <div style={css("position:sticky; left:0; width:max-content; max-width:100%; background:#F7F7F9; display:flex; align-items:center; gap:10px; padding:2px 0 9px;")}>
                         <Hoverable as="button" onClick={() => setCollapsed((c) => ({ ...c, [grp.key]: !c[grp.key] }))} s={css("width:26px; height:26px; flex:none; border:1px solid #E2E3E9; background:#fff; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#5B6472;")} hover="background:#F2F3F6">
@@ -276,7 +276,7 @@ export default function Pedidos() {
                       </div>
                     )}
                     {open && !mobile && (
-                      <div style={css(`display:grid; grid-template-columns:${GRID}; gap:14px; padding:10px 18px; border:1px solid #ECEDF1; background:#FAFAFB; border-radius:12px 12px 0 0; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
+                      <div style={css(`display:grid; grid-template-columns:${GRID()}; gap:14px; padding:10px 18px; border:1px solid #ECEDF1; background:#FAFAFB; border-radius:12px 12px 0 0; font-size:11px; font-weight:700; color:#9398A6; letter-spacing:0.4px; text-transform:uppercase;`)}>
                         {cols.map((col) => col.key ? (
                           <Hoverable key={col.id} onClick={() => toggleSort(col.key!)} s={css(`${col.id === "titulo" ? fixa("#FAFAFB", 5) : ""} display:flex; align-items:center; gap:4px; overflow:hidden; cursor:pointer; user-select:none; min-width:0;`)} hover="color:#5B6472">
                             <span style={css("overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{col.label}</span>
@@ -288,7 +288,7 @@ export default function Pedidos() {
                   </div>
                   {open && mobile && <div style={css("display:flex; flex-direction:column; gap:8px;")}>{sortRows(grp.itens).map(renderCard)}</div>}
                   {open && !mobile && (
-                    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-top:none; border-radius:0 0 12px 12px; min-width:${GRID_MIN}px;`)}>
+                    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-top:none; border-radius:0 0 12px 12px; min-width:${GRID_MIN()}px;`)}>
                       {sortRows(grp.itens).map(renderRow)}
                     </div>
                   )}

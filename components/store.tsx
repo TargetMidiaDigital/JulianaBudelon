@@ -12,10 +12,10 @@ import {
 } from "react";
 import { CARGOS_PADRAO, DEFAULT_ESCOPO, cargosDoSetor, isCargoFull, matrizEfetiva, nivelPadrao, ordenarCargos, registrarCargos } from "@/lib/acesso";
 import { clienteDe } from "@/lib/selectors";
-import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, qtdEm } from "@/lib/estoque";
+import { CATEGORIAS_ESTOQUE, LOCAIS_ESTOQUE, definirLojasOperacao, qtdEm } from "@/lib/estoque";
 import { itemQtd, nomeProduto, pedidoStatusInfo, statusDerivadoDoPedido, totalPorLocal, totalProdutoNoPedido } from "@/lib/pedido";
 import { CATEGORIA_EXPEDICAO, CATEGORIA_UNIDADE, ehEncomendaLoja, ehProducao, ehUnidade, passouDaConferencia } from "@/lib/tarefas";
-import { avancarPedidoPelaTarefa } from "@/lib/encomendas";
+import { avancarPedidoPelaTarefa, lojasMudaram } from "@/lib/encomendas";
 import { faltamPreencher, linhasDaTarefa, qtdEfetiva, rotuloRealizado } from "@/lib/conferencia";
 import { statusInfo, prioInfo } from "@/lib/theme";
 import { DEFAULT_DUE_TIME, fmtNowBR, parseBR } from "@/lib/format";
@@ -150,10 +150,11 @@ type Store = {
   removePedido: (id: string) => void;
   // Recrutamento → Vagas (unidades + vagas + página pública)
   unidades: Unidade[];
-  addUnidade: (u: Omit<Unidade, "id" | "slug" | "criada">) => Unidade;
-  updateUnidade: (id: string, patch: Partial<Unidade>) => void;
+  /** Lojas (cadastro único). `aoFalhar` recebe a mensagem do servidor quando a gravação é recusada. */
+  addUnidade: (u: Omit<Unidade, "id" | "slug" | "criada">, aoFalhar?: (erro: string) => void) => Unidade;
+  updateUnidade: (id: string, patch: Partial<Unidade>, aoFalhar?: (erro: string) => void) => void;
   /** Remove a unidade e as vagas dela; candidatos ficam (perdem só o vínculo). */
-  removeUnidade: (id: string) => void;
+  removeUnidade: (id: string, aoFalhar?: (erro: string) => void) => void;
   vagas: Vaga[];
   addVaga: (v: Omit<Vaga, "id" | "criada">) => Vaga;
   updateVaga: (id: string, patch: Partial<Vaga>) => void;
@@ -403,6 +404,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const cargos = useMemo(() => ordenarCargos(db.cargos?.length ? db.cargos : CARGOS_PADRAO), [db.cargos]);
   // Funções puras (cor da pílula, responsáveis por setor) leem os cargos/acessos daqui.
   registrarCargos(cargos, acessos);
+  // Lojas da operação (estoque, tarefas, ordem de serviço, filtros) vêm do cadastro único de lojas.
+  // Roda no render (antes das telas filhas), como os cargos acima; o array de LOCAIS_ESTOQUE é o mesmo.
+  useMemo(() => { if (unidades.some((u) => u.codigo)) definirLojasOperacao(unidades); }, [unidades]);
+  // Lojas editadas: as Encomendas (retirada) leem de novo. A primeira carga não conta.
+  const lojasAntes = useRef<typeof unidades | null>(null);
+  useEffect(() => {
+    if (lojasAntes.current && lojasAntes.current !== unidades) lojasMudaram();
+    lojasAntes.current = unidades;
+  }, [unidades]);
   produtosGlobais = produtos;
   const currentUser: TeamMember = (sessionId && team.find((t) => t.id === sessionId)) || FALLBACK_USER;
   const authed = !!sessionId && currentUser.id !== "";
@@ -781,24 +791,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Excluir a ordem leva junto as tarefas de produção que ela gerou (no banco, FK on delete cascade).
     removePedido: (id) => { patchDb((d) => ({ pedidos: d.pedidos.filter((x) => x.id !== id), tasks: d.tasks.filter((t) => t.pedidoId !== id) })); void persist("/api/pedidos", "DELETE", { id }); },
     unidades,
-    addUnidade: (u) => {
+    addUnidade: (u, aoFalhar) => {
       // Slug único a partir de "cidade nome"; colisão ganha sufixo numérico.
-      const base = slugify(`${u.cidade} ${u.nome}`) || `unidade-${Date.now()}`;
+      const base = slugify(`${u.cidade} ${u.nome}`) || `loja-${Date.now()}`;
       let slug = base, n = 2;
       while (unidades.some((x) => x.slug === slug)) slug = `${base}-${n++}`;
-      const nova: Unidade = { ...u, id: `u-${Date.now()}`, slug, criada: new Date().toISOString() };
+      // Código da operação (estoque/tarefas): o nome da loja ("Santa Mônica" → "santa-monica"), único e fixo.
+      const baseCod = (u.codigo || slugify(u.nome) || `loja-${Date.now()}`).slice(0, 40);
+      let codigo = baseCod, k = 2;
+      while (codigo === "fabrica" || unidades.some((x) => x.codigo === codigo)) codigo = `${baseCod}-${k++}`;
+      const ordem = Math.max(0, ...unidades.filter((x) => (x.ordem ?? 0) < 99).map((x) => x.ordem ?? 0)) + 1;
+      const nova: Unidade = { ordem, ...u, codigo, id: `u-${Date.now()}`, slug, criada: new Date().toISOString() };
       patchDb((d) => ({ unidades: [...d.unidades, nova] }));
-      void persist("/api/unidades", "POST", { unidade: nova });
+      void persist("/api/unidades", "POST", { unidade: nova }).then((r) => { if (!r.ok) aoFalhar?.(r.error ?? "Falha ao salvar."); });
       return nova;
     },
-    updateUnidade: (id, patch) => { patchDb((d) => ({ unidades: d.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) })); void persist("/api/unidades", "PATCH", { id, patch }); },
-    removeUnidade: (id) => {
+    updateUnidade: (id, patch, aoFalhar) => {
+      patchDb((d) => ({ unidades: d.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+      void persist("/api/unidades", "PATCH", { id, patch }).then((r) => { if (!r.ok) aoFalhar?.(r.error ?? "Falha ao salvar."); });
+    },
+    removeUnidade: (id, aoFalhar) => {
       patchDb((d) => ({
         unidades: d.unidades.filter((x) => x.id !== id),
         vagas: d.vagas.filter((v) => v.unidadeId !== id),
         talentos: d.talentos.map((t) => (t.unidadeId === id ? { ...t, unidadeId: undefined, vagaId: undefined } : t)),
       }));
-      void persist("/api/unidades", "DELETE", { id });
+      void persist("/api/unidades", "DELETE", { id }).then((r) => { if (!r.ok) aoFalhar?.(r.error ?? "Falha ao excluir."); });
     },
     vagas,
     addVaga: (v) => {

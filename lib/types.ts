@@ -104,14 +104,26 @@ export type Anexo = {
   autor?: string; // id de quem anexou
 };
 
-/** Unidade (loja/filial) — os botões do hub da página pública "Trabalhe conosco". */
+/**
+ * Loja — cadastro único (Configurações → Lojas; tabela `unidade`). A mesma loja aparece em:
+ *  - RH → Vagas e na página pública "Trabalhe conosco" (`ativa`);
+ *  - operação: Ordem de Serviço, Produção, Expedição, Lojas, Estoque, Indicadores (`operacao`, pelo `codigo`);
+ *  - página de encomendas, para retirada (`retirada`; o id da retirada é "u-<codigo>").
+ */
 export type Unidade = {
   id: string;
-  slug: string; // URL pública: /vagas/<slug>
+  slug: string; // URL pública: /vagas/<slug> (não muda depois de criada)
   cidade: string; // ex.: "Florianópolis"
-  nome: string; // ex.: "Campeche" (bairro/nome da unidade)
-  ativa: boolean; // inativa some do hub (a URL continua abrindo, com aviso de "sem vagas")
+  nome: string; // ex.: "Centro" (bairro/nome da loja)
+  ativa: boolean; // aparece na página de vagas (inativa some do hub; a URL continua abrindo, com aviso de "sem vagas")
   criada?: string; // ISO
+  /** Id da loja na operação (estoque, tarefas, ordem de serviço): "centro", "santa-monica"… Não muda depois de criado. */
+  codigo?: string | null;
+  operacao?: boolean; // aparece na operação
+  retirada?: boolean; // aceita retirada de encomendas
+  endereco?: string; // aparece para o cliente na retirada
+  horarios?: Record<string, { ativo: boolean; intervalos: { inicio: string; fim: string }[] }> | null; // funcionamento (sem = horários gerais)
+  ordem?: number;
 };
 
 export type Turno = "" | "Diurno" | "Noturno";

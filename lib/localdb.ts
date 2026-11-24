@@ -34,7 +34,7 @@ export type Db = {
 
 export const DB_KEY = "jb.db.v1";
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 export function seedDb(): Db {
   return {
@@ -82,6 +82,13 @@ export function loadDb(): Db {
     if ((d.seedVersion ?? 1) < 4) {
       const antigas = new Set(TITULOS_EXEMPLO_ANTIGOS);
       out.tasks = out.tasks.filter((t) => !(/^t([1-9]|1[0-3])$/.test(t.id) && antigas.has(t.titulo)));
+    }
+    // v5 (24/11/2026): cadastro único de lojas — as lojas de exemplo ganham código/operação/retirada.
+    // As que já existem (mesmo id) só recebem os campos novos; as que faltam entram do exemplo.
+    if ((d.seedVersion ?? 1) < 5) {
+      const porId = new Map(seed.unidades.map((u) => [u.id, u]));
+      out.unidades = out.unidades.map((u) => (u.codigo === undefined && porId.has(u.id) ? { ...porId.get(u.id)!, ...u, nome: porId.get(u.id)!.nome, codigo: porId.get(u.id)!.codigo, operacao: porId.get(u.id)!.operacao, retirada: porId.get(u.id)!.retirada, ordem: porId.get(u.id)!.ordem } : u));
+      for (const u of seed.unidades) if (!out.unidades.some((x) => x.id === u.id || (x.codigo && x.codigo === u.codigo))) out.unidades.push(u);
     }
     out.seedVersion = SEED_VERSION;
     return out;

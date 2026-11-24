@@ -31,14 +31,14 @@ const GROUP_OPTS: { key: GroupBy; label: string }[] = [
 
 // Colunas: Produto (travada à esquerda) · Categoria · um local por coluna · Total · Atualização · ações.
 const COL_W = { nome: 250, categoria: 180, local: 88, total: 80, atualizada: 150, acoes: 40 };
-const GRID = `${COL_W.nome}px ${COL_W.categoria}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.total}px ${COL_W.atualizada}px ${COL_W.acoes}px`;
-const NCOLS = 5 + LOCAIS_ESTOQUE.length;
-const GRID_MIN = COL_W.nome + COL_W.categoria + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.total + COL_W.atualizada + COL_W.acoes + 14 * (NCOLS - 1) + 36;
+const GRID = () => `${COL_W.nome}px ${COL_W.categoria}px ${LOCAIS_ESTOQUE.map(() => `${COL_W.local}px`).join(" ")} ${COL_W.total}px ${COL_W.atualizada}px ${COL_W.acoes}px`;
+const NCOLS = () => 5 + LOCAIS_ESTOQUE.length;
+const GRID_MIN = () => COL_W.nome + COL_W.categoria + COL_W.local * LOCAIS_ESTOQUE.length + COL_W.total + COL_W.atualizada + COL_W.acoes + 14 * (NCOLS() - 1) + 36;
 /** Célula travada (Produto): fundo opaco porque as outras colunas deslizam por baixo. */
 // Celular: sem Categoria (já é o grupo) e sem Última atualização; produto mais estreito.
 const COL_M = { nome: 128, local: 64, total: 52, acoes: 36 };
-const GRID_M = `${COL_M.nome}px ${LOCAIS_ESTOQUE.map(() => `${COL_M.local}px`).join(" ")} ${COL_M.total}px ${COL_M.acoes}px`;
-const GRID_MIN_M = COL_M.nome + COL_M.local * LOCAIS_ESTOQUE.length + COL_M.total + COL_M.acoes + 8 * (LOCAIS_ESTOQUE.length + 2) + 36;
+const GRID_M = () => `${COL_M.nome}px ${LOCAIS_ESTOQUE.map(() => `${COL_M.local}px`).join(" ")} ${COL_M.total}px ${COL_M.acoes}px`;
+const GRID_MIN_M = () => COL_M.nome + COL_M.local * LOCAIS_ESTOQUE.length + COL_M.total + COL_M.acoes + 8 * (LOCAIS_ESTOQUE.length + 2) + 36;
 const fixa = (fundo: string, z: number) => `position:sticky; left:0; z-index:${z}; background:${fundo}; padding-left:18px; margin-left:-18px;`;
 
 const semAcento = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
@@ -51,7 +51,7 @@ const dataHora = (iso?: string) =>
 export default function Estoque() {
   const { produtos, updateProduto, removeProduto, canEditPage, workspace } = useApp();
   const mobile = useIsMobile();
-  const G = mobile ? GRID_M : GRID, GMIN = mobile ? GRID_MIN_M : GRID_MIN, GAP = mobile ? 8 : 14;
+  const G = mobile ? GRID_M() : GRID(), GMIN = mobile ? GRID_MIN_M() : GRID_MIN(), GAP = mobile ? 8 : 14;
   const editavel = canEditPage("estoque");
 
   const [formOpen, setFormOpen] = useState(false);

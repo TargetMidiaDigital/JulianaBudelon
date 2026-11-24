@@ -1,8 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { seedUnidades } from "./seed";
 import {
-  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, montarAcompanhamento, montarPedidoNovo, numeroPedido, ordemPedido, validarNovoPedido, vitrineDe,
+  CATEGORIAS_NATAL, CATEGORIA_PADRAO, CONFIG_PADRAO, PRODUTOS_NATAL, PRODUTOS_PADRAO, isoDia, montarAcompanhamento, montarPedidoNovo, numeroPedido, ordemPedido, retiradaDasLojas, validarNovoPedido, vitrineDe,
+  type LojaCadastro,
   type Acompanhamento,
   type Categoria, type Compromisso, type ConfigEncomendas, type Lead, type LeadStatus, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type ResponsavelLead, type TipoEntrega,
 } from "./encomendas-base";
@@ -100,6 +102,22 @@ const paginaPublica = () => noNavegador() && window.location.pathname.startsWith
 
 function avisar() { snap = null; ouvintes.forEach((f) => f()); }
 
+/** Demo: lojas do cadastro único (o banco local do painel; sem ele, as lojas de exemplo). */
+function lojasDemo(): LojaCadastro[] {
+  try {
+    const raw = window.localStorage.getItem("jb.db.v1");
+    const u = raw ? (JSON.parse(raw) as { unidades?: LojaCadastro[] }).unidades : undefined;
+    if (Array.isArray(u) && u.some((l) => l.codigo)) return u;
+  } catch { /* sem banco local */ }
+  return seedUnidades;
+}
+
+/** As lojas mudaram (Configurações → Lojas): as encomendas leem de novo as lojas de retirada. */
+export function lojasMudaram() {
+  if (meta.modo === "banco") { void buscar(); return; }
+  estado = null; avisar();
+}
+
 function lerDemo(): Estado {
   const base = seed();
   try {
@@ -121,6 +139,8 @@ function lerDemo(): Estado {
     e = { ...e, config: { ...e.config, vitrine: vitrineDe(e.config) }, categorias: e.categorias.map((c) => (c.descricao === undefined ? { ...c, descricao: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.descricao, destaque: CATEGORIAS_NATAL.find((n) => n.id === c.id)?.destaque } : c)) };
     // Descrições do Natal em itens (uma por linha): troca as salvas na versão antiga, de uma linha só.
     e = { ...e, produtos: e.produtos.map((p) => { const n = PRODUTOS_NATAL.find((x) => x.id === p.id); return n && p.descricao && !p.descricao.includes("\n") && n.descricao?.includes("\n") ? { ...p, descricao: n.descricao } : p; }) };
+    // Lojas de retirada: vêm do cadastro único de lojas (Configurações → Lojas).
+    e = { ...e, config: { ...e.config, unidades: retiradaDasLojas(lojasDemo()) } };
     // Os flyers viraram WebP (mais leves): fotos salvas com o caminho antigo .jpg são trocadas.
     return { ...e, produtos: e.produtos.map((p) => (p.foto && /^\/encomendas\/torta-[\w-]+\.jpg$/.test(p.foto) ? { ...p, foto: p.foto.replace(/\.jpg$/, ".webp") } : p)) };
   } catch {

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getSupabase, type SB } from "@/lib/supabase";
 import { nivelNaTela, requireSession, type Sessao } from "@/lib/auth-admin";
 import {
-  colunasCategoria, colunasCompromisso, colunasProduto, lerTudo, mudarStatusPedido, statusLeadValido, statusPedidoValido, subirFotoSeNova, validarConfigServidor,
+  colunasCategoria, colunasCompromisso, colunasProduto, lerLojasCadastro, lerTudo, mudarStatusPedido, statusLeadValido, statusPedidoValido, subirFotoSeNova, validarConfigServidor,
 } from "@/lib/encomendas-server";
-import { mudancaManualPermitida, type Categoria, type Compromisso, type ConfigEncomendas, type PedidoStatus, type ProdutoEncomenda } from "@/lib/encomendas-base";
+import { mudancaManualPermitida, retiradaDasLojas, type Categoria, type Compromisso, type ConfigEncomendas, type PedidoStatus, type ProdutoEncomenda } from "@/lib/encomendas-base";
 import type { ScreenPage } from "@/lib/types";
 
 /**
@@ -114,9 +114,19 @@ export async function POST(req: Request) {
       return ok();
     }
     case "config": {
-      const c = validarConfigServidor(b.config as ConfigEncomendas);
+      // As lojas de retirada vêm do cadastro único (Configurações → Lojas): valida com elas e
+      // mantém intacta a lista antiga gravada na configuração (fica como histórico).
+      const lojas = await lerLojasCadastro(sb);
+      const entrada = b.config as ConfigEncomendas;
+      const c = validarConfigServidor(lojas.length ? { ...entrada, unidades: retiradaDasLojas(lojas) } : entrada);
       if (typeof c === "string") return erro(c);
-      const { error } = await sb.from("enc_config").upsert({ id: "geral", dados: c });
+      let dados: ConfigEncomendas = c;
+      if (lojas.length) {
+        const { data: atual } = await sb.from("enc_config").select("dados").eq("id", "geral").maybeSingle();
+        const antigas = (atual as { dados?: Partial<ConfigEncomendas> } | null)?.dados?.unidades;
+        dados = { ...c, unidades: Array.isArray(antigas) ? antigas : c.unidades };
+      }
+      const { error } = await sb.from("enc_config").upsert({ id: "geral", dados });
       return error ? erro(error.message, 500) : ok();
     }
     case "pedidoStatus": {

@@ -154,9 +154,16 @@ export function pedidoDe(r: PedidoRow): Pedido {
   };
 }
 
-export type UnidadeRow = { id: string; slug: string; cidade: string | null; nome: string; ativa: boolean | null; criada: string | null };
+export type UnidadeRow = {
+  id: string; slug: string; cidade: string | null; nome: string; ativa: boolean | null; criada: string | null;
+  codigo?: string | null; operacao?: boolean | null; retirada?: boolean | null; endereco?: string | null; horarios?: unknown; ordem?: number | null;
+};
 export function unidadeDe(r: UnidadeRow): Unidade {
-  return { id: r.id, slug: r.slug, cidade: r.cidade ?? "", nome: r.nome, ativa: r.ativa !== false, criada: r.criada ?? undefined };
+  return {
+    id: r.id, slug: r.slug, cidade: r.cidade ?? "", nome: r.nome, ativa: r.ativa !== false, criada: r.criada ?? undefined,
+    codigo: r.codigo ?? null, operacao: r.operacao === true, retirada: r.retirada === true, endereco: r.endereco ?? "",
+    horarios: r.horarios && typeof r.horarios === "object" ? (r.horarios as Unidade["horarios"]) : null, ordem: r.ordem ?? 0,
+  };
 }
 
 export type VagaRow = { id: string; unidade_id: string; titulo: string; turno: string | null; descricao: string | null; requisitos?: string | null; diferenciais?: string | null; ativa: boolean | null; criada: string | null };

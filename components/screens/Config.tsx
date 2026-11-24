@@ -16,8 +16,10 @@ import EditableTitle from "../ui/EditableTitle";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useApp } from "../store";
 import WhatsAppTab from "./WhatsAppTab";
+import LojasConfig from "./LojasConfig";
+import { abaConfigPedida } from "@/lib/abaConfig";
 
-type ConfigTab = "empresa" | "pessoas" | "grupos" | "acessos" | "whatsapp" | "perfil";
+type ConfigTab = "empresa" | "lojas" | "pessoas" | "grupos" | "acessos" | "whatsapp" | "perfil";
 
 // Grupos internos: setores disponíveis. Os cargos de "Quem pode ver" de cada setor são os que
 // têm acesso a alguma tela dele em Acessos (Administrador é sempre implícito e não entra na lista).
@@ -25,19 +27,23 @@ const GRUPO_SETORES = ["Operacional", "Recrutamento"] as const;
 const cargosVisiveisDoSetor = (s: string) => cargosDoSetor(s).filter((c) => c !== ADMIN);
 const SETOR_COR: Record<string, string> = { Operacional: "#1B7F4D", Recrutamento: "#C2410C" };
 
-/** Página de configurações: Empresa · Pessoas · Grupos · Acessos · WhatsApp são só p/ Administrador;
+/** Página de configurações: Empresa · Lojas · Pessoas · Grupos · Acessos · WhatsApp são só p/ Administrador;
  *  os demais cargos só enxergam o Perfil. */
 export default function Config() {
   const { isAdmin } = useApp();
   const TABS: { key: ConfigTab; label: string }[] = [
     ...(isAdmin ? [{ key: "empresa" as ConfigTab, label: "Empresa" }] : []),
+    ...(isAdmin ? [{ key: "lojas" as ConfigTab, label: "Lojas" }] : []),
     ...(isAdmin ? [{ key: "pessoas" as ConfigTab, label: "Pessoas" }] : []),
     ...(isAdmin ? [{ key: "grupos" as ConfigTab, label: "Grupos" }] : []),
     ...(isAdmin ? [{ key: "acessos" as ConfigTab, label: "Acessos" }] : []),
     ...(isAdmin ? [{ key: "whatsapp" as ConfigTab, label: "WhatsApp" }] : []),
     { key: "perfil", label: "Perfil" },
   ];
-  const [tab, setTab] = useState<ConfigTab>("perfil");
+  const [tab, setTab] = useState<ConfigTab>(() => {
+    const a = abaConfigPedida();
+    return TABS.find((t) => t.key === a)?.key ?? "perfil";
+  });
 
   return (
     <div className="m-pad" style={css("padding:28px 30px;")}>
@@ -66,6 +72,7 @@ export default function Config() {
 
       {tab === "perfil" && <PerfilTab />}
       {tab === "empresa" && (isAdmin ? <EmpresaTab /> : <Placeholder titulo="Empresa" texto="Acesso restrito a Administrador." />)}
+      {tab === "lojas" && (isAdmin ? <LojasConfig /> : <Placeholder titulo="Lojas" texto="Acesso restrito a Administrador." />)}
       {tab === "pessoas" && (isAdmin ? <PessoasTab /> : <Placeholder titulo="Pessoas" texto="Acesso restrito a Administrador." />)}
       {tab === "grupos" && (isAdmin ? <GruposTab /> : <Placeholder titulo="Grupos" texto="Acesso restrito a Administrador." />)}
       {tab === "acessos" && (isAdmin ? <AcessosComCargos /> : <Placeholder titulo="Acessos" texto="Acesso restrito a Administrador." />)}

@@ -5,7 +5,7 @@ import { css } from "@/lib/css";
 import { brl, foneBR, normalizePhone, parseBR } from "@/lib/format";
 import { ACCENT, statusInfo } from "@/lib/theme";
 import type { Task } from "@/lib/types";
-import { LOCAIS_ESTOQUE, corDoLocal } from "@/lib/estoque";
+import { LOCAIS_ESTOQUE, corDoLocal, nomeDoLocal } from "@/lib/estoque";
 import { rotuloEncomenda, tarefasDaPage } from "@/lib/tarefas";
 import { isoDia, itensDoPedido, linkWhatsapp, numeroPedido, resumoItens, useEncomendas, type ItemPedido, type Lead, type PedidoEncomenda } from "@/lib/encomendas";
 import { proximoStatusTarefa, statusEscolhiveis, useApp } from "../store";
@@ -87,7 +87,7 @@ export default function LojaEncomendas() {
   // Todas as unidades (lojas) no filtro — a Fábrica não recebe encomenda de cliente; local fora da lista também aparece.
   const unidades = [
     ...LOCAIS_ESTOQUE.filter((l) => l.id !== "fabrica"),
-    ...[...new Set(itens.map((i) => i.t.local).filter((l): l is string => !!l && !LOCAIS_ESTOQUE.some((x) => x.id === l)))].map((id) => ({ id, label: id })),
+    ...[...new Set(itens.map((i) => i.t.local).filter((l): l is string => !!l && !LOCAIS_ESTOQUE.some((x) => x.id === l)))].map((id) => ({ id, label: nomeDoLocal(id) })),
   ];
   const q = busca.trim().toLowerCase(), dig = normalizePhone(busca);
   const casaBusca = (i: Item) =>

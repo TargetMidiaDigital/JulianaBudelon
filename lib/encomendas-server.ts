@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseComentarios, toISO } from "./data";
 import { LOCAIS_ESTOQUE, parseQuantidades } from "./estoque";
+import { carregarLojasOperacao } from "./lojas-server";
 import { parseConferencia } from "./conferencia";
 import { fmtNowBR } from "./format";
 import {
   CONFIG_PADRAO, CORES_DESTAQUE, DIAS, LEAD_STATUS, PEDIDO_STATUS, ordemPedido, VITRINE_PADRAO, categoriaAtiva, confirmaPagamento, efeitoEstoque, itensDoPedido, localDaUnidade, montarPedidoNovo, quantidadesPorEstoque, tarefasDaEncomenda, validarConfig, validarNovoPedido, vitrineDe,
-  idAcompanhamentoValido, montarAcompanhamento, MAX_ANTECEDENCIA_HORAS,
+  idAcompanhamentoValido, montarAcompanhamento, MAX_ANTECEDENCIA_HORAS, limparHorarios, retiradaDasLojas, type LojaCadastro,
   type Acompanhamento, type Categoria, type ItemPedido, type Compromisso, type ConfigEncomendas, type Lead, type NovoPedido, type PedidoEncomenda, type PedidoStatus, type ProdutoEncomenda, type Vitrine,
 } from "./encomendas-base";
 import type { Task } from "./types";
@@ -61,11 +62,22 @@ const paraCompromisso = (r: RowCompromisso): Compromisso => ({
   id: r.id, titulo: r.titulo, data: r.data, hora: r.hora, horaFim: r.hora_fim, contato: r.contato ?? undefined, notas: r.notas ?? undefined,
 });
 
-/** Configuração salva (com os padrões para campos que ainda não existiam). */
+/**
+ * Lojas do cadastro único (tabela `unidade`). Lista vazia = cadastro ainda sem códigos (antes da
+ * migração 0034): quem chama usa o que já estava salvo.
+ */
+export async function lerLojasCadastro(sb: SB): Promise<LojaCadastro[]> {
+  const { data, error } = await sb.from("unidade").select("*");
+  if (error) return [];
+  return ((data ?? []) as LojaCadastro[]).filter((l) => !!l.codigo);
+}
+
+/** Configuração salva (com os padrões para campos que ainda não existiam). As lojas de retirada vêm do cadastro único. */
 export async function lerConfig(sb: SB): Promise<ConfigEncomendas> {
-  const { data } = await sb.from("enc_config").select("dados").eq("id", "geral").maybeSingle();
+  const [{ data }, lojas] = await Promise.all([sb.from("enc_config").select("dados").eq("id", "geral").maybeSingle(), lerLojasCadastro(sb)]);
   const dados = (data as { dados?: Partial<ConfigEncomendas> } | null)?.dados ?? {};
-  return { ...CONFIG_PADRAO, ...dados, janelas: { ...CONFIG_PADRAO.janelas, ...(dados.janelas ?? {}) }, vitrine: vitrineDe(dados) };
+  const cfg: ConfigEncomendas = { ...CONFIG_PADRAO, ...dados, janelas: { ...CONFIG_PADRAO.janelas, ...(dados.janelas ?? {}) }, vitrine: vitrineDe(dados) };
+  return lojas.length ? { ...cfg, unidades: retiradaDasLojas(lojas) } : cfg;
 }
 
 /** Catálogo (categorias na ordem + produtos). `soAtivos` = página pública. */
@@ -136,25 +148,13 @@ export function validarConfigServidor(c: ConfigEncomendas): ConfigEncomendas | s
   if (!c || typeof c !== "object") return "Configuração inválida.";
   const limpa: ConfigEncomendas = {
     ...CONFIG_PADRAO, ...c,
-    unidades: (Array.isArray(c.unidades) ? c.unidades : []).slice(0, 50).map((u) => ({ id: idValido(u.id) ? u.id : crypto.randomUUID(), nome: txt(u.nome, 80), endereco: txt(u.endereco, 200), ativo: u.ativo !== false, ...(limparJanelas(u.horarios) ? { horarios: limparJanelas(u.horarios) } : {}) })),
+    unidades: (Array.isArray(c.unidades) ? c.unidades : []).slice(0, 50).map((u) => ({ id: idValido(u.id) ? u.id : crypto.randomUUID(), nome: txt(u.nome, 80), endereco: txt(u.endereco, 200), ativo: u.ativo !== false, ...(limparHorarios(u.horarios) ? { horarios: limparHorarios(u.horarios) } : {}) })),
     vitrine: limparVitrine(c.vitrine),
     pixChave: txt(c.pixChave, 120), pixNome: txt(c.pixNome, 25), pixCidade: txt(c.pixCidade, 15), whatsappContato: String(c.whatsappContato ?? "").replace(/\D/g, "").slice(0, 15),
   };
   return validarConfig(limpa) ?? limpa;
 }
 
-/** Horário de funcionamento vindo da tela: só dias conhecidos e blocos "HH:MM" (até 4 por dia). */
-function limparJanelas(j: unknown): ConfigEncomendas["janelas"] | undefined {
-  if (!j || typeof j !== "object") return undefined;
-  const hm = (x: unknown) => typeof x === "string" && /^d{2}:d{2}$/.test(x);
-  const r = {} as ConfigEncomendas["janelas"];
-  for (const d of DIAS) {
-    const v = (j as Record<string, { ativo?: unknown; intervalos?: unknown }>)[d.key];
-    const intervalos = (Array.isArray(v?.intervalos) ? v.intervalos : []).filter((b: { inicio?: unknown; fim?: unknown }) => b && hm(b.inicio) && hm(b.fim)).slice(0, 4).map((b: { inicio: string; fim: string }) => ({ inicio: b.inicio, fim: b.fim }));
-    r[d.key] = { ativo: v?.ativo === true && intervalos.length > 0, intervalos };
-  }
-  return r;
-}
 
 function limparVitrine(v: Partial<Vitrine> | undefined): Vitrine {
   const b = vitrineDe({ vitrine: v as Vitrine });
@@ -334,6 +334,7 @@ export async function mudarStatusPedido(sb: SB, id: string, status: PedidoStatus
     ? (((await sb.from("enc_produto").select("id, produto_estoque_id").in("id", ids)).data ?? []) as { id: string; produto_estoque_id: string | null }[])
     : [];
   const estoqueDe = (produtoId: string) => prods.find((x) => x.id === produtoId)?.produto_estoque_id ?? null;
+  if (precisaProduto) await carregarLojasOperacao(sb); // loja nova do cadastro também movimenta o estoque
   const local = localDaUnidade(p.unidadeId, LOCAIS_ESTOQUE);
 
   // Tarefas: grava a marca ANTES (update condicional) — dois cliques ao mesmo tempo não criam em dobro.
