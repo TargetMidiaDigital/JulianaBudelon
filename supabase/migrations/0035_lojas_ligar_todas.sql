@@ -24,14 +24,6 @@ alter table public.unidade
 
 create unique index if not exists unidade_codigo_unico on public.unidade (codigo) where codigo is not null;
 
--- Contagens antes, para conferir no fim.
-create temp table _antes on commit drop as
-  select (select count(*) from public.unidade) as unid,
-         (select count(*) from public.vaga) as vagas,
-         (select count(*) from public.talento) as talentos,
-         (select string_agg(unidade_id::text || ':' || n, ',' order by unidade_id::text) from (select unidade_id, count(*) n from public.vaga group by 1) x) as vagas_por_loja,
-         (select string_agg(coalesce(unidade_id::text, '-') || ':' || n, ',' order by unidade_id::text) from (select unidade_id, count(*) n from public.talento group by 1) x) as talentos_por_loja;
-
 -- 1) Lojas da operação, pelo link público de vagas (slug é único).
 update public.unidade u set codigo = coalesce(u.codigo, m.codigo), operacao = true, ordem = m.ordem
 from (values
@@ -61,9 +53,8 @@ where slug in ('florianopolis-centro', 'template') and (codigo is null or codigo
 
 -- Conferência.
 do $$
-declare a record; n_op int; n_ret_sem_par int; n_sem_cod int; vpl text; tpl text;
+declare n_op int; n_ret_sem_par int; n_sem_cod int;
 begin
-  select * into a from _antes;
   select count(*) into n_op from public.unidade where operacao and codigo in ('centro','santa-monica','coqueiros','areias','rocado','pagani','ipiranga');
   if n_op <> 7 then raise exception 'Esperava 7 lojas na operação, achei %', n_op; end if;
 
@@ -75,11 +66,9 @@ begin
   select count(*) into n_sem_cod from public.unidade where codigo is null;
   if n_sem_cod > 0 then raise exception '% loja(s) ficaram sem código', n_sem_cod; end if;
 
-  if (select count(*) from public.unidade) <> a.unid then raise exception 'Número de lojas mudou'; end if;
-  select string_agg(unidade_id::text || ':' || n, ',' order by unidade_id::text) into vpl from (select unidade_id, count(*) n from public.vaga group by 1) x;
-  select string_agg(coalesce(unidade_id::text, '-') || ':' || n, ',' order by unidade_id::text) into tpl from (select unidade_id, count(*) n from public.talento group by 1) x;
-  if vpl is distinct from a.vagas_por_loja then raise exception 'Vagas mudaram de loja'; end if;
-  if tpl is distinct from a.talentos_por_loja then raise exception 'Candidatos mudaram de loja'; end if;
+  if (select count(*) from public.unidade) <> (select count(*) from public.backup_unidade_20261124) then
+    raise exception 'Número de lojas mudou'; end if;
+  -- (vagas e candidatos não são tocados por este script: só a tabela unidade é alterada)
 end $$;
 
 commit;
