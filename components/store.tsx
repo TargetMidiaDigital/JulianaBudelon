@@ -807,6 +807,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return nova;
     },
     updateUnidade: (id, patch, aoFalhar) => {
+      // Loja ainda sem código (cadastro vindo do RH): ganha um ao ser salva, para poder entrar na operação.
+      const atual = unidades.find((x) => x.id === id);
+      if (atual && !atual.codigo && !patch.codigo) {
+        const baseCod = (slugify(patch.nome ?? atual.nome) || `loja-${Date.now()}`).slice(0, 40);
+        let codigo = baseCod, k = 2;
+        while (codigo === "fabrica" || unidades.some((x) => x.codigo === codigo)) codigo = `${baseCod}-${k++}`;
+        patch = { ...patch, codigo };
+      }
       patchDb((d) => ({ unidades: d.unidades.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
       void persist("/api/unidades", "PATCH", { id, patch }).then((r) => { if (!r.ok) aoFalhar?.(r.error ?? "Falha ao salvar."); });
     },

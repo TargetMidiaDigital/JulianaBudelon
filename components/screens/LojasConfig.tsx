@@ -28,16 +28,16 @@ export default function LojasConfig() {
   const [excluir, setExcluir] = useState<Unidade | null>(null);
 
   const ordenar = (a: Unidade, b: Unidade) => (a.ordem ?? 0) - (b.ordem ?? 0) || a.nome.localeCompare(b.nome, "pt");
-  const comCodigo = unidades.filter((u) => u.codigo).sort(ordenar);
-  const antigas = unidades.filter((u) => !u.codigo).sort(ordenar);
+  const lojas = [...unidades].sort(ordenar);
   const nVagas = (u: Unidade) => vagas.filter((v) => v.unidadeId === u.id && v.ativa).length;
   const nCand = (u: Unidade) => talentos.filter((t) => t.unidadeId === u.id).length;
-  const temHistorico = (u: Unidade) => !!u.codigo || vagas.some((v) => v.unidadeId === u.id) || nCand(u) > 0;
+  // Excluir só loja sem nada: sem vagas, sem candidatos e fora da operação/retirada.
+  const temHistorico = (u: Unidade) => !!u.operacao || !!u.retirada || vagas.some((v) => v.unidadeId === u.id) || nCand(u) > 0;
   const falhou = (e: string) => setAviso(`Não foi possível salvar: ${e}`);
 
-  // Sobe/desce: renumera a ordem de todas as lojas com código (1, 2, 3…) e grava só as que mudaram.
+  // Sobe/desce: renumera a ordem de todas as lojas (1, 2, 3…) e grava só as que mudaram.
   const mover = (u: Unidade, d: -1 | 1) => {
-    const lista = [...comCodigo];
+    const lista = [...lojas];
     const i = lista.findIndex((x) => x.id === u.id), j = i + d;
     if (i < 0 || j < 0 || j >= lista.length) return;
     [lista[i], lista[j]] = [lista[j], lista[i]];
@@ -61,22 +61,12 @@ export default function LojasConfig() {
         </div>
       )}
 
-      {comCodigo.map((u, i) => (
+      {lojas.map((u, i) => (
         <LinhaLoja key={u.id} u={u} vagasAbertas={nVagas(u)} candidatos={nCand(u)}
-          primeira={i === 0} ultima={i === comCodigo.length - 1} onMover={(d) => mover(u, d)} onEditar={() => setEditando(u)} />
+          primeira={i === 0} ultima={i === lojas.length - 1} onMover={(d) => mover(u, d)} onEditar={() => setEditando(u)}
+          onExcluir={temHistorico(u) ? undefined : () => setExcluir(u)} />
       ))}
-      {comCodigo.length === 0 && <div style={css("padding:20px; text-align:center; color:#9398A6; font-size:13px;")}>Nenhuma loja cadastrada.</div>}
-
-      {antigas.length > 0 && (
-        <>
-          <div style={css("margin-top:10px; font-size:11.5px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:#9398A6;")}>Cadastros antigos de RH</div>
-          <p style={css("margin:-6px 0 0; font-size:12.5px; color:#7A8090; line-height:1.5;")}>Ficam guardados com as vagas e os candidatos deles. Aparecem só em RH → Vagas (quando ligados), fora da operação e das encomendas.</p>
-          {antigas.map((u) => (
-            <LinhaLoja key={u.id} u={u} vagasAbertas={nVagas(u)} candidatos={nCand(u)} antiga onEditar={() => setEditando(u)}
-              onExcluir={temHistorico(u) ? undefined : () => setExcluir(u)} />
-          ))}
-        </>
-      )}
+      {lojas.length === 0 && <div style={css("padding:20px; text-align:center; color:#9398A6; font-size:13px;")}>Nenhuma loja cadastrada.</div>}
 
       {editando && (
         <LojaForm
@@ -91,7 +81,7 @@ export default function LojasConfig() {
       )}
       {excluir && (
         <ConfirmModal danger titulo="Excluir loja" confirmLabel="Excluir"
-          mensagem={<>Excluir <strong style={css("color:#1B1B28;")}>{excluir.nome}</strong>? Ela não tem vagas, candidatos nem histórico na operação.</>}
+          mensagem={<>Excluir <strong style={css("color:#1B1B28;")}>{excluir.nome}</strong>? Ela não tem vagas nem candidatos e está fora da operação e da retirada.</>}
           onConfirm={() => { removeUnidade(excluir.id, falhou); setExcluir(null); }} onClose={() => setExcluir(null)} />
       )}
     </div>
@@ -116,19 +106,19 @@ function BotaoIcone({ titulo, off, onClick, children }: { titulo: string; off?: 
   );
 }
 
-function LinhaLoja({ u, vagasAbertas, candidatos, primeira, ultima, antiga, onMover, onEditar, onExcluir }: {
-  u: Unidade; vagasAbertas: number; candidatos: number; primeira?: boolean; ultima?: boolean; antiga?: boolean;
+function LinhaLoja({ u, vagasAbertas, candidatos, primeira, ultima, onMover, onEditar, onExcluir }: {
+  u: Unidade; vagasAbertas: number; candidatos: number; primeira?: boolean; ultima?: boolean;
   onMover?: (d: -1 | 1) => void; onEditar: () => void; onExcluir?: () => void;
 }) {
   return (
-    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-left:3px solid ${antiga ? "#D9DBE2" : corDoLocal(u.codigo ?? "")}; border-radius:12px; padding:12px 14px;`)}>
+    <div style={css(`background:#fff; border:1px solid #ECEDF1; border-left:3px solid ${u.codigo ? corDoLocal(u.codigo) : "#D9DBE2"}; border-radius:12px; padding:12px 14px;`)}>
       <div className="m-wrap" style={css("display:flex; align-items:center; gap:10px;")}>
         <div style={css("flex:1; min-width:180px;")}>
           <div style={css("font-size:15px; font-weight:800;")}>{u.nome}<span style={css("font-weight:600; color:#9398A6; font-size:13px;")}>{u.cidade ? ` · ${u.cidade}` : ""}</span></div>
           <div style={css("display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;")}>
-            {!antiga && <Selo on={!!u.operacao}>Operação</Selo>}
+            <Selo on={!!u.operacao}>Operação</Selo>
             <Selo on={u.ativa}>Vagas</Selo>
-            {!antiga && <Selo on={!!u.retirada}>Retirada</Selo>}
+            <Selo on={!!u.retirada}>Retirada</Selo>
           </div>
         </div>
         <div style={css("display:flex; gap:6px; align-items:center;")}>
@@ -139,7 +129,7 @@ function LinhaLoja({ u, vagasAbertas, candidatos, primeira, ultima, antiga, onMo
         </div>
       </div>
       <div style={css("display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:12.5px; color:#7A8090;")}>
-        {!antiga && <span>{u.endereco ? u.endereco : <i style={{ color: "#B6BAC4" }}>sem endereço</i>}</span>}
+        <span>{u.endereco ? u.endereco : <i style={{ color: "#B6BAC4" }}>sem endereço</i>}</span>
         <span>{vagasAbertas} {vagasAbertas === 1 ? "vaga aberta" : "vagas abertas"} · {candidatos} {candidatos === 1 ? "candidato" : "candidatos"}</span>
         <span>/vagas/{u.slug}</span>
       </div>
@@ -152,7 +142,6 @@ type DadosLoja = Pick<Unidade, "cidade" | "nome" | "ativa" | "operacao" | "retir
 function LojaForm({ loja, onClose, onSalvar }: { loja: Unidade | null; onClose: () => void; onSalvar: (d: DadosLoja) => void }) {
   useFecharComEsc(true, onClose);
   const { config } = useEncomendas();
-  const antiga = !!loja && !loja.codigo;
   const [f, setF] = useState<DadosLoja>(() => ({
     cidade: loja?.cidade ?? "", nome: loja?.nome ?? "", ativa: loja?.ativa ?? true,
     operacao: loja ? !!loja.operacao : true, retirada: loja ? !!loja.retirada : true,
@@ -191,14 +180,12 @@ function LojaForm({ loja, onClose, onSalvar }: { loja: Unidade | null; onClose: 
 
           <div style={css("display:flex; flex-direction:column; gap:8px;")}>
             <span style={css(rot)}>Onde a loja aparece</span>
-            {chave("Operação", "Ordem de Serviço, Produção, Expedição, Lojas, Estoque, Indicadores e filtros.", !!f.operacao, (v) => setF({ ...f, operacao: v }), antiga)}
+            {chave("Operação", "Ordem de Serviço, Produção, Expedição, Lojas, Estoque, Indicadores e filtros.", !!f.operacao, (v) => setF({ ...f, operacao: v }))}
             {chave("Vagas", "RH → Vagas e a página pública “Trabalhe conosco”. Desligada, some do hub (o link continua abrindo, avisando que não há vagas).", f.ativa, (v) => setF({ ...f, ativa: v }))}
-            {chave("Retirada de encomendas", "O cliente pode escolher esta loja para retirar a encomenda.", !!f.retirada, (v) => setF({ ...f, retirada: v }), antiga)}
-            {antiga && <div style={css("font-size:12px; color:#9398A6;")}>Cadastro antigo de RH: fica só em Vagas, com as vagas e candidatos dele.</div>}
+            {chave("Retirada de encomendas", "O cliente pode escolher esta loja para retirar a encomenda.", !!f.retirada, (v) => setF({ ...f, retirada: v }))}
           </div>
 
-          {!antiga && (
-            <div>
+          <div>
               <span style={css(rot)}>Horário de funcionamento</span>
               <div style={css("display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;")}>
                 <span style={css(`font-size:12.5px; color:${f.horarios ? "#3A3F4C" : "#9398A6"}; flex:1; min-width:180px;`)}>
@@ -214,8 +201,7 @@ function LojaForm({ loja, onClose, onSalvar }: { loja: Unidade | null; onClose: 
                   <div style={css("font-size:12px; color:#9398A6; margin-top:6px;")}>O cliente só consegue marcar a retirada nesta loja dentro desse horário (o horário de fechar não entra).</div>
                 </div>
               )}
-            </div>
-          )}
+          </div>
 
           {loja && (
             <div style={css("font-size:12px; color:#9398A6; line-height:1.55; border-top:1px solid #F0F1F4; padding-top:10px;")}>
