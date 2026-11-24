@@ -13,7 +13,7 @@ export const spacesTree: Sector[] = [
     label: "Produção", // id interno continua "operacional"
     children: [
       { label: "Indicadores", page: "indicadores" },
-      { label: "Ordem de Serviço", page: "pedidos" },
+      { label: "Lista de Reposição", page: "pedidos" },
       { label: "Produção", page: "listaview" }, // as tarefas de produção (id "listaview" é herdado da Target)
       { label: "Expedição", page: "expedicao" }, // tarefas por unidade (categoria "expedicao")
       { label: "Estoque", page: "estoque" },

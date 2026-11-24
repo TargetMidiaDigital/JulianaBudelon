@@ -57,7 +57,7 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
       <div><div class="lbl">Total de itens</div><div class="u">${totPed} un.</div></div>
       <div><div class="lbl">Produtos</div><div class="u">${linhas.length}</div></div></div>
     <div class="meta">
-      <div><span>Ordem de serviço</span><b>${esc(pedido?.titulo ?? "—")}</b></div>
+      <div><span>Lista de reposição</span><b>${esc(pedido?.titulo ?? "—")}</b></div>
       <div><span>Entrega</span><b>${esc(pedido?.entrega ?? t.venc ?? "—")}</b></div>
       <div><span>Separado por</span><b>${esc(responsavel?.nome ?? "—")}</b></div>
       <div><span>Situação da separação</span><b>${separadoCompleto ? `separado ${totSep} un.` : "a separar"}</b></div>
@@ -70,7 +70,7 @@ export function htmlRomaneio(opts: { tarefa: Task; pedido?: Pedido; produtos: Pr
         <li>No sistema, abra <b>Lojas → Lojas → Recebimento - ${esc(unidade)}</b>.</li>
         <li>Registre os mesmos números na Conferência e conclua a tarefa.</li>
       </ol>
-      <p>Diferenças aparecem no relatório da ordem.</p>
+      <p>Diferenças aparecem no relatório da reposição.</p>
       <p class="link">${esc(linkRecebimento)}</p></div>
     <div class="ass"><div>Separado / enviado por (nome, assinatura e data)</div><div>Recebido na loja por (nome, assinatura, data e hora)</div></div>
     <div class="rod"><span>${esc(t.titulo)}</span><span>${esc(empresa)} · romaneio ${esc(numero)}</span></div>

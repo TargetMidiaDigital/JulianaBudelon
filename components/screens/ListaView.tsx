@@ -103,7 +103,7 @@ export default function ListaView({
   const contaOrigem = (o: OrigemProducao) => tarefasPagina.filter((t) => origemProducao(t) === o && t.status !== "validada").length;
   const origens: { key: OrigemProducao | ""; label: string; n: number; cor: string }[] = page !== "listaview" ? [] : [
     { key: "", label: "Todas", n: tarefasPagina.filter((t) => t.status !== "validada").length, cor: "#5B6472" },
-    { key: "os", label: "Ordem de serviço", n: contaOrigem("os"), cor: "#2563EB" },
+    { key: "os", label: "Lista de reposição", n: contaOrigem("os"), cor: "#2563EB" },
     { key: "encomenda", label: "Encomendas", n: contaOrigem("encomenda"), cor: "#C2410C" },
     ...(contaOrigem("avulsa") || origem === "avulsa" ? [{ key: "avulsa" as const, label: "Avulsas", n: contaOrigem("avulsa"), cor: "#7A8090" }] : []),
   ];

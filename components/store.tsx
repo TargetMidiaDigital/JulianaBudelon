@@ -759,7 +759,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pedidos,
     addPedido: (p) => {
       const agora = new Date().toISOString();
-      const novo: Pedido = { ...p, id: `ped-${Date.now()}`, status: "aberta", criadoPor: currentUser.id, criada: agora, atualizada: agora, historico: [logComentario(currentUser, "criou a ordem de serviço")] };
+      const novo: Pedido = { ...p, id: `ped-${Date.now()}`, status: "aberta", criadoPor: currentUser.id, criada: agora, atualizada: agora, historico: [logComentario(currentUser, "criou a reposição")] };
       // Ciclo completo: PRODUÇÃO por produto, EXPEDIÇÃO por unidade (separar) e UNIDADES por unidade
       // (a loja confere o que recebeu). Todas vencem na entrega.
       const prod = tarefasDaOrdem(novo, produtos, currentUser);
@@ -772,7 +772,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // e só então as tarefas. Uma tarefa que falhar é tentada mais uma vez antes de desistir.
       void (async () => {
         const r = await persist("/api/pedidos", "POST", { pedido: novo });
-        if (!r.ok) return; // o persist já agendou o reload: a ordem some da tela
+        if (!r.ok) return; // o persist já agendou o reload: a reposição some da tela
         await Promise.all(tarefas.map(async (t) => {
           const r1 = await persist("/api/tarefas", "POST", { task: t });
           if (!r1.ok) { await new Promise((res) => setTimeout(res, 600)); await persist("/api/tarefas", "POST", { task: t }); }
@@ -1040,12 +1040,12 @@ function tarefasDaOrdem(pedido: Pedido, produtos: Produto[], user: TeamMember): 
     for (const l of LOCAIS_ESTOQUE) {
       const q = itemQtd(pedido.itens, id, l.id);
       if (q <= 0) continue;
-      const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p>Produzir <strong>${q} un. de ${nome}</strong> para <strong>${l.label}</strong>. Registre o produzido antes de concluir.</p>`;
+      const desc = `<p><strong>Lista de reposição:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p><p>Produzir <strong>${q} un. de ${nome}</strong> para <strong>${l.label}</strong>. Registre o produzido antes de concluir.</p>`;
       out.push({
         id: `t-${base}-p${out.length}`, titulo: `${nome} - ${l.label}: ${q}`, gestor: user.id, status: "verificar", prio: "normal", tipo: "Produção", categoria: "operacional",
         pedidoId: pedido.id, produtoId: id, quantidade: q, local: l.id, conferencia: [{ produtoId: id, pedido: q }],
         criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
-        comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
+        comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela reposição "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
       });
     }
   }
@@ -1152,12 +1152,12 @@ function tarefasPorUnidadeDaOrdem(pedido: Pedido, produtos: Produto[], user: Tea
       .filter((x) => x.qtd > 0)
       .sort((a, b) => (ordemCat(a.cat) - ordemCat(b.cat)) || a.nome.localeCompare(b.nome, "pt"));
     const intro = exp ? "" : `<p>Confira o que chegou da expedição. Faltou ou sobrou algum produto? Registre o recebido de cada produto antes de concluir.</p>`;
-    const desc = `<p><strong>Ordem de serviço:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p>${intro}<p><strong>${l.label}</strong> — ${totais[l.id]} un. ${exp ? "a separar" : "a receber"}:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
+    const desc = `<p><strong>Lista de reposição:</strong> ${pedido.titulo}${pedido.entrega ? ` · entrega ${pedido.entrega}` : ""}</p>${intro}<p><strong>${l.label}</strong> — ${totais[l.id]} un. ${exp ? "a separar" : "a receber"}:</p><ul>${linhas.map((x) => `<li>${x.nome}: <strong>${x.qtd}</strong></li>`).join("")}</ul>`;
     return {
       id: `t-${base}-${exp ? "e" : "u"}${i}`, titulo: `${exp ? "Expedição" : "Recebimento"} - ${l.label} - ${pedido.entrega ?? now.date}`, gestor: user.id, status: "verificar", prio: "normal", tipo: exp ? "Expedição" : "Recebimento", categoria: exp ? CATEGORIA_EXPEDICAO : CATEGORIA_UNIDADE, pedidoId: pedido.id, local: l.id,
       conferencia: linhas.map((x) => ({ produtoId: x.id, pedido: x.qtd })),
       criada: now.date, criadaHora: now.hora, venc: pedido.entrega ?? now.date, vencHora: DEFAULT_DUE_TIME, desc,
-      comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela ordem de serviço "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
+      comentarios: [{ id: crypto.randomUUID(), message: `📦 Criada automaticamente pela reposição "${pedido.titulo}".`, author: "sistema", created_at: new Date().toISOString(), tipo: "log" as const }],
     };
   });
 }
@@ -1165,7 +1165,7 @@ function tarefasPorUnidadeDaOrdem(pedido: Pedido, produtos: Produto[], user: Tea
 // Log de atividade da ORDEM DE SERVIÇO (título / status / entrega / itens por produto × unidade).
 function buildPedidoLogs(old: Pedido, patch: Partial<Pedido>, user: TeamMember, produtos: Produto[]): Comentario[] {
   const parts: string[] = [];
-  if (patch.titulo != null && patch.titulo !== old.titulo) parts.push(`renomeou a ordem para "${patch.titulo}"`);
+  if (patch.titulo != null && patch.titulo !== old.titulo) parts.push(`renomeou a reposição para "${patch.titulo}"`);
   if (patch.status != null && patch.status !== old.status) parts.push(`mudou o status para "${pedidoStatusInfo(patch.status).label}"`);
   if ("entrega" in patch && (patch.entrega ?? "") !== (old.entrega ?? "")) parts.push(patch.entrega ? `alterou a entrega para ${patch.entrega}` : "removeu a data de entrega");
   if (patch.itens) {

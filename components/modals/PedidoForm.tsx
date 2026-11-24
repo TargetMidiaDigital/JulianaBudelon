@@ -41,7 +41,7 @@ export default function PedidoForm({ open, onClose, onCriada }: { open: boolean;
       <div onClick={close} style={css("position:fixed; inset:0; z-index:64; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer" style={css("position:fixed; top:0; right:0; bottom:0; z-index:65; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:1060px; max-width:96vw; display:flex; flex-direction:column; overflow:hidden;")}>
         <div style={css("display:flex; align-items:center; gap:10px; padding:18px 24px; border-bottom:1px solid #ECEDF1;")}>
-          <h2 style={css("margin:0; font-size:18px; font-weight:800; letter-spacing:-0.3px;")}>Nova ordem de serviço</h2>
+          <h2 style={css("margin:0; font-size:18px; font-weight:800; letter-spacing:-0.3px;")}>Nova reposição</h2>
           <span style={{ flex: 1 }} />
           <Hoverable as="button" onClick={close} s={css("width:32px; height:32px; flex:none; border:1px solid #ECEDF1; background:#fff; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#7A8090;")} hover="background:#F4F4F7"><Svg size={16} sw={2.2}><path d="M6 6l12 12M18 6 6 18" /></Svg></Hoverable>
         </div>
@@ -79,7 +79,7 @@ export default function PedidoForm({ open, onClose, onCriada }: { open: boolean;
           {!entrega && nUn > 0 && <span style={css("font-size:12.5px; font-weight:700; color:#CC3338;")}>Defina a data de entrega.</span>}
           <span style={{ flex: 1 }} />
           <Hoverable as="button" onClick={close} s={css("border:1px solid #E2E3E9; cursor:pointer; background:#fff; color:#5B6472; font-weight:700; font-size:14px; padding:12px 20px; border-radius:11px;")} hover="background:#F4F4F7">Cancelar</Hoverable>
-          <Hoverable as="button" onClick={submit} {...{ disabled: !valido }} s={css(`border:none; cursor:${valido ? "pointer" : "not-allowed"}; opacity:${valido ? 1 : 0.5}; background:#1B1B28; color:#fff; font-weight:700; font-size:14px; padding:12px 26px; border-radius:11px;`)} hover={valido ? "filter:brightness(1.15)" : undefined}>Criar ordem</Hoverable>
+          <Hoverable as="button" onClick={submit} {...{ disabled: !valido }} s={css(`border:none; cursor:${valido ? "pointer" : "not-allowed"}; opacity:${valido ? 1 : 0.5}; background:#1B1B28; color:#fff; font-weight:700; font-size:14px; padding:12px 26px; border-radius:11px;`)} hover={valido ? "filter:brightness(1.15)" : undefined}>Criar reposição</Hoverable>
         </div>
       </div>
     </>

@@ -155,7 +155,7 @@ function TaskDetailBody({ t }: { t: Task }) {
                 <EditableTitle value={t.tipo ?? ""} placeholder="Sem tipo" onSave={(v) => updateTask(t.id, { tipo: v })} textStyle="font-size:13.5px; font-weight:600; color:#3A3F4C;" />
               </Row>
               {pedido && (
-                <Row label="Ordem de serviço">
+                <Row label="Lista de reposição">
                   <span style={css("display:inline-flex; align-items:center; gap:8px; min-width:0;")}>
                     <span style={css("font-size:13.5px; font-weight:700; color:#1B1B28; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;")}>{pedido.titulo}</span>
                     <span style={css(`display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:7px; background:${pedidoStatusInfo(pedido.status).bg}; color:${pedidoStatusInfo(pedido.status).fg};`)}><span style={css(`width:6px; height:6px; border-radius:50%; background:${pedidoStatusInfo(pedido.status).dot};`)} />{pedidoStatusInfo(pedido.status).label}</span>

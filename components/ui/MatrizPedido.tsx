@@ -58,7 +58,7 @@ export default function MatrizPedido({ produtos, itens, onChange, editavel, soCo
   if (!grupos.length && !removidos.length) {
     return (
       <div style={css("padding:34px 16px; text-align:center; color:#9398A6; font-size:13px; font-weight:600; border:1px dashed #E2E3E9; border-radius:12px;")}>
-        {produtos.length === 0 ? "Nenhum produto cadastrado no Estoque." : soComQuantidade ? "Nenhum item com quantidade nesta ordem." : "Nenhum produto encontrado."}
+        {produtos.length === 0 ? "Nenhum produto cadastrado no Estoque." : soComQuantidade ? "Nenhum item com quantidade nesta reposição." : "Nenhum produto encontrado."}
       </div>
     );
   }

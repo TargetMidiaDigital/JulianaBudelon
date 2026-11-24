@@ -103,7 +103,7 @@ export default function Conferencia({ t }: { t: Task }) {
         </div>
       )}
       <p style={css("margin:8px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>
-        {travada ? "Tarefa concluída: os números estão travados. Reabra a tarefa para corrigir." : `Registre o ${rot.toLowerCase()} de cada produto — só é possível concluir com todos preenchidos. Diferenças aparecem no relatório da ordem.`}
+        {travada ? "Tarefa concluída: os números estão travados. Reabra a tarefa para corrigir." : `Registre o ${rot.toLowerCase()} de cada produto — só é possível concluir com todos preenchidos. Diferenças aparecem no relatório da reposição.`}
       </p>
     </div>
   );

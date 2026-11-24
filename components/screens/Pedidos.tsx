@@ -79,7 +79,7 @@ export default function Pedidos() {
       : statusCols.map((s) => { const si = pedidoStatusInfo(s); return { key: s, label: si.label, bg: si.bg, fg: si.fg, dot: si.dot, itens: lista.filter((p) => p.status === s) }; }).filter((g) => g.itens.length);
 
   const cols: { id: string; label: string; key?: SortKey; center?: boolean }[] = [
-    { id: "titulo", label: "Ordem", key: "titulo" },
+    { id: "titulo", label: "Reposição", key: "titulo" },
     { id: "status", label: "Status", key: "status" },
     { id: "itens", label: "Itens", key: "itens" },
     { id: "tarefas", label: "Produção", center: true }, // tarefas de produção concluídas / total
@@ -137,7 +137,7 @@ export default function Pedidos() {
     return (
       <Hoverable key={p.id} onClick={() => setPedidoDetailOpen(p.id)} s={css(`display:grid; grid-template-columns:${GRID()}; gap:14px; padding:11px 18px; border-bottom:1px solid #F4F5F7; align-items:center; cursor:pointer;`)} hover="background:#FAFAFB">
         <div style={css(`${fixa("#fff", 1)} align-self:stretch; display:flex; align-items:center; gap:6px; min-width:0;`)}>
-          <Hoverable as="button" title={copiedId === p.id ? "Link copiado!" : "Copiar link da ordem"} onClick={(e: React.MouseEvent) => { e.stopPropagation(); copiarLink(p.id); }} s={css(`flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:${copiedId === p.id ? "#1B7F4D" : "#C7CAD2"};`)} hover="background:#FDF1F4; color:#955C6B">
+          <Hoverable as="button" title={copiedId === p.id ? "Link copiado!" : "Copiar link da reposição"} onClick={(e: React.MouseEvent) => { e.stopPropagation(); copiarLink(p.id); }} s={css(`flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:${copiedId === p.id ? "#1B7F4D" : "#C7CAD2"};`)} hover="background:#FDF1F4; color:#955C6B">
             {copiedId === p.id
               ? <Svg size={15} sw={2.4}><path d="M20 6 9 17l-5-5" /></Svg>
               : <Svg size={14} sw={2.2}><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Svg>}
@@ -185,7 +185,7 @@ export default function Pedidos() {
         <span style={css("font-size:12.5px; color:#7A8090; font-weight:600;")}>{dataHora(p.criada)}</span>
         <div onClick={stop} style={css("display:flex; justify-content:center;")}>
           {editavel && (
-            <Hoverable as="button" title="Excluir ordem" onClick={() => setConfirmDel(p)} s={css("flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:#C7CAD2;")} hover="background:#FDECEC; color:#CC3338">
+            <Hoverable as="button" title="Excluir reposição" onClick={() => setConfirmDel(p)} s={css("flex:none; width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; border-radius:7px; cursor:pointer; color:#C7CAD2;")} hover="background:#FDECEC; color:#CC3338">
               <Svg size={15} sw={2}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5" /></Svg>
             </Hoverable>
           )}
@@ -198,8 +198,8 @@ export default function Pedidos() {
     <div style={css("height:100%; display:flex; flex-direction:column;")}>
       <div className="m-pad m-wrap" style={css("display:flex; align-items:center; gap:16px; padding:24px 30px 18px;")}>
         <div style={{ flex: 1 }}>
-          <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Ordem de Serviço</h1>
-          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{lista.length} {lista.length === 1 ? "ordem" : "ordens"}{groupBy === "none" ? "" : " · agrupadas por status"}{!filtroStatus && !mostrarValidadas && pedidos.some((p) => p.status === "validada") ? ` · ${pedidos.filter((p) => p.status === "validada").length} validadas ocultas (botão ✓)` : ""}</p>
+          <h1 style={css("margin:0 0 3px; font-size:22px; font-weight:800; letter-spacing:-0.4px;")}>Lista de Reposição</h1>
+          <p style={css("margin:0; color:#7A8090; font-size:13.5px;")}>{lista.length} {lista.length === 1 ? "reposição" : "reposições"}{groupBy === "none" ? "" : " · agrupadas por status"}{!filtroStatus && !mostrarValidadas && pedidos.some((p) => p.status === "validada") ? ` · ${pedidos.filter((p) => p.status === "validada").length} validadas ocultas (botão ✓)` : ""}</p>
         </div>
       </div>
 
@@ -207,11 +207,11 @@ export default function Pedidos() {
         {editavel && (
           <Hoverable as="button" onClick={() => setFormOpen(true)} s={css(`display:flex; align-items:center; gap:7px; border:none; cursor:pointer; background:${BRAND}; color:#fff; font-weight:700; font-size:13px; padding:9px 16px; border-radius:10px;`)} hover="filter:brightness(1.12)">
             <Svg size={15} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>
-            Nova ordem
+            Nova reposição
           </Hoverable>
         )}
         <span style={{ flex: 1 }} />
-        <Hoverable as="button" onClick={() => setMostrarValidadas((v) => !v)} title={mostrarValidadas ? "Ocultar ordens validadas" : "Mostrar ordens validadas"} s={css(`display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; flex:none; border:1px solid ${mostrarValidadas ? "#2563EB" : "#E2E3E9"}; background:${mostrarValidadas ? "#EAF0FE" : "#fff"}; color:${mostrarValidadas ? "#2563EB" : "#5B6472"}; cursor:pointer; border-radius:10px;`)} hover={mostrarValidadas ? undefined : "background:#FAFAFB"}>
+        <Hoverable as="button" onClick={() => setMostrarValidadas((v) => !v)} title={mostrarValidadas ? "Ocultar reposições validadas" : "Mostrar reposições validadas"} s={css(`display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; flex:none; border:1px solid ${mostrarValidadas ? "#2563EB" : "#E2E3E9"}; background:${mostrarValidadas ? "#EAF0FE" : "#fff"}; color:${mostrarValidadas ? "#2563EB" : "#5B6472"}; cursor:pointer; border-radius:10px;`)} hover={mostrarValidadas ? undefined : "background:#FAFAFB"}>
           <Svg size={17} sw={2.2}><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></Svg>
         </Hoverable>
         <Menu align="right" width={220} trigger={(toggle) => (
@@ -250,9 +250,9 @@ export default function Pedidos() {
           <span style={css("width:56px; height:56px; border-radius:16px; background:#F2F3F6; display:flex; align-items:center; justify-content:center; color:#B4B8C4;")}>
             <Svg size={26} sw={1.8}><path d="M9 5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="1" /><path d="M9 13h6M9 17h4" /></Svg>
           </span>
-          <div style={css("font-size:15.5px; font-weight:800; color:#3A3F4C; letter-spacing:-0.2px;")}>{filtroStatus || pedidos.length ? "Nenhuma ordem nesta visão" : "Nenhuma ordem de serviço"}</div>
+          <div style={css("font-size:15.5px; font-weight:800; color:#3A3F4C; letter-spacing:-0.2px;")}>{filtroStatus || pedidos.length ? "Nenhuma reposição nesta visão" : "Nenhuma reposição"}</div>
           <div style={css("font-size:13px; color:#9398A6; font-weight:600; max-width:360px; line-height:1.5;")}>
-            {filtroStatus || pedidos.length ? "Ajuste o filtro de status ou mostre as ordens validadas." : editavel ? "Use “Nova ordem” para montar o que cada loja precisa receber." : "Quando houver ordens, elas aparecem aqui."}
+            {filtroStatus || pedidos.length ? "Ajuste o filtro de status ou mostre as reposições validadas." : editavel ? "Use “Nova reposição” para montar o que cada loja precisa receber." : "Quando houver reposições, elas aparecem aqui."}
           </div>
         </div>
       ) : (
@@ -305,7 +305,7 @@ export default function Pedidos() {
       {confirmDel && (
         <ConfirmModal
           danger
-          titulo="Excluir ordem de serviço"
+          titulo="Excluir reposição"
           confirmLabel="Excluir"
           mensagem={(() => { const d = tasks.filter((t) => t.pedidoId === confirmDel.id); const np = d.filter(ehProducao).length, ne = d.filter(ehExpedicao).length, nu = d.filter(ehUnidade).length; return (<>Tem certeza que deseja excluir <strong style={css("color:#1B1B28;")}>{confirmDel.titulo}</strong>?{d.length > 0 && <> As <strong style={css("color:#1B1B28;")}>{np} {np === 1 ? "tarefa" : "tarefas"} de produção, {ne} de expedição e {nu} das lojas</strong> geradas por ela também serão excluídas.</>} Essa ação não pode ser desfeita.</>); })()}
           onConfirm={() => { removePedido(confirmDel.id); setConfirmDel(null); }}

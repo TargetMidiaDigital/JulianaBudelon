@@ -14,7 +14,7 @@ const TITLES: Record<ScreenPage, string> = {
   expedicao: "Expedição",
   unidades: "Lojas",
   "lojas-encomendas": "Encomendas",
-  pedidos: "Ordem de Serviço",
+  pedidos: "Lista de Reposição",
   estoque: "Estoque",
   "recrutamento-talentos": "Banco de Talentos",
   "recrutamento-vagas": "Vagas",

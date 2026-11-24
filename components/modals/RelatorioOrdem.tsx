@@ -42,7 +42,7 @@ export default function RelatorioOrdem({ pedido, onClose }: { pedido: Pedido; on
       th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#7A8090} .n{text-align:right;font-variant-numeric:tabular-nums}
       .d{color:#CC3338;font-weight:700} tr.t td{font-weight:700;background:#F7F7F9} .res{margin:10px 0;padding:8px 10px;background:#F7F7F9;border-radius:6px}
       @page{size:A4;margin:14mm}</style></head><body>
-      <h1>Relatório da ordem de serviço — ${esc(pedido.titulo)}</h1>
+      <h1>Relatório da reposição — ${esc(pedido.titulo)}</h1>
       <div class="meta">Status: ${esc(pedidoStatusInfo(pedido.status).label)} · Entrega: ${esc(pedido.entrega ?? "—")} · Criada por ${esc(autor.nome)} · Gerado em ${geradoEm}</div>
       <div class="res">${comDivergencia.length ? `<b>${comDivergencia.length} produto(s) com divergência</b> entre o pedido e o realizado.` : "Nenhuma divergência registrada."}${pendentes ? ` · ${pendentes} linha(s) com etapa ainda sem registro.` : ""} — “n/a”: a parte da Fábrica não passa por expedição/recebimento.</div>
       ${corpo}<script>window.onload=()=>{window.print();}</script></body></html>`;

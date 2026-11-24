@@ -48,7 +48,7 @@ export default function LojasConfig() {
     <div style={css("max-width:880px; display:flex; flex-direction:column; gap:14px;")}>
       <div className="m-wrap" style={css("display:flex; align-items:flex-start; gap:12px;")}>
         <p style={css("margin:0; flex:1; min-width:240px; font-size:13px; color:#5B6472; line-height:1.55;")}>
-          Cadastro único das lojas. Cada loja aparece no sistema conforme as chaves: <b>Operação</b> (Ordem de Serviço, Produção, Expedição, Estoque, Indicadores e filtros), <b>Vagas</b> (RH e a página “Trabalhe conosco”) e <b>Retirada</b> (página de encomendas).
+          Cadastro único das lojas. Cada loja aparece no sistema conforme as chaves: <b>Operação</b> (Lista de Reposição, Produção, Expedição, Estoque, Indicadores e filtros), <b>Vagas</b> (RH e a página “Trabalhe conosco”) e <b>Retirada</b> (página de encomendas).
         </p>
         <Hoverable as="button" onClick={() => setEditando("nova")} s={css(`flex:none; display:inline-flex; align-items:center; gap:7px; border:none; cursor:pointer; background:${BRAND}; color:#fff; font-weight:700; font-size:13px; padding:9px 16px; border-radius:10px;`)} hover="filter:brightness(1.12)">
           <Svg size={15} sw={2.4}><path d="M12 5v14M5 12h14" /></Svg>Nova loja
@@ -180,7 +180,7 @@ function LojaForm({ loja, onClose, onSalvar }: { loja: Unidade | null; onClose: 
 
           <div style={css("display:flex; flex-direction:column; gap:8px;")}>
             <span style={css(rot)}>Onde a loja aparece</span>
-            {chave("Operação", "Ordem de Serviço, Produção, Expedição, Lojas, Estoque, Indicadores e filtros.", !!f.operacao, (v) => setF({ ...f, operacao: v }))}
+            {chave("Operação", "Lista de Reposição, Produção, Expedição, Lojas, Estoque, Indicadores e filtros.", !!f.operacao, (v) => setF({ ...f, operacao: v }))}
             {chave("Vagas", "RH → Vagas e a página pública “Trabalhe conosco”. Desligada, some do hub (o link continua abrindo, avisando que não há vagas).", f.ativa, (v) => setF({ ...f, ativa: v }))}
             {chave("Retirada de encomendas", "O cliente pode escolher esta loja para retirar a encomenda.", !!f.retirada, (v) => setF({ ...f, retirada: v }))}
           </div>

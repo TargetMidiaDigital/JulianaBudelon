@@ -60,7 +60,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
   return (
     <>
       {/* z 60/61: abaixo do drawer da tarefa (62/63), que abre por cima ao clicar numa tarefa de produção —
-          assim clicar fora dela (inclusive sobre esta ordem) fecha só a tarefa. */}
+          assim clicar fora dela (inclusive sobre esta reposição) fecha só a tarefa. */}
       <div onClick={onClose} style={css("position:fixed; inset:0; z-index:60; background:rgba(20,24,40,.32);")} />
       <div className="m-drawer m-stack" style={css("position:fixed; top:0; right:0; bottom:0; z-index:61; background:#fff; box-shadow:-10px 0 44px rgba(20,24,40,.18); width:1500px; max-width:97vw; display:flex; overflow:hidden;")}>
         <FecharMobile onClose={onClose} />
@@ -77,7 +77,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
                 <Svg size={14} sw={2.2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></Svg>
                 Relatório
               </Hoverable>
-              <Hoverable as="button" onClick={copiarLink} title="Copiar link da ordem" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; height:34px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:0 12px; border-radius:9px;")} hover="background:#FAFAFB">
+              <Hoverable as="button" onClick={copiarLink} title="Copiar link da reposição" s={css("flex:none; display:inline-flex; align-items:center; gap:7px; height:34px; border:1px solid #E2E3E9; background:#fff; color:#3A3F4C; cursor:pointer; font-size:12.5px; font-weight:700; padding:0 12px; border-radius:9px;")} hover="background:#FAFAFB">
                 <Svg size={14} sw={2.2}><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></Svg>
                 {linkCopied ? "Link copiado!" : "Copiar link"}
               </Hoverable>
@@ -120,7 +120,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
                   { key: "expedicao", titulo: "Expedição", tarefas: expedicao },
                   { key: "unidades", titulo: "Recebimento nas lojas", tarefas: recebimento },
                 ]} />
-                <p style={css("margin:0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da ordem: produção fabrica → expedição separa por loja → cada loja confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
+                <p style={css("margin:0; font-size:12px; color:#9398A6; line-height:1.5;")}>Ciclo da reposição: produção fabrica → expedição separa por loja → cada loja confere o que recebeu. Alguma tarefa iniciada → Em andamento; as três etapas concluídas → Concluída.</p>
               </div>
             )}
 
@@ -138,7 +138,7 @@ function Body({ p, onClose }: { p: Pedido; onClose: () => void }) {
                 </Hoverable>
               </div>
               <MatrizPedido produtos={produtos} itens={p.itens} onChange={(itens) => updatePedido(p.id, { itens })} editavel={editavel} soComQuantidade={soComQtd} busca={busca} />
-              {editavel && <p style={css("margin:10px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>Digite a quantidade e pressione Enter (ou saia do campo) para salvar. Para acrescentar um produto que ainda não está na ordem, mostre “Todos os produtos”.</p>}
+              {editavel && <p style={css("margin:10px 0 0; font-size:12px; color:#9398A6; line-height:1.5;")}>Digite a quantidade e pressione Enter (ou saia do campo) para salvar. Para acrescentar um produto que ainda não está na reposição, mostre “Todos os produtos”.</p>}
             </div>
           </div>
         </div>

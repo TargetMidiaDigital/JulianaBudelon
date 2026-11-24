@@ -117,7 +117,7 @@ export default function Indicadores() {
       <div className="m-pad" style={css("flex:1; min-height:0; overflow-y:auto; padding:0 30px 30px;")}>
         {/* KPIs */}
         <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom:14px;")}>
-          <Tile rotulo="Ordens de serviço" valor={fmt(r.total)} sub={`${fmt(r.porStatus.aberta)} abertas · ${fmt(r.porStatus["em andamento"])} em andamento`} />
+          <Tile rotulo="Reposições" valor={fmt(r.total)} sub={`${fmt(r.porStatus.aberta)} abertas · ${fmt(r.porStatus["em andamento"])} em andamento`} />
           <Tile rotulo="Unidades pedidas" valor={fmt(r.unidades)} sub={`${fmt(r.produtosDistintos)} ${r.produtosDistintos === 1 ? "produto distinto" : "produtos distintos"}`} destaque />
           <Tile rotulo="Produção" valor={`${fmt(d.setores[0].concluidas)}/${fmt(d.setores[0].total)}`} sub={`${pct(d.setores[0].concluidas, d.setores[0].total)} das tarefas concluídas · ${fmt(d.setores[0].atrasada)} atrasadas`} cor={COR_PRODUCAO} />
           <Tile rotulo="Expedição" valor={`${fmt(d.setores[1].concluidas)}/${fmt(d.setores[1].total)}`} sub={`${pct(d.setores[1].concluidas, d.setores[1].total)} das tarefas concluídas · ${fmt(d.setores[1].atrasada)} atrasadas`} cor={COR_EXPEDICAO} />
@@ -127,15 +127,15 @@ export default function Indicadores() {
         {vazio ? (
           <div style={css("display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:60px 30px; gap:12px; background:#fff; border:1px solid #ECEDF1; border-radius:14px;")}>
             <span style={css("width:56px; height:56px; border-radius:16px; background:#F2F3F6; display:flex; align-items:center; justify-content:center; color:#B4B8C4;")}><Svg size={26} sw={1.8}><path d="M3 3v18h18" /><path d="m7 15 4-4 4 3 5-6" /></Svg></span>
-            <div style={css("font-size:15.5px; font-weight:800; color:#3A3F4C;")}>Nenhuma ordem de serviço neste recorte</div>
-            <div style={css("font-size:13px; color:#9398A6; font-weight:600; max-width:380px; line-height:1.5;")}>Amplie o período ou limpe os filtros. Os indicadores aparecem assim que houver ordens.</div>
+            <div style={css("font-size:15.5px; font-weight:800; color:#3A3F4C;")}>Nenhuma reposição neste recorte</div>
+            <div style={css("font-size:13px; color:#9398A6; font-weight:600; max-width:380px; line-height:1.5;")}>Amplie o período ou limpe os filtros. Os indicadores aparecem assim que houver reposições.</div>
           </div>
         ) : (
           <div style={css("display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px;")}>
             {/* 1. Linha: evolução no tempo (uma série por vez — nunca dois eixos) */}
-            <Card span={2} titulo="Evolução das ordens" sub={metrica === "unidades" ? "Unidades pedidas por data de criação da ordem" : "Ordens criadas por data"}
-              acoes={<Seg opts={[{ k: "unidades", l: "Unidades" }, { k: "ordens", l: "Ordens" }]} v={metrica} set={(k) => setMetrica(k as "unidades" | "ordens")} />}
-              tabela={{ cols: ["Data", "Ordens", "Unidades"], rows: d.serie.map((p) => [p.label, fmt(p.ordens), fmt(p.unidades)]) }}>
+            <Card span={2} titulo="Evolução das reposições" sub={metrica === "unidades" ? "Unidades pedidas por data de criação da reposição" : "Reposições criadas por data"}
+              acoes={<Seg opts={[{ k: "unidades", l: "Unidades" }, { k: "ordens", l: "Reposições" }]} v={metrica} set={(k) => setMetrica(k as "unidades" | "ordens")} />}
+              tabela={{ cols: ["Data", "Reposições", "Unidades"], rows: d.serie.map((p) => [p.label, fmt(p.ordens), fmt(p.unidades)]) }}>
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={d.serie} margin={{ top: 10, right: 12, left: -14, bottom: 0 }}>
                   <defs><linearGradient id="ind-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={BRAND} stopOpacity={0.14} /><stop offset="100%" stopColor={BRAND} stopOpacity={0.02} /></linearGradient></defs>
@@ -143,14 +143,14 @@ export default function Indicadores() {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: EIXO }} tickLine={false} axisLine={{ stroke: GRADE }} interval="preserveStartEnd" minTickGap={24} />
                   <YAxis tick={{ fontSize: 11, fill: EIXO }} tickLine={false} axisLine={false} allowDecimals={false} width={44} />
                   <Tooltip cursor={{ stroke: "#C7CAD2", strokeWidth: 1 }} content={<Tip />} />
-                  <Area type="monotone" dataKey={metrica} name={metrica === "unidades" ? "Unidades" : "Ordens"} stroke={BRAND} strokeWidth={2} fill="url(#ind-area)" dot={{ r: 3, fill: BRAND, stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey={metrica} name={metrica === "unidades" ? "Unidades" : "Reposições"} stroke={BRAND} strokeWidth={2} fill="url(#ind-area)" dot={{ r: 3, fill: BRAND, stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </Card>
 
             {/* 3. Barras horizontais: top 5 produtos */}
-            <Card titulo="Top 5 produtos mais pedidos" sub={d.todos.length > 5 ? `Entre ${d.todos.length} produtos do recorte` : "Unidades somadas em todas as ordens do recorte"}
-              tabela={{ cols: ["Produto", "Categoria", "Unidades", "Ordens"], rows: d.todos.map((p) => [p.nome, p.categoria, fmt(p.qtd), fmt(p.ordens)]) }}>
+            <Card titulo="Top 5 produtos mais pedidos" sub={d.todos.length > 5 ? `Entre ${d.todos.length} produtos do recorte` : "Unidades somadas em todas as reposições do recorte"}
+              tabela={{ cols: ["Produto", "Categoria", "Unidades", "Reposições"], rows: d.todos.map((p) => [p.nome, p.categoria, fmt(p.qtd), fmt(p.ordens)]) }}>
               <ResponsiveContainer width="100%" height={Math.max(160, 36 * d.top.length + 30)}>
                 <BarChart data={d.top} layout="vertical" margin={{ top: 4, right: 44, left: 8, bottom: 0 }} barCategoryGap={10}>
                   <CartesianGrid stroke={GRADE} horizontal={false} />
@@ -164,7 +164,7 @@ export default function Indicadores() {
 
             {/* 4. Colunas: unidades recebidas por local (clique filtra) */}
             <Card titulo="Quantidade recebida por loja" sub="Unidades pedidas para cada loja · clique numa coluna para filtrar"
-              tabela={{ cols: ["Loja", "Unidades", "Ordens", "%"], rows: d.unidades.map((u) => [u.label, fmt(u.qtd), fmt(u.ordens), pct(u.qtd, r.unidades)]) }}>
+              tabela={{ cols: ["Loja", "Unidades", "Reposições", "%"], rows: d.unidades.map((u) => [u.label, fmt(u.qtd), fmt(u.ordens), pct(u.qtd, r.unidades)]) }}>
               <ResponsiveContainer width="100%" height={262}>
                 <BarChart data={d.unidades} margin={{ top: 18, right: 8, left: -14, bottom: 4 }} barCategoryGap={14} onClick={(st) => { const k = (st as { activePayload?: { payload?: { id?: string } }[] })?.activePayload?.[0]?.payload?.id; if (k) set({ local: f.local === k ? "" : k }); }} style={{ cursor: "pointer" }}>
                   <CartesianGrid stroke={GRADE} vertical={false} />

@@ -97,7 +97,7 @@ export async function aplicarEstoqueRecebimento(sb: SupabaseClient, t: TarefaEst
     await carregarLojasOperacao(sb);
     const label = nomeDoLocal(local);
     let linhas = linhasEstoque(t);
-    if (!linhas.length && t.pedido_id) { // tarefa antiga, sem conferência: usa o que a ordem mandou
+    if (!linhas.length && t.pedido_id) { // tarefa antiga, sem conferência: usa o que a reposição mandou
       const { data: ped } = await sb.from("pedido").select("itens").eq("id", t.pedido_id).maybeSingle();
       linhas = Object.entries(parseItens((ped as { itens?: unknown } | null)?.itens)).map(([produtoId, q]) => ({ produtoId, q: q[local] ?? 0, pedido: q[local] ?? 0 }));
     }
