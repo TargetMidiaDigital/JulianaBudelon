@@ -32,6 +32,7 @@ import { origemProducao, pageSemProducao, tarefasDaPage, type OrigemProducao } f
 import BulkActionsBar, { SelectCheck, BULK_BTN } from "../ui/BulkActionsBar";
 import { useIsMobile } from "@/lib/useIsMobile";
 import BotaoAvancar from "../ui/BotaoAvancar";
+import { idsDoFiltro } from "../ui/FiltroMenu";
 
 type SortKey = "unidade" | "criada" | "atualizada" | "venc" | "resp" | "prio" | "status" | "titulo" | "com";
 type ResizeCol = "tarefa" | "descricao" | "com";
@@ -182,7 +183,8 @@ export default function ListaView({
   let tsBase = filterByGestor(tasks, globalGestor);
   if (globalStatus) tsBase = tsBase.filter((t) => t.status === globalStatus);
   if (globalPrio) tsBase = tsBase.filter((t) => t.prio === globalPrio);
-  if (globalLocal) tsBase = tsBase.filter((t) => t.local === globalLocal);
+  const locaisFiltro = idsDoFiltro(globalLocal); // uma ou várias lojas
+  if (locaisFiltro.length) tsBase = tsBase.filter((t) => !!t.local && locaisFiltro.includes(t.local));
   // Tarefas validadas saem da visão por padrão; o ícone na toolbar mostra/esconde.
   const ts = showValidadas ? tsBase : tsBase.filter((t) => t.status !== "validada");
   // "Validada" só no seletor p/ Head/Admin; coluna no quadro só quando o toggle liga.
@@ -254,7 +256,8 @@ export default function ListaView({
     if (sem.length) groups.push({ key: "sem-produto", label: "Sem produto", dot: "#9398A6", bg: "#EFF0F4", fg: "#5B6472", tasks: sem });
   } else if (listGroupBy === "unidade") {
     // Uma coluna por unidade (Expedição/Unidades: só as lojas); tarefa sem unidade vai para "Sem unidade".
-    const locais = LOCAIS_ESTOQUE.filter((l) => !expedicao || l.id !== "fabrica");
+    // Com o filtro de loja, só as colunas das lojas escolhidas.
+    const locais = LOCAIS_ESTOQUE.filter((l) => (!expedicao || l.id !== "fabrica") && (!locaisFiltro.length || locaisFiltro.includes(l.id)));
     groups = locais.map((l) => {
       const cor = corDoLocal(l.id);
       return { key: l.id, label: l.label, dot: cor, bg: cor + "1A", fg: cor, tasks: ts.filter((t) => t.local === l.id) };

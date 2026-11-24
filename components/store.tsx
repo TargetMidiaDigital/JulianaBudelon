@@ -188,7 +188,7 @@ type Store = {
   setGlobalStatus: (s: string) => void;
   globalPrio: string;
   setGlobalPrio: (p: string) => void;
-  globalLocal: string; // unidade (id de LOCAIS_ESTOQUE) nas listas de tarefas; "" = todas
+  globalLocal: string; // loja(s) (ids de LOCAIS_ESTOQUE separados por vírgula) nas listas de tarefas; "" = todas
   setGlobalLocal: (l: string) => void;
   listView: "list" | "board";
   setListView: (v: "list" | "board") => void;

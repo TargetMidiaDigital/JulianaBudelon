@@ -11,8 +11,8 @@ import FiltroMenu, { type FiltroTipo, type FiltroOpt } from "./ui/FiltroMenu";
 /**
  * Filtro multi-tipo da lista de tarefas (Responsável / Unidade / Status / Prioridade),
  * dirigido pelo estado GLOBAL do store.
- *  - Unidade → globalLocal ("" = todas). Em Expedição e Unidades só as lojas; em Produção
- *    entra também a Fábrica.
+ *  - Loja → globalLocal: uma ou várias lojas, ids separados por vírgula ("" = todas). Em Expedição
+ *    e Lojas só as lojas; em Produção entra também a Fábrica.
  *  - Responsável → globalGestor ("todos" = sem filtro).
  *  - Status/Prioridade → globalStatus/globalPrio ("" = sem filtro).
  */
@@ -39,7 +39,7 @@ export default function FiltroTarefas() {
 
   const tipos: FiltroTipo[] = [
     ...(ownScopeOnly ? [] : [{ key: "responsavel", label: "Responsável", opts: optsResp, value: globalGestor, vazio: "todos", set: setGlobalGestor }]),
-    { key: "unidade", label: "Loja", opts: optsLocal, value: globalLocal, vazio: "", set: setGlobalLocal },
+    { key: "unidade", label: "Loja", opts: optsLocal, value: globalLocal, vazio: "", set: setGlobalLocal, multi: true, plural: "lojas" },
     { key: "status", label: "Status", opts: optsStatus, value: globalStatus, vazio: "", set: setGlobalStatus },
     { key: "prioridade", label: "Prioridade", opts: optsPrio, value: globalPrio, vazio: "", set: setGlobalPrio },
   ];

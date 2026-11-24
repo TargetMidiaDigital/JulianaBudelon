@@ -165,6 +165,7 @@ const BASE: Guia[] = [
         { rotulo: "Da ordem de serviço", texto: "Uma tarefa por produto e loja. Ex.: “Banoffinha - Centro: 10”. O prazo é a data de entrega da ordem; dentro da tarefa aparece a ordem de origem." },
         { rotulo: "Das encomendas", texto: "Uma tarefa por pedido de cliente, criada quando o pagamento é confirmado no CRM. Ex.: “Encomenda - 2× Cheesecake Pistache + 2 itens - Maria - 20/12/2026”. A descrição lista todos os produtos, a observação de cada um, a loja e o horário de retirada (o prazo)." },
         { rotulo: "Filtro no topo", texto: "Todas / Ordem de serviço / Encomendas mostra só as tarefas de cada origem." },
+        { rotulo: "Filtrar → Loja", texto: "Marque uma ou várias lojas (ex.: Santa Mônica, Coqueiros e Areias) para ver só as tarefas delas. “Todas as lojas” limpa. Vale também em Expedição e Lojas." },
       ] },
       {
         tipo: "status",

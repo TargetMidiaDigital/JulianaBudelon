@@ -12,7 +12,15 @@ const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[�
 export type FiltroOpt = { id: string; label: string; cor?: string; ini?: string; foto?: string };
 /** Um "tipo" de filtro (ex.: Responsável) com suas opções e o valor atual/setter.
  *  `vazio` é o id que representa "sem filtro" (ex.: "todos" ou ""). */
-export type FiltroTipo = { key: string; label: string; opts: FiltroOpt[]; value: string; vazio: string; set: (id: string) => void };
+export type FiltroTipo = {
+  key: string; label: string; opts: FiltroOpt[]; value: string; vazio: string; set: (id: string) => void;
+  /** Várias opções ao mesmo tempo: `value` vira a lista de ids separada por vírgula (vazio = todas).
+   *  Clicar numa opção liga/desliga; a opção `vazio` limpa. `plural` nomeia o total ("3 lojas"). */
+  multi?: boolean; plural?: string;
+};
+
+/** Ids escolhidos num filtro de várias opções ("a,b" → ["a","b"]). */
+export const idsDoFiltro = (value: string): string[] => (value ? value.split(",").filter(Boolean) : []);
 
 /**
  * Botão "Filtrar" + menu multi-tipo (busca → escolhe o TIPO, depois o valor),
@@ -38,7 +46,20 @@ export default function FiltroMenu({ tipos }: { tipos: FiltroTipo[] }) {
     if (novo !== dx) setDx(novo);
   }, [open, nivel, dx]);
 
-  const labelDe = (t: FiltroTipo) => t.opts.find((o) => o.id === t.value)?.label ?? "";
+  const labelDe = (t: FiltroTipo) => {
+    if (!t.multi) return t.opts.find((o) => o.id === t.value)?.label ?? "";
+    const nomes = idsDoFiltro(t.value).map((id) => t.opts.find((o) => o.id === id)?.label ?? id);
+    return nomes.length <= 2 ? nomes.join(", ") : `${nomes.length} ${t.plural ?? "selecionados"}`;
+  };
+  const marcado = (t: FiltroTipo, id: string) => (t.multi ? (id === t.vazio ? t.value === t.vazio : idsDoFiltro(t.value).includes(id)) : t.value === id);
+  /** Escolhe uma opção: no filtro simples troca o valor; no de várias, liga/desliga (a opção "vazio" limpa). */
+  const escolher = (t: FiltroTipo, id: string) => {
+    if (!t.multi || id === t.vazio) { t.set(id); return; }
+    const atual = idsDoFiltro(t.value);
+    const novo = atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id];
+    // Na ordem das opções, para o rótulo ficar estável.
+    t.set(t.opts.map((o) => o.id).filter((x) => novo.includes(x)).join(",") || t.vazio);
+  };
   const ativos = tipos.filter((t) => t.value !== t.vazio);
   const botaoLabel = ativos.length === 0 ? "Filtrar" : ativos.length === 1 ? `${ativos[0].label}: ${labelDe(ativos[0])}` : `${ativos.length} filtros`;
   const limparTudo = () => tipos.forEach((t) => t.set(t.vazio));
@@ -77,7 +98,7 @@ export default function FiltroMenu({ tipos }: { tipos: FiltroTipo[] }) {
               query ? (
                 (() => {
                   const hits = tipos.flatMap((t) => t.opts.filter((o) => o.id !== t.vazio && norm(o.label).includes(query)).map((o) => ({ t, o })));
-                  return hits.length ? hits.map(({ t, o }) => optRow(o, t.value === o.id, () => { t.set(o.id); setQ(""); }, t.label)) : <div style={css("padding:10px 9px; font-size:12.5px; color:#9398A6;")}>Nenhum filtro encontrado</div>;
+                  return hits.length ? hits.map(({ t, o }) => optRow(o, marcado(t, o.id), () => { escolher(t, o.id); setQ(""); }, t.label)) : <div style={css("padding:10px 9px; font-size:12.5px; color:#9398A6;")}>Nenhum filtro encontrado</div>;
                 })()
               ) : (
                 <>
@@ -109,8 +130,10 @@ export default function FiltroMenu({ tipos }: { tipos: FiltroTipo[] }) {
                   <>
                     <Hoverable onClick={() => { setNivel("root"); setQ(""); }} s={css("display:flex; align-items:center; gap:7px; padding:6px 9px 8px; cursor:pointer; font-size:11.5px; font-weight:700; color:#9398A6; letter-spacing:0.3px; text-transform:uppercase;")} hover="color:#5B6472">
                       <Svg size={13} sw={2.6}><path d="m15 18-6-6 6-6" /></Svg>{t.label}
+                      {t.multi && <span style={css("margin-left:auto; text-transform:none; letter-spacing:0; font-weight:600;")}>pode marcar várias</span>}
                     </Hoverable>
-                    {opts.length ? opts.map((o) => optRow(o, t.value === o.id, () => { t.set(o.id); setNivel("root"); setQ(""); })) : <div style={css("padding:10px 9px; font-size:12.5px; color:#9398A6;")}>Nada encontrado</div>}
+                    {/* Várias opções: o menu fica aberto para marcar mais de uma. */}
+                    {opts.length ? opts.map((o) => optRow(o, marcado(t, o.id), () => { escolher(t, o.id); if (!t.multi || o.id === t.vazio) { setNivel("root"); setQ(""); } })) : <div style={css("padding:10px 9px; font-size:12.5px; color:#9398A6;")}>Nada encontrado</div>}
                   </>
                 );
               })()
