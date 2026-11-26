@@ -44,7 +44,7 @@ export async function uploadArquivo(file: File, opts: { dir: "tarefas" | "talent
 }
 
 /** Foto de perfil / logo → bucket público, devolvendo a URL (ou data-URL no modo demo). */
-export async function uploadAvatar(file: File, dir: "usuarios" | "workspace" | "grupos", chave: string): Promise<string> {
+export async function uploadAvatar(file: File, dir: "usuarios" | "workspace" | "grupos" | "bio", chave: string): Promise<string> {
   if (!temSupabase()) return (await uploadLocal(file)).url;
   const fd = new FormData();
   fd.append("file", file);

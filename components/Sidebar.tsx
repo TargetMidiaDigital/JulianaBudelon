@@ -51,6 +51,12 @@ export const sectorIcon: Record<string, React.ReactNode> = {
       <path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z" />
     </Svg>
   ),
+  marketing: (
+    <Svg size={16}>
+      <path d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+      <path d="M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+    </Svg>
+  ),
   administrativo: (
     <Svg size={16}>
       <rect x="3" y="6" width="18" height="13" rx="2.2" />

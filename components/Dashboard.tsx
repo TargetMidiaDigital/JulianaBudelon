@@ -16,6 +16,7 @@ import Vagas from "./screens/Vagas";
 import AgenteIA from "./screens/AgenteIA";
 import Config from "./screens/Config";
 import ContasPagar from "./screens/ContasPagar";
+import LinkBioPainel from "./screens/LinkBio";
 import Treinamentos from "./screens/Treinamentos";
 import EncAutoatendimento from "./screens/EncAutoatendimento";
 import EncCrm from "./screens/EncCrm";
@@ -45,6 +46,7 @@ function Screens() {
       {screen === "recrutamento-vagas" && <Vagas />}
       {screen === "recrutamento-agente" && <AgenteIA />}
       {screen === "contas-pagar" && <ContasPagar />}
+      {screen === "marketing-linkbio" && <LinkBioPainel />}
       {screen === "encomendas-autoatendimento" && <EncAutoatendimento />}
       {screen === "encomendas-crm" && <EncCrm />}
       {screen === "encomendas-contatos" && <EncContatos />}

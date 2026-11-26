@@ -25,7 +25,7 @@ export function pixelInit(id: string) {
   w.fbq!("init", id);
 }
 
-export function pixelTrack(evento: "PageView" | "Lead", dados?: Record<string, string>) {
+export function pixelTrack(evento: string, dados?: Record<string, string>) {
   if (typeof window === "undefined") return;
   const w = window as W;
   if (!w.fbq) return;

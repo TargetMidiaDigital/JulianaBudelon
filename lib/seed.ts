@@ -48,6 +48,11 @@ export const spacesTree: Sector[] = [
     ],
   },
   {
+    id: "marketing",
+    label: "Marketing",
+    children: [{ label: "Link na Bio", page: "marketing-linkbio" }],
+  },
+  {
     id: "administrativo",
     label: "Administrativo",
     children: [{ label: "Contas a Pagar", page: "contas-pagar" }],

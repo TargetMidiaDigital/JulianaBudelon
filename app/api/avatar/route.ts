@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { requireSession } from "@/lib/auth-admin";
+import { nivelNaTela, requireSession } from "@/lib/auth-admin";
 
 /**
  * Imagens PÚBLICAS pequenas (foto de perfil, logo da empresa, logo de grupo) →
  * bucket público `avatars`, devolvendo a URL. A coluna guarda só a URL; a imagem sai
  * do CDN do storage com cache no navegador (nada de base64 no banco).
  *
- *  - POST multipart { file, dir: "usuarios" | "workspace" | "grupos", chave } → { url }
+ *  - POST multipart { file, dir: "usuarios" | "workspace" | "grupos" | "bio", chave } → { url }
  *  Permissão: a própria pessoa (dir=usuarios, chave = seu id) ou Administrador.
  */
 export const dynamic = "force-dynamic";
 
 const BUCKET = "avatars";
 const MAX_BYTES = 2 * 1024 * 1024;
-const DIRS = new Set(["usuarios", "workspace", "grupos"]);
+const DIRS = new Set(["usuarios", "workspace", "grupos", "bio"]);
 
 export async function POST(req: Request) {
   const sb = getSupabase();
@@ -31,7 +31,9 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) return NextResponse.json({ error: "Imagem acima de 2 MB." }, { status: 413 });
 
   const proprio = dir === "usuarios" && chave === sess.userId;
-  if (!proprio && sess.cargo !== "Administrador") return NextResponse.json({ error: "Só o Administrador altera esta imagem." }, { status: 403 });
+  // Link na Bio (foto, capa, miniaturas): quem edita Marketing → Link na Bio.
+  const bio = dir === "bio" && (await nivelNaTela(sb, sess.cargo, "marketing-linkbio")) === "editar";
+  if (!proprio && !bio && sess.cargo !== "Administrador") return NextResponse.json({ error: "Só o Administrador altera esta imagem." }, { status: 403 });
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const path = `${dir}/${chave}.${ext}`;
