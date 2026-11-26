@@ -8,7 +8,7 @@ import { aplicarEstoqueProducao, aplicarEstoqueRecebimento } from "@/lib/tarefas
 import { parseQuantidade } from "@/lib/estoque";
 import { conferenciaCompleta, parseConferencia, rotuloRealizado } from "@/lib/conferencia";
 import { pageDaTarefa, passouDaConferencia, semEtapaDoMeio } from "@/lib/tarefas";
-import { requireSession, nivelNaTela } from "@/lib/auth-admin";
+import { requireSession, requireEditor, nivelNaTela } from "@/lib/auth-admin";
 
 /**
  * Write-back das tarefas (tabela `tarefas`).
@@ -69,7 +69,16 @@ export async function POST(req: Request) {
   if (!sb) return NextResponse.json({ persisted: false });
   const { task } = (await req.json().catch(() => ({}))) as { task?: Task };
   if (!task?.id || !task.titulo) return NextResponse.json({ error: "task.id e task.titulo são obrigatórios." }, { status: 400 });
-  const sess = await editorDaTarefa(req, sb, task);
+  let sess = await editorDaTarefa(req, sb, task);
+  // Tarefas geradas pela Lista de Reposição: quem cria a reposição gera as tarefas dela (Produção, Expedição,
+  // Recebimento), mesmo sem poder editar essas telas — senão a reposição ficava gravada sem nenhuma tarefa.
+  if (!sess.ok && sess.status === 403 && task.pedidoId) {
+    const doPedido = await requireEditor(req, sb, "pedidos");
+    if (doPedido.ok) {
+      const { data: ped } = await sb.from("pedido").select("criado_por").eq("id", task.pedidoId).maybeSingle();
+      if (ped && (ped as { criado_por?: string | null }).criado_por === doPedido.userId) sess = doPedido;
+    }
+  }
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
   const recusaStatus = validarStatusManual(task.status, sess.acessoTotal) ?? (semEtapaDoMeio(task) && task.status === "em andamento" ? 'Expedição e Lojas não usam o status "Em produção".' : null);
   if (recusaStatus) return NextResponse.json({ error: recusaStatus }, { status: 403 });
