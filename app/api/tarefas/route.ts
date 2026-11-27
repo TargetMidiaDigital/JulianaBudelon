@@ -58,6 +58,12 @@ async function editorDaTarefa(req: Request, sb: NonNullable<ReturnType<typeof ge
   return s;
 }
 
+/** Cargo com "escopo próprio" (Configurações → Acessos) só vê — e só mexe — nas tarefas sob sua responsabilidade. */
+async function escopoProprio(sb: NonNullable<ReturnType<typeof getSupabase>>, cargo: string): Promise<boolean> {
+  const { data } = await sb.from("cargo_permissao").select("escopo_proprio").eq("cargo", cargo).maybeSingle();
+  return !!(data as { escopo_proprio?: boolean } | null)?.escopo_proprio;
+}
+
 /** Linha atual (responsável + categoria) — decide a tela da permissão e o escopo próprio. */
 async function linhaAtual(sb: NonNullable<ReturnType<typeof getSupabase>>, id: string) {
   const { data } = await sb.from("tarefas").select("id, nome, status, responsavel, categoria, produto_id, quantidade, local, pedido_id, conferencia").eq("id", id).maybeSingle();
@@ -106,9 +112,12 @@ export async function PATCH(req: Request) {
   const sess = await editorDaTarefa(req, sb, atual);
   if (!sess.ok) return NextResponse.json({ error: sess.error }, { status: sess.status });
 
+  // Quem edita a tela (ex.: Expedição) atualiza qualquer tarefa dela — status e conferência —, mesmo
+  // as que estão no nome de quem criou a reposição. Só o cargo com "escopo próprio" fica restrito às
+  // suas, e sem acesso total ninguém passa a tarefa para outra pessoa.
   if (!sess.acessoTotal) {
-    if (atual.responsavel !== sess.userId) return NextResponse.json({ error: "Sem permissão nesta tarefa." }, { status: 403 });
-    if (patch && "gestor" in patch && patch.gestor !== sess.userId) return NextResponse.json({ error: "Sem permissão para alterar o responsável." }, { status: 403 });
+    if (atual.responsavel !== sess.userId && (await escopoProprio(sb, sess.cargo))) return NextResponse.json({ error: "Sem permissão nesta tarefa." }, { status: 403 });
+    if (patch && "gestor" in patch && (patch.gestor || null) !== (atual.responsavel ?? null) && patch.gestor !== sess.userId) return NextResponse.json({ error: "Sem permissão para alterar o responsável." }, { status: 403 });
   }
 
   const cols = mapPatch(patch ?? {});

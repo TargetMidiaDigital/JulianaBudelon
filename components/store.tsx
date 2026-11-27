@@ -522,6 +522,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ...sincronizarPedidoLocal(comEstoque, old.pedidoId, demo), produtos: comEstoque.produtos };
     });
     const salvo = persist("/api/tarefas", "PATCH", { id, patch: fp });
+    // Recusado pelo servidor: a tela volta ao que está salvo (reload) — avisa o motivo em vez de "desfazer" calada.
+    void salvo.then((r) => { if (!r.ok && typeof window !== "undefined") window.alert(`Não foi possível salvar a tarefa "${old.titulo}".\n${r.error ?? ""}`); });
     // Encomenda: o pedido acompanha no CRM (demo: aqui; banco: o servidor grava e a tela busca de novo).
     if (patch.status && patch.status !== old.status) { const st = patch.status; void salvo.then(() => avancarPedidoPelaTarefa(old, st)); }
   };
